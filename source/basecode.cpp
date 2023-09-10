@@ -5878,19 +5878,19 @@ void Bot::RunTask(void)
 
 		// shooting breakables in the way action
 	case TASK_DESTROYBREAKABLE:
-		m_aimFlags |= AIM_OVERRIDE;
-
-		if (!m_isZombieBot)
-			SelectBestWeapon();
-		else
-			KnifeAttack();
-
 		// breakable destroyed?
 		if (FNullEnt(m_breakableEntity) || !IsShootableBreakable(m_breakableEntity))
 		{
 			TaskComplete();
 			return;
 		}
+
+		m_aimFlags |= AIM_OVERRIDE;
+
+		if (!m_isZombieBot)
+			SelectBestWeapon();
+		else
+			KnifeAttack();
 
 		pev->button |= m_campButtons;
 
@@ -5917,6 +5917,9 @@ void Bot::RunTask(void)
 			m_moveToGoal = true;
 			TaskComplete();
 		}
+
+		if (!(pev->button & IN_ATTACK) && !(pev->oldbuttons & IN_ATTACK))
+			pev->button |= IN_ATTACK;
 
 		break;
 
