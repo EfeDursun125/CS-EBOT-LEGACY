@@ -5879,7 +5879,7 @@ void Bot::RunTask(void)
 		// shooting breakables in the way action
 	case TASK_DESTROYBREAKABLE:
 		// breakable destroyed?
-		if (FNullEnt(m_breakableEntity) || !IsShootableBreakable(m_breakableEntity))
+		if (!IsShootableBreakable(m_breakableEntity))
 		{
 			TaskComplete();
 			return;

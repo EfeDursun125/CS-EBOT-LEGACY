@@ -1003,7 +1003,7 @@ bool IsDeathmatchMode(void)
 
 bool IsValidWaypoint(int index)
 {
-	if (index < 0 || index > g_numWaypoints)
+	if (index < 0 || index >= g_numWaypoints)
 		return false;
 
 	return true;

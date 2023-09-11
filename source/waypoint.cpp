@@ -441,7 +441,7 @@ int Waypoint::FindNearestInCircle(const Vector& origin, float maxDistance)
     int index = -1;
     for (int i = 0; i < g_numWaypoints; i++)
     {
-        float distance = (m_paths[i]->origin - origin).GetLength();
+        const  float distance = (m_paths[i]->origin - origin).GetLength();
         if (distance < maxDist)
         {
             index = i;
@@ -534,6 +534,9 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
 
     for (int i = 0; i < g_numWaypoints; i++)
     {
+        if (!IsValidWaypoint(i) || !m_paths[i])
+            continue;
+
         if (flags != -1 && !(m_paths[i]->flags & flags))
             continue;
 
@@ -541,18 +544,17 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
         if (distance > squaredMinDistance)
             continue;
 
-        Vector dest = m_paths[i]->origin;
-        float distance2D = (dest - origin).GetLengthSquared2D();
-        if (((dest.z > origin.z + 62.0f || dest.z < origin.z - 100.0f) &&
-            !(m_paths[i]->flags & WAYPOINT_LADDER)) && distance2D <= SquaredF(30.0f))
+        const Vector dest = m_paths[i]->origin;
+        const float distance2D = (dest - origin).GetLengthSquared2D();
+        if (((dest.z > origin.z + 62.0f || dest.z < origin.z - 100.0f) && !(m_paths[i]->flags & WAYPOINT_LADDER)) && distance2D < SquaredF(30.0f))
             continue;
 
         for (int y = 0; y < checkPoint; y++)
         {
-            if (distance >= wpDistance[y])
+            if (distance > wpDistance[y])
                 continue;
 
-            for (int z = checkPoint - 1; z >= y; z--)
+            for (int z = checkPoint - 1; z > y; z--)
             {
                 if (z == checkPoint - 1 || wpIndex[z] == -1)
                     continue;
@@ -580,13 +582,13 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
 
         for (int i = 0; i < checkPoint; i++)
         {
-            if (wpIndex[i] < 0 || wpIndex[i] >= g_numWaypoints)
+            if (!IsValidWaypoint(wpIndex[i]))
                 continue;
 
-            float distance = g_waypoint->GetPathDistance(wpIndex[i], mode);
+            const float distance = g_waypoint->GetPathDistance(wpIndex[i], mode);
             for (int y = 0; y < checkPoint; y++)
             {
-                if (distance >= cdWPDistance[y])
+                if (distance > cdWPDistance[y])
                     continue;
 
                 for (int z = checkPoint - 1; z >= y; z--)
@@ -616,10 +618,15 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
     {
         for (int i = 0; i < checkPoint; i++)
         {
-            if (wpIndex[i] < 0 || wpIndex[i] >= g_numWaypoints)
+            if (!IsValidWaypoint(wpIndex[i]))
                 continue;
 
-            if (wpDistance[i] > SquaredF(g_waypoint->GetPath(wpIndex[i])->radius) && !Reachable(entity, wpIndex[i]))
+            const Path* path = g_waypoint->GetPath(wpIndex[i]);
+            if (path == nullptr)
+                continue;
+
+            // Use the path variable in the condition     
+            if (wpDistance[i] > SquaredF(path->radius) && !Reachable(entity, wpIndex[i]))
                 continue;
 
             if (findWaypointPoint == (int*)-2)
@@ -631,7 +638,9 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
                 continue;
             }
 
-            *findWaypointPoint = wpIndex[i];
+            if (findWaypointPoint && findWaypointPoint != (int*)-2)
+                *findWaypointPoint = wpIndex[i];
+
             return firsIndex;
         }
     }
@@ -2858,7 +2867,7 @@ bool Waypoint::IsGoalVisited(int index)
     return false;
 }
 
-// this function creates basic waypoint types on map
+// this function creates basic waypoint types on map - raeyid was here :)
 void Waypoint::CreateBasic(void)
 {
     edict_t* ent = nullptr;
@@ -2873,7 +2882,7 @@ void Waypoint::CreateBasic(void)
         TraceResult tr;
         Vector up, down, front, back;
 
-        Vector diff = ((ladderLeft - ladderRight) ^ Vector(0.0f, 0.0f, 0.0f)).Normalize() * 15.0f;
+        Vector diff = (ladderLeft - ladderRight) * 15.0f;
         front = back = GetEntityOrigin(ent);
 
         front = front + diff; // front
@@ -2882,15 +2891,15 @@ void Waypoint::CreateBasic(void)
         up = down = front;
         down.z = ent->v.absmax.z;
 
-        TraceHull(down, up, true, point_hull, nullptr, &tr);
+        TraceHull(down, up, true, point_hull, g_hostEntity, &tr);
 
-        if (POINT_CONTENTS(up) == CONTENTS_SOLID || tr.flFraction != 1.0f)
+        if (tr.flFraction != 1.0f || POINT_CONTENTS(up) == CONTENTS_SOLID)
         {
             up = down = back;
             down.z = ent->v.absmax.z;
         }
 
-        TraceHull(down, up - Vector(0.0f, 0.0f, 1000.0f), true, point_hull, nullptr, &tr);
+        TraceHull(down, up - Vector(0.0f, 0.0f, 1000.0f), true, point_hull, g_hostEntity, &tr);
         up = tr.vecEndPos;
 
         Vector pointOrigin = up + Vector(0.0f, 0.0f, 39.0f);
@@ -2901,7 +2910,7 @@ void Waypoint::CreateBasic(void)
             if (FindNearest(pointOrigin, 50.0f) == -1)
                 Add(-1, pointOrigin);
 
-            pointOrigin.z += 160.0f;
+                pointOrigin.z += 160.0f;
         } while (pointOrigin.z < down.z - 40.0f);
 
         pointOrigin = down + Vector(0.0f, 0.0f, 38.0f);
@@ -2979,12 +2988,12 @@ void Waypoint::CreateBasic(void)
     while (!FNullEnt(ent = FIND_ENTITY_BY_CLASSNAME(ent, "hostage_entity")))
     {
         // if already saved || moving skip it
-        if ((ent->v.effects & EF_NODRAW) && (ent->v.speed > 0))
+        if (ent->v.effects & EF_NODRAW && ent->v.speed > 0.0f)
             continue;
 
         Vector origin = GetEntityOrigin(ent);
 
-        if (FindNearest(origin, 250.0f) == -1 && g_analyzewaypoints == true)
+        if (g_analyzewaypoints && FindNearest(origin, 250.0f) == -1)
             Add(2, Vector(origin.x, origin.y, (origin.z + 36.0f))); // goal waypoints will be added by analyzer
         else if (FindNearest(origin, 50.0f) == -1)
             Add(100, Vector(origin.x, origin.y, (origin.z + 36.0f)));
@@ -3020,6 +3029,9 @@ void Waypoint::CreateBasic(void)
 
 Path* Waypoint::GetPath(int id)
 {
+    if (!IsValidWaypoint(id))
+        return m_paths[CRandomInt(0, g_numWaypoints - 1)];
+
     return m_paths[id];
 }
 
