@@ -1,4 +1,4 @@
-# CS 1.6 E-BOT LEGACY ![GitHub all releases](https://img.shields.io/github/downloads/EfeDursun125/CS-EBOT/total)
+# CS 1.6 E-BOT LEGACY ![GitHub all releases](https://img.shields.io/github/downloads/EfeDursun125/CS-EBOT-LEGACY/total)
 [Click HERE To Join EBOT Discord Server](http://discord.gg/v7PesBamXt)
 
 Legacy one is fine tuned ebot 1.07
