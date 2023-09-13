@@ -1320,10 +1320,7 @@ private:
 
 	int m_cacheWaypointIndex;
 	int m_lastJumpWaypoint;
-	int m_visibilityIndex;
 	Vector m_lastWaypoint;
-	uint8_t m_visLUT[Const_MaxWaypoints][Const_MaxWaypoints / 4];
-
 	int m_lastDeclineWaypoint;
 
 	float m_pathDisplayTime;
@@ -1348,8 +1345,6 @@ private:
 	Array <int> m_otherPoints;
 
 public:
-	bool m_redoneVisibility;
-
 	Waypoint(void);
 	~Waypoint(void);
 
