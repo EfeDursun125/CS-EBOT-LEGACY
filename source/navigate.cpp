@@ -404,10 +404,6 @@ bool Bot::DoWaypointNav(void)
 			const float timeToReachWaypoint = csqrtf(SquaredF(waypointOrigin.x - myOrigin.x) + SquaredF(waypointOrigin.y - myOrigin.y)) / pev->maxspeed;
 			pev->velocity.x = (waypointOrigin.x - myOrigin.x) / timeToReachWaypoint;
 			pev->velocity.y = (waypointOrigin.y - myOrigin.y) / timeToReachWaypoint;
-
-			const float zvel = cminf(2.0f * (waypointOrigin.z - myOrigin.z - 0.5f * pev->gravity * SquaredF(timeToReachWaypoint)) / timeToReachWaypoint, pev->maxspeed);
-			if (zvel > 0.0f)
-				pev->velocity.z = zvel;
 		}
 
 		m_jumpFinished = true;
@@ -1387,6 +1383,8 @@ void Bot::FindPath(int srcIndex, int destIndex)
 		FindShortestPath(srcIndex, PossiblePath.GetRandomElement());
 		return;
 	}
+
+	FindShortestPath(srcIndex, destIndex);
 }
 
 void Bot::FindShortestPath(int srcIndex, int destIndex)
@@ -1512,19 +1510,6 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 				openList.Insert(self, childWaypoint->f);
 			}
 		}
-	}
-
-	Array <int> PossiblePath;
-	for (int i = 0; i < g_numWaypoints; i++)
-	{
-		if (waypoints[i].state == State::Closed)
-			PossiblePath.Push(i);
-	}
-
-	if (!PossiblePath.IsEmpty())
-	{
-		FindShortestPath(srcIndex, PossiblePath.GetRandomElement());
-		return;
 	}
 }
 

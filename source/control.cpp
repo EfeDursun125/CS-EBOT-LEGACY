@@ -943,6 +943,15 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 	// set all info buffer keys for this bot
 	char* buffer = GET_INFOKEYBUFFER(bot);
 	SET_CLIENT_KEYVALUE(clientIndex, buffer, "_vgui_menus", "0");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_updaterate", "30");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "rate ", "3500");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_dlmax", "16");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_lc", "0");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_lw", "0");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "tracker", "0");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "dm", "0");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "_ah", "0");
+	SET_CLIENT_KEYVALUE(clientIndex, buffer, "friends", "0");
 
 	if (g_gameVersion == HALFLIFE)
 	{
@@ -951,6 +960,11 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 		sprintf(c_bottomcolor, "%d", CRandomInt(1, 254));
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "topcolor", c_topcolor);
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "bottomcolor", c_bottomcolor);
+	}
+	else // we hate this, let bot pick weapon by itself... when you buy/pickup weapon it will select the slot but we dont want this.
+	{
+		SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_autowepswitch", "0");
+		SET_CLIENT_KEYVALUE(clientIndex, buffer, "_cl_autowepswitch", "0");
 	}
 
 	if (g_gameVersion != CSVER_VERYOLD && !ebot_ping.GetBool())
@@ -1350,5 +1364,13 @@ void Bot::StartGame(void)
 		// check for greeting other players, since we connected
 		if (CRandomInt(1, 3) == 1)
 			ChatMessage(CHAT_HELLO);
+	}
+	else if ((m_team == TEAM_COUNTER || m_team == TEAM_TERRORIST) && IsAlive(GetEntity())) // something is wrong...
+	{
+		if (CRandomInt(1, 3) == 1)
+			ChatMessage(CHAT_HELLO);
+
+		m_notStarted = false;
+		m_startAction = CMENU_IDLE;
 	}
 }
