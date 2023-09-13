@@ -164,11 +164,13 @@ void Bot::PrepareChatMessage(char* text)
                     if (client.index < 0)
                         continue;
 
+                    if (FNullEnt(client.ent))
+                        continue;
+
                     if (!(client.flags & CFLAG_USED) || client.ent == GetEntity())
                         continue;
 
-                    int frags = static_cast <int> (client.ent->v.frags);
-
+                    const int frags = static_cast <int> (client.ent->v.frags);
                     if (frags > highestFrags)
                     {
                         highestFrags = frags;
@@ -208,11 +210,13 @@ void Bot::PrepareChatMessage(char* text)
                     if (client.index < 0)
                         continue;
 
+                    if (FNullEnt(client.ent))
+                        continue;
+
                     if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || (client.team != m_team) || (client.ent == GetEntity()))
                         continue;
 
                     entity = client.ent;
-
                     break;
                 }
 
@@ -233,11 +237,13 @@ void Bot::PrepareChatMessage(char* text)
                         if (client.index < 0)
                             continue;
 
+                        if (FNullEnt(client.ent))
+                            continue;
+
                         if (!(client.flags & CFLAG_USED) || (client.team != m_team) || (client.ent == GetEntity()))
                             continue;
 
                         entity = client.ent;
-
                         break;
                     }
 
@@ -259,11 +265,13 @@ void Bot::PrepareChatMessage(char* text)
                     if (client.index < 0)
                         continue;
 
+                    if (FNullEnt(client.ent))
+                        continue;
+
                     if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || (client.team == m_team) || (client.ent == GetEntity()))
                         continue;
 
                     entity = client.ent;
-
                     break;
                 }
 
@@ -279,6 +287,9 @@ void Bot::PrepareChatMessage(char* text)
                     for (const auto& client : g_clients)
                     {
                         if (client.index < 0)
+                            continue;
+
+                        if (FNullEnt(client.ent))
                             continue;
 
                         if (!(client.flags & CFLAG_USED) || (client.team == m_team) || (client.ent == GetEntity()))

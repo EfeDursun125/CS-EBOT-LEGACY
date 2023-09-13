@@ -176,7 +176,6 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 	{
 		m_visibility |= VISIBILITY_OTHER;
 		m_enemyOrigin = spot;
-
 		return true;
 	}
 
@@ -287,6 +286,9 @@ void Bot::ZombieModeAi(void)
 		for (const auto& client : g_clients)
 		{
 			if (client.index < 0)
+				continue;
+
+			if (FNullEnt(client.ent))
 				continue;
 
 			if (!(client.flags & CFLAG_USED))
@@ -694,32 +696,29 @@ edict_t* Bot::FindButton(void)
 
 void Bot::FindItem(void)
 {
-	if (g_gameVersion != HALFLIFE)
-	{
-		if (m_isZombieBot)
-			return;
+	if (m_isZombieBot)
+		return;
 
-		if (IsZombieMode() && m_currentWeapon != WEAPON_KNIFE) // if we're holding knife, mostly our guns dont have a ammo
-			return;
+	if (IsZombieMode() && m_currentWeapon != WEAPON_KNIFE) // if we're holding knife, mostly our guns dont have a ammo
+		return;
 
-		if (GetCurrentTask()->taskID == TASK_ESCAPEFROMBOMB)
-			return;
+	if (GetCurrentTask()->taskID == TASK_ESCAPEFROMBOMB)
+		return;
 
-		if (GetCurrentTask()->taskID == TASK_PLANTBOMB)
-			return;
+	if (GetCurrentTask()->taskID == TASK_PLANTBOMB)
+		return;
 
-		if (GetCurrentTask()->taskID == TASK_THROWHEGRENADE)
-			return;
+	if (GetCurrentTask()->taskID == TASK_THROWHEGRENADE)
+		return;
 
-		if (GetCurrentTask()->taskID == TASK_THROWFBGRENADE)
-			return;
+	if (GetCurrentTask()->taskID == TASK_THROWFBGRENADE)
+		return;
 
-		if (GetCurrentTask()->taskID == TASK_THROWSMGRENADE)
-			return;
+	if (GetCurrentTask()->taskID == TASK_THROWSMGRENADE)
+		return;
 
-		if (GetCurrentTask()->taskID == TASK_DESTROYBREAKABLE)
-			return;
-	}
+	if (GetCurrentTask()->taskID == TASK_DESTROYBREAKABLE)
+		return;
 
 	if (!FNullEnt(m_enemy))
 		return;
@@ -768,8 +767,13 @@ void Bot::FindItem(void)
 		else if (pev->health < pev->max_health && cstrncmp("func_healthcharger", STRING(ent->v.classname), 18) == 0 && ent->v.frame == 0)
 		{
 			auto origin = GetEntityOrigin(ent);
-			if ((pev->origin - origin).GetLengthSquared() <= SquaredF(100.0f))
-				MDLL_Use(ent, GetEntity());
+			if ((pev->origin - origin).GetLengthSquared() < SquaredF(100.0f))
+			{
+				if (g_isXash)
+					pev->button |= IN_USE;
+				else
+					MDLL_Use(ent, GetEntity());
+			}
 
 			m_lookAt = origin;
 			pickupType = PICKTYPE_GETENTITY;
@@ -785,8 +789,13 @@ void Bot::FindItem(void)
 		else if (pev->armorvalue < 100 && cstrncmp("func_recharge", STRING(ent->v.classname), 13) == 0 && ent->v.frame == 0)
 		{
 			auto origin = GetEntityOrigin(ent);
-			if ((pev->origin - origin).GetLengthSquared() <= SquaredF(100.0f))
-				MDLL_Use(ent, GetEntity());
+			if (!g_isXash && (pev->origin - origin).GetLengthSquared() < SquaredF(100.0f))
+			{
+				if (g_isXash)
+					pev->button |= IN_USE;
+				else
+					MDLL_Use(ent, GetEntity());
+			}
 
 			m_lookAt = origin;
 			pickupType = PICKTYPE_GETENTITY;
@@ -2005,7 +2014,7 @@ void Bot::SetConditions(void)
 		g_taskFilters[TASK_FIGHTENEMY].desire = 0;
 
 	// calculate desires to seek cover or hunt
-	if (IsValidPlayer(m_lastEnemy) && m_lastEnemyOrigin != nullvec && !((g_mapType & MAP_DE) && g_bombPlanted) && !m_isBomber && (m_loosedBombWptIndex == -1 && m_team == TEAM_TERRORIST))
+	if (!IsZombieMode() && IsValidPlayer(m_lastEnemy) && m_lastEnemyOrigin != nullvec && !((g_mapType & MAP_DE) && g_bombPlanted) && !m_isBomber && (m_loosedBombWptIndex == -1 && m_team == TEAM_TERRORIST))
 	{
 		float distance = (m_lastEnemyOrigin - pev->origin).GetLengthSquared();
 		float timeSeen = m_seeEnemyTime - engine->GetTime();
@@ -2043,7 +2052,7 @@ void Bot::SetConditions(void)
 
 		// if half of the round is over, allow hunting
 		// FIXME: it probably should be also team/map dependant
-		if (FNullEnt(m_enemy) && (g_timeRoundMid < engine->GetTime()) && !m_isUsingGrenade && m_personality != PERSONALITY_CAREFUL && m_currentWaypointIndex != g_waypoint->FindNearest(m_lastEnemyOrigin))
+		if (FNullEnt(m_enemy) && (g_timeRoundMid < engine->GetTime()) && !m_isUsingGrenade && m_personality != PERSONALITY_CAREFUL && m_currentWaypointIndex != g_waypoint->FindNearestInCircle(m_lastEnemyOrigin))
 		{
 			desireLevel = 4096.0f - ((1.0f - tempAgression) * csqrtf(distance));
 			desireLevel = (100 * desireLevel) / 4096.0f;
@@ -2054,8 +2063,6 @@ void Bot::SetConditions(void)
 
 			if (IsDeathmatchMode())
 				desireLevel *= 2;
-			else if (IsZombieMode())
-				desireLevel = 0;
 			else
 			{
 				if (g_mapType & MAP_DE)
@@ -2119,7 +2126,7 @@ void Bot::SetConditions(void)
 // this function resets bot tasks stack, by removing all entries from the stack
 void Bot::ResetTasks(void)
 {
-	if (m_tasks == nullptr)
+	if (!m_tasks)
 		return; // reliability check
 
 	Task* next = m_tasks->next;
@@ -2132,6 +2139,7 @@ void Bot::ResetTasks(void)
 		delete m_tasks;
 		m_tasks = prev;
 	}
+
 	m_tasks = next;
 
 	while (m_tasks != nullptr)
@@ -2141,13 +2149,14 @@ void Bot::ResetTasks(void)
 		delete m_tasks;
 		m_tasks = next;
 	}
+
 	m_tasks = nullptr;
 }
 
 // this function checks the tasks priorities
 void Bot::CheckTasksPriorities(void)
 {
-	if (m_tasks == nullptr)
+	if (!m_tasks)
 	{
 		GetCurrentTask();
 		return;
@@ -2252,7 +2261,7 @@ void Bot::PushTask(Task* task)
 	Task* oldTask = GetCurrentTask(); // remember our current task
 
 	// at the beginning need to clean up all null tasks...
-	if (m_tasks == nullptr)
+	if (!m_tasks)
 	{
 		m_lastCollTime = engine->GetTime() + 0.5f;
 
@@ -2358,6 +2367,7 @@ void Bot::PushTask(Task* task)
 				newTaskDifferent = true; // we have some new task pushed on the stack...
 		}
 	}
+
 	m_tasks = oldTask;
 
 	if (newTaskDifferent)
@@ -2405,27 +2415,29 @@ void Bot::PushTask(Task* task)
 // this function gets bot's current task
 Task* Bot::GetCurrentTask(void)
 {
-	if (m_tasks != nullptr)
+	if (!m_tasks)
+	{
+		Task* newTask = new Task;
+
+		newTask->taskID = TASK_NORMAL;
+		newTask->desire = TASKPRI_NORMAL;
+		newTask->data = -1;
+		newTask->time = 0.0f;
+		newTask->canContinue = true;
+		newTask->next = newTask->prev = nullptr;
+
+		m_tasks = newTask;
+		m_lastCollTime = engine->GetTime() + 0.5f;
 		return m_tasks;
+	}
 
-	Task* newTask = new Task;
-
-	newTask->taskID = TASK_NORMAL;
-	newTask->desire = TASKPRI_NORMAL;
-	newTask->data = -1;
-	newTask->time = 0.0f;
-	newTask->canContinue = true;
-	newTask->next = newTask->prev = nullptr;
-
-	m_tasks = newTask;
-	m_lastCollTime = engine->GetTime() + 0.5f;
 	return m_tasks;
 }
 
 // this function removes one task from the bot task stack
 void Bot::RemoveCertainTask(BotTask taskID)
 {
-	if (m_tasks == nullptr || (m_tasks != nullptr && m_tasks->taskID == TASK_NORMAL))
+	if (!m_tasks || (m_tasks != nullptr && m_tasks->taskID == TASK_NORMAL))
 		return; // since normal task can be only once on the stack, don't remove it...
 
 	bool checkPriorities = false;
@@ -2482,7 +2494,7 @@ void Bot::RemoveCertainTask(BotTask taskID)
 // this function called whenever a task is completed
 void Bot::TaskComplete(void)
 {
-	if (m_tasks == nullptr)
+	if (!m_tasks)
 	{
 		DeleteSearchNodes(); // delete all path finding nodes
 		return;
@@ -2522,7 +2534,7 @@ void Bot::TaskComplete(void)
 	else if (next != nullptr)
 		m_tasks = next;
 
-	if (m_tasks == nullptr)
+	if (!m_tasks)
 		GetCurrentTask();
 
 	CheckTasksPriorities();
@@ -2549,7 +2561,7 @@ void Bot::CheckGrenadeThrow(void)
 		return;
 	}
 
-	int grenadeToThrow = CheckGrenades();
+	const int grenadeToThrow = CheckGrenades();
 	if (grenadeToThrow == -1)
 	{
 		m_states &= ~(STATE_THROWEXPLODE | STATE_THROWFLASH | STATE_THROWSMOKE);
@@ -3286,10 +3298,13 @@ void Bot::CheckRadioCommands(void)
 						if (client.index < 0)
 							continue;
 
+						if (FNullEnt(client.ent))
+							continue;
+
 						if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team == m_team)
 							continue;
 
-						float curDist = (GetEntityOrigin(m_radioEntity) - client.origin).GetLengthSquared2D();
+						const float curDist = (GetEntityOrigin(m_radioEntity) - client.origin).GetLengthSquared2D();
 						if (curDist < nearestDistance)
 						{
 							nearestDistance = curDist;
@@ -3469,10 +3484,13 @@ void Bot::CheckRadioCommands(void)
 						if (client.index < 0)
 							continue;
 
+						if (FNullEnt(client.ent))
+							continue;
+
 						if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_USED) || client.team == m_team)
 							continue;
 
-						float dist = (GetEntityOrigin(m_radioEntity) - client.origin).GetLengthSquared();
+						const float dist = (GetEntityOrigin(m_radioEntity) - client.origin).GetLengthSquared();
 						if (dist < nearestDistance)
 						{
 							nearestDistance = dist;
@@ -4200,7 +4218,7 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 		if (GetCurrentTask()->data != ebot_debuggoal.GetInt())
 		{
 			DeleteSearchNodes();
-			m_tasks->data = ebot_debuggoal.GetInt();
+			GetCurrentTask()->data = ebot_debuggoal.GetInt();
 		}
 	}
 
@@ -4361,14 +4379,14 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 
 		// did we already decide about a goal before?
 		if (IsValidWaypoint(GetCurrentTask()->data) && !m_isBomber)
-			destIndex = m_tasks->data;
+			destIndex = GetCurrentTask()->data;
 		else
 			destIndex = FindGoal();
 
 		m_prevGoalIndex = destIndex;
 
 		// remember index
-		m_tasks->data = destIndex;
+		GetCurrentTask()->data = destIndex;
 
 		// do pathfinding if it's not the current waypoint
 		if (IsValidWaypoint(destIndex) && m_currentWaypointIndex != destIndex && !HasNextPath())
@@ -4399,7 +4417,7 @@ void Bot::RunTask(void)
 		m_aimStopTime = 0.0f;
 
 		// bot didn't spray this round?
-		if (m_timeLogoSpray <= engine->GetTime() && m_tasks->time > engine->GetTime())
+		if (m_timeLogoSpray <= engine->GetTime() && GetCurrentTask()->time > engine->GetTime())
 		{
 			MakeVectors(pev->v_angle);
 			Vector sprayOrigin = EyePosition() + (g_pGlobals->v_forward * 128);
@@ -4412,7 +4430,7 @@ void Bot::RunTask(void)
 
 			m_entity = sprayOrigin;
 
-			if (m_tasks->time - 0.5 < engine->GetTime())
+			if (GetCurrentTask()->time - 0.5 < engine->GetTime())
 			{
 				// emit spraycan sound
 				EMIT_SOUND_DYN2(GetEntity(), CHAN_VOICE, "player/sprayer.wav", 1.0, ATTN_NORM, 0, 100);
@@ -4469,13 +4487,13 @@ void Bot::RunTask(void)
 
 			// is there a remembered index?
 			if (IsValidWaypoint(GetCurrentTask()->data))
-				destIndex = m_tasks->data;
+				destIndex = GetCurrentTask()->data;
 			else // no. we need to find a new one
 				destIndex = GetEntityWaypoint(m_lastEnemy);
 
 			// remember index
 			m_prevGoalIndex = destIndex;
-			m_tasks->data = destIndex;
+			GetCurrentTask()->data = destIndex;
 
 			if (destIndex != m_currentWaypointIndex && IsValidWaypoint(destIndex))
 				FindPath(m_currentWaypointIndex, destIndex);
@@ -4572,7 +4590,7 @@ void Bot::RunTask(void)
 					destIndex = FindCoverWaypoint(2048.0f);
 			}
 			else if (IsValidWaypoint(GetCurrentTask()->data))
-				destIndex = m_tasks->data;
+				destIndex = GetCurrentTask()->data;
 			else
 				destIndex = FindCoverWaypoint(1024.0f);
 
@@ -4581,7 +4599,7 @@ void Bot::RunTask(void)
 
 			m_campDirection = 0;
 			m_prevGoalIndex = destIndex;
-			m_tasks->data = destIndex;
+			GetCurrentTask()->data = destIndex;
 
 			if (destIndex != m_currentWaypointIndex && IsValidWaypoint(destIndex))
 				FindPath(m_currentWaypointIndex, destIndex);
@@ -4649,8 +4667,9 @@ void Bot::RunTask(void)
 			pev->button |= m_campButtons;
 
 		// stop camping if time over or gets hurt by something else than bullets
-		if (m_tasks->time < engine->GetTime() || m_lastDamageType > 0)
+		if (GetCurrentTask()->time < engine->GetTime() || m_lastDamageType > 0)
 			TaskComplete();
+
 		break;
 
 		// blinded (flashbanged) behaviour
@@ -4723,14 +4742,14 @@ void Bot::RunTask(void)
 			DeleteSearchNodes();
 
 			if (IsValidWaypoint(GetCurrentTask()->data))
-				destIndex = m_tasks->data;
+				destIndex = GetCurrentTask()->data;
 			else
 				destIndex = g_waypoint->FindNearest(m_campposition);
 
 			if (IsValidWaypoint(destIndex))
 			{
 				m_prevGoalIndex = destIndex;
-				m_tasks->data = destIndex;
+				GetCurrentTask()->data = destIndex;
 				FindPath(m_currentWaypointIndex, destIndex);
 			}
 			else
@@ -5022,12 +5041,12 @@ void Bot::RunTask(void)
 		pev->button |= m_campButtons;
 		m_navTimeset = engine->GetTime();
 
-		if (m_lastDamageType > 0 || m_tasks->time < engine->GetTime())
+		if (m_lastDamageType > 0 || GetCurrentTask()->time < engine->GetTime())
 		{
 			if (m_isReloading && (!FNullEnt(m_enemy) || !FNullEnt(m_lastEnemy)) && m_skill > 70)
-				m_tasks->time += 2.0f;
+				GetCurrentTask()->time += 2.0f;
 			else if (IsDeathmatchMode() && pev->health <= 20.0f && m_skill > 70)
-				m_tasks->time += 5.0f;
+				GetCurrentTask()->time += 5.0f;
 			else
 				TaskComplete();
 		}
@@ -5185,7 +5204,7 @@ void Bot::RunTask(void)
 				}
 
 				m_aimStopTime = 0.0f;
-				if (m_pickupItem != nullptr)
+				if (!g_isXash && m_pickupItem != nullptr)
 					MDLL_Use(m_pickupItem, GetEntity());
 				else
 					pev->button |= IN_USE;
@@ -5294,8 +5313,7 @@ void Bot::RunTask(void)
 			if (IsValidWaypoint(destIndex) && destIndex != m_currentWaypointIndex)
 			{
 				m_prevGoalIndex = destIndex;
-				m_tasks->data = destIndex;
-
+				GetCurrentTask()->data = destIndex;
 				FindPath(m_currentWaypointIndex, destIndex);
 			}
 			else
@@ -5350,7 +5368,7 @@ void Bot::RunTask(void)
 			{
 				DeleteSearchNodes();
 				m_prevGoalIndex = destIndex;
-				m_tasks->data = destIndex;
+				GetCurrentTask()->data = destIndex;
 				FindPath(m_currentWaypointIndex, destIndex);
 			}
 		}
@@ -5781,7 +5799,7 @@ void Bot::RunTask(void)
 			if (trc.flFraction < 1.0f && trc.pHit == m_doubleJumpEntity && inJump)
 			{
 				m_duckForJump = engine->GetTime() + CRandomFloat(3.0f, 5.0f);
-				m_tasks->time = engine->GetTime();
+				GetCurrentTask()->time = engine->GetTime();
 			}
 
 			return;
@@ -5870,7 +5888,7 @@ void Bot::RunTask(void)
 				destIndex = g_waypoint->FindFarest(pev->origin, safeRadius);
 
 			m_prevGoalIndex = destIndex;
-			m_tasks->data = destIndex;
+			GetCurrentTask()->data = destIndex;
 			FindPath(m_currentWaypointIndex, destIndex);
 		}
 
@@ -6092,7 +6110,10 @@ void Bot::RunTask(void)
 			if (itemDistance < SquaredF(60.0f))
 			{
 				// use game dll function to make sure the hostage is correctly 'used'
-				MDLL_Use(m_pickupItem, GetEntity());
+				if (g_isXash)
+					pev->button |= IN_USE;
+				else
+					MDLL_Use(m_pickupItem, GetEntity());
 
 				for (i = 0; i < Const_MaxHostages; i++)
 				{
@@ -6143,9 +6164,12 @@ void Bot::RunTask(void)
 				m_moveToGoal = false;
 				m_checkTerrain = false;
 
-				if (angleToEntity <= 10) // facing it directly?
+				if (angleToEntity < 11.0f) // facing it directly?
 				{
-					MDLL_Use(m_pickupItem, GetEntity());
+					if (g_isXash)
+						pev->button |= IN_USE;
+					else
+						MDLL_Use(m_pickupItem, GetEntity());
 
 					m_pickupItem = nullptr;
 					m_pickupType = PICKTYPE_NONE;
@@ -6716,10 +6740,10 @@ void Bot::BotAI(void)
 		// use button waypoints
 		if (g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_USEBUTTON)
 		{
-			if ((pev->origin - g_waypoint->GetPath(m_currentWaypointIndex)->origin).GetLengthSquared() <= SquaredF(80.0f))
+			if ((pev->origin - g_waypoint->GetPath(m_currentWaypointIndex)->origin).GetLengthSquared() < SquaredF(80.0f))
 			{
 				edict_t* button = FindButton();
-				if (button != nullptr)
+				if (!g_isXash && button != nullptr)
 					MDLL_Use(button, GetEntity());
 				else if (!(pev->oldbuttons & IN_USE))
 					pev->button |= IN_USE;
@@ -7657,7 +7681,7 @@ void Bot::ReactOnSound(void)
 	if (!FNullEnt(m_enemy))
 		return;
 
-	if (g_clients[m_index].timeSoundLasting <= engine->GetTime())
+	if (g_clients[m_index].timeSoundLasting < engine->GetTime())
 		return;
 
 	edict_t* player = nullptr;
@@ -7669,6 +7693,9 @@ void Bot::ReactOnSound(void)
 	for (const auto& client : g_clients)
 	{
 		if (client.index < 0)
+			continue;
+
+		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.ent == GetEntity())
@@ -7794,6 +7821,9 @@ bool Bot::IsBombDefusing(Vector bombOrigin)
 	for (const auto& client : g_clients)
 	{
 		if (client.index < 0)
+			continue;
+
+		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE))

@@ -43,10 +43,13 @@ int Bot::GetNearbyFriendsNearPosition(Vector origin, float radius)
 		if (client.index < 0)
 			continue;
 
+		if (FNullEnt(client.ent))
+			continue;
+
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
 			continue;
 
-		if ((client.origin - origin).GetLengthSquared() <= SquaredF(radius))
+		if ((client.origin - origin).GetLengthSquared() < SquaredF(radius))
 			count++;
 	}
 
@@ -64,10 +67,13 @@ int Bot::GetNearbyEnemiesNearPosition(Vector origin, float radius)
 		if (client.index < 0)
 			continue;
 
+		if (FNullEnt(client.ent))
+			continue;
+
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team == m_team)
 			continue;
 
-		if ((client.origin - origin).GetLengthSquared() <= SquaredF(radius))
+		if ((client.origin - origin).GetLengthSquared() < SquaredF(radius))
 			count++;
 	}
 
@@ -91,6 +97,9 @@ void Bot::ResetCheckEnemy()
 	for (const auto& client : g_clients)
 	{
 		if (client.index < 0)
+			continue;
+
+		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team == m_team)
@@ -526,6 +535,9 @@ bool Bot::IsFriendInLineOfFire(float distance)
 	for (const auto& client : g_clients)
 	{
 		if (client.index < 0)
+			continue;
+
+		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
@@ -1859,6 +1871,9 @@ void Bot::CommandTeam(void)
 		if (client.index < 0)
 			continue;
 
+		if (FNullEnt(client.ent))
+			continue;
+
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
 			continue;
 
@@ -1909,10 +1924,13 @@ bool Bot::IsGroupOfEnemies(Vector location, int numEnemies, float radius)
 		if (client.index < 0)
 			continue;
 
+		if (FNullEnt(client.ent))
+			continue;
+
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team == m_team)
 			continue;
 
-		if ((client.origin - location).GetLengthSquared() <= SquaredF(radius))
+		if ((client.origin - location).GetLengthSquared() < SquaredF(radius))
 		{
 			if (numPlayers++ > numEnemies)
 				return true;

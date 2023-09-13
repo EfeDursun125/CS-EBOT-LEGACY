@@ -29,6 +29,7 @@ ConVar ebot_zombies_as_path_cost("ebot_zombie_count_as_path_cost", "1");
 ConVar ebot_ping_affects_aim("ebot_ping_affects_aim", "0");
 ConVar ebot_aim_type("ebot_aim_type", "1");
 ConVar ebot_use_old_jump_method("ebot_use_old_jump_method", "0");
+ConVar ebot_has_semiclip("ebot_has_semiclip", "0");
 
 int Bot::FindGoal(void)
 {
@@ -2689,6 +2690,9 @@ bool Bot::IsDeadlyDrop(Vector targetOriginPos)
 
 void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 {
+	if (ebot_has_semiclip.GetBool())
+		return;
+
 	if (pev->solid == SOLID_NOT)
 		return;
 
@@ -2704,6 +2708,10 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 	{
 		// only valid meat
 		if (client.index < 0)
+			continue;
+
+		// only valid meat
+		if (FNullEnt(client.ent))
 			continue;
 
 		// need only good meat
@@ -2751,10 +2759,10 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 		Bot* otherBot = g_botManager->GetBot(m_avoid);
 		if (otherBot != nullptr)
 		{
-			m_tasks->data = otherBot->m_tasks->data;
+			GetCurrentTask()->data = otherBot->GetCurrentTask()->data;
 			m_prevGoalIndex = otherBot->m_prevGoalIndex;
 			m_chosenGoalIndex = otherBot->m_chosenGoalIndex;
-			int index = m_tasks->data;
+			int index = GetCurrentTask()->data;
 			if (index == -1)
 				index = m_chosenGoalIndex;
 

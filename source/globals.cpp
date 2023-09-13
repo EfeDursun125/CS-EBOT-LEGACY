@@ -42,6 +42,7 @@ bool g_analyzewaypoints = false;
 bool g_analyzeputrequirescrouch = false;
 bool g_expanded[Const_MaxWaypoints];
 bool g_sendMessage = false;
+bool g_isXash = false;
 
 bool g_sgdWaypoint = false;
 bool g_sautoWaypoint = false;

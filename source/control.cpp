@@ -872,7 +872,7 @@ void BotControl::CheckTeamEconomics(int team)
 
 		if (m_bots[client.index] != nullptr && m_bots[client.index]->m_team == team)
 		{
-			if (m_bots[client.index]->m_moneyAmount <= 1500)
+			if (m_bots[client.index]->m_moneyAmount < 1600)
 				numPoorPlayers++;
 
 			numTeamPlayers++; // update count of team

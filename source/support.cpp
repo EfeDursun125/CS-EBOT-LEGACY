@@ -803,48 +803,39 @@ void AutoLoadGameMode(void)
 	{
 		SetGameMode(MODE_ZP);
 		g_DelayTimer = engine->GetTime() + ebot_zp_delay_custom.GetFloat() + 2.2f;
+
+		// zombie escape
+		if (g_mapType & MAP_ZE)
+		{
+			extern ConVar ebot_escape;
+			ebot_escape.SetInt(1);
+			ServerPrint("*** E-BOT Detected Zombie Escape Map: ebot_zombie_escape_mode is set to 1 ***");
+		}
 	}
 	else
 	{
-		// Zombie
-		char* zpGameVersion[] =
-		{
-			"plugins-zplague",  // ZP 4.3
-			"plugins-zp50_ammopacks", // ZP 5.0
-			"plugins-zp50_money", // ZP 5.0
-			"plugins-ze", // ZE
-			"plugins-zp", // ZP
-			"plugins-zescape", // ZE
-			"plugins-escape", // ZE
-			"plugins-plague" // ZP
-		};
+		auto zpCvar = g_engfuncs.pfnCVarGetPointer("zp_delay");
+		if (!zpCvar)
+			zpCvar = g_engfuncs.pfnCVarGetPointer("zp_gamemode_delay");
 
-		for (int i = 0; i < 8; i++)
+		if (zpCvar != nullptr)
 		{
-			Plugin_INI = FormatBuffer("%s/addons/amxmodx/configs/%s.ini", GetModName(), zpGameVersion[i]);
-			if (TryFileOpen(Plugin_INI))
+			const float delayTime = zpCvar->value + 2.2f;
+			if (delayTime > 0.0f)
 			{
-				float delayTime = CVAR_GET_FLOAT("zp_delay") + 2.2f;
+				if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
+					ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Plague/Escape) ***");
 
-				if (i == 1 || i == 2)
-					delayTime = CVAR_GET_FLOAT("zp_gamemode_delay") + 0.2f;
-
-				if (delayTime > 0.0f)
+				// zombie escape
+				if (g_mapType & MAP_ZE)
 				{
-					if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
-						ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Plague/Escape) ***");
-
-					// zombie escape
-					if (g_mapType & MAP_ZE)
-					{
-						extern ConVar ebot_escape;
-						ebot_escape.SetInt(1);
-						ServerPrint("*** E-BOT Detected Zombie Escape Map: ebot_zombie_escape_mode is set to 1 ***");
-					}
-
-					SetGameMode(MODE_ZP);
-					g_DelayTimer = engine->GetTime() + delayTime;
+					extern ConVar ebot_escape;
+					ebot_escape.SetInt(1);
+					ServerPrint("*** E-BOT Detected Zombie Escape Map: ebot_zombie_escape_mode is set to 1 ***");
 				}
+
+				SetGameMode(MODE_ZP);
+				g_DelayTimer = engine->GetTime() + delayTime;
 			}
 		}
 	}
@@ -1709,10 +1700,13 @@ void SoundAttachToThreat(edict_t* ent, const char* sample, float volume)
 			if (client.index < 0)
 				continue;
 
+			if (FNullEnt(client.ent))
+				continue;
+
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE))
 				continue;
 
-			float distance = (client.origin - origin).GetLengthSquared();
+			const float distance = (client.origin - origin).GetLengthSquared();
 
 			// now find nearest player
 			if (distance < nearestDistance)

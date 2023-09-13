@@ -119,6 +119,9 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 			if (client.index < 0)
 				continue;
 
+			if (FNullEnt(client.ent))
+				continue;
+
 			if (!(client.flags & CFLAG_USED))
 				continue;
 
@@ -2668,12 +2671,14 @@ void SetPing(edict_t* to)
 	if (!(to->v.flags & FL_CLIENT) || to->v.flags & FL_FAKECLIENT)
 		return;
 
-	// update timer if someone lookin' at scoreboard
-	if (to->v.button & IN_SCORE || to->v.oldbuttons & IN_SCORE)
-		g_fakePingUpdate = engine->GetTime() + 2.0f;
-
 	if (g_fakePingUpdate < engine->GetTime())
-		return;
+	{
+		// update timer if someone lookin' at scoreboard
+		if (to->v.button & IN_SCORE || to->v.oldbuttons & IN_SCORE)
+			g_fakePingUpdate = engine->GetTime() + 2.0f;
+		else
+			return;
+	}
 
 	static int sending;
 
@@ -2743,6 +2748,9 @@ void JustAStuff(void)
 		for (const auto& client : g_clients)
 		{
 			if (client.index < 0)
+				continue;
+
+			if (FNullEnt(client.ent))
 				continue;
 
 			edict_t* player = client.ent;
@@ -2889,6 +2897,10 @@ void ServerActivate_Post(edict_t* /*pentEdictList*/, int /*edictCount*/, int /*c
 	secondTimer = 0.0f;
 	updateTimer = 0.0f;
 	g_sendMessage = true;
+
+	g_isXash = false;
+	if (g_engfuncs.pfnCVarGetPointer("host_ver") != nullptr)
+		g_isXash = true;
 
 	RETURN_META(MRES_IGNORED);
 }

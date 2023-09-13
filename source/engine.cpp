@@ -234,6 +234,9 @@ void Engine::MaintainClients(void)
         if (client.index < 0)
             continue;
 
+        if (FNullEnt(client.ent))
+            continue;
+
         m_clients[client.index].Maintain(g_engfuncs.pfnPEntityOfEntIndex(client.index));
     }
 }

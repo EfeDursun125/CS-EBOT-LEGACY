@@ -2849,8 +2849,7 @@ void Waypoint::SetGoalVisited(int index)
 
     if (!IsGoalVisited(index) && (m_paths[index]->flags & WAYPOINT_GOAL))
     {
-        int bombPoint = FindNearest(GetBombPosition());
-
+        const int bombPoint = FindNearest(GetBombPosition());
         if (IsValidWaypoint(bombPoint) && bombPoint != index)
             m_visitedGoals.Push(index);
     }
@@ -3135,7 +3134,6 @@ Waypoint::Waypoint(void)
 {
     m_waypointPaths = false;
     m_endJumpPoint = false;
-    m_redoneVisibility = false;
     m_learnJumpWaypoint = false;
     m_timeJumpStarted = 0.0f;
 
@@ -3144,7 +3142,6 @@ Waypoint::Waypoint(void)
     m_lastJumpWaypoint = -1;
     m_cacheWaypointIndex = -1;
     m_findWPIndex = -1;
-    m_visibilityIndex = 0;
 
     m_lastDeclineWaypoint = -1;
 
