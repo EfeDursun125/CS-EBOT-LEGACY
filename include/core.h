@@ -39,7 +39,6 @@
 #endif
 
 #include <stdio.h>
-#include <memory.h>
 #include <clib.h>
 
 #include <engine.h>
@@ -54,9 +53,9 @@ using namespace Math;
 #include <float.h>
 #include <time.h>
 
-#include <runtime.h>
-
 using namespace std;
+
+#include <runtime.h>
 
 const int checkEntityNum = 20;
 const int checkEnemyNum = 128;
@@ -497,7 +496,7 @@ const int Const_MaxDamageValue = 2040;
 const int Const_MaxGoalValue = 2040;
 const int Const_MaxKillHistory = 16;
 const int Const_MaxRegMessages = 256;
-const int Const_MaxWaypoints = 16384;
+const int Const_MaxWaypoints = 8192;
 const int Const_MaxWeapons = 32;
 const int Const_NumWeapons = 26;
 const int Const_NumWeaponsHL = 15;
@@ -534,15 +533,13 @@ struct KwChat
 };
 
 // tasks definition
-struct Task
+struct TaskItem
 {
-	Task* prev; // previuous task in the linked list
-	Task* next; // next task in the linked list
-	BotTask taskID; // major task/action carried out
+	BotTask id; // major task/action carried out
 	float desire; // desire (filled in) for this task
 	int data; // additional data (waypoint index)
 	float time; // time task expires
-	bool canContinue; // if task can be continued if interrupted
+	bool resume; // if task can be continued if interrupted
 };
 
 // botname structure definition
@@ -711,7 +708,6 @@ struct Path
 	float gravity;
 };
 
-
 // main bot class
 class Bot
 {
@@ -719,7 +715,7 @@ class Bot
 
 private:
 	unsigned int m_states; // sensing bitstates
-	Task* m_tasks; // pointer to active tasks/schedules
+	Array <TaskItem> m_tasks; // pointer to active tasks/schedules
 
 	float m_moveSpeed; // current speed forward/backward
 	float m_strafeSpeed; // current speed sideways
@@ -826,6 +822,7 @@ private:
 
 	float m_frameInterval; // bot's frame interval
 	float m_lastThinkTime; // time bot last thinked
+	float m_thinkDelay; // delay for bot think
 
 	float m_reloadCheckTime; // time to check reloading
 	float m_zoomCheckTime; // time to check zoom again
@@ -845,7 +842,6 @@ private:
 	int m_campDirection; // camp Facing direction
 	float m_nextCampDirTime; // time next camp direction change
 	int m_campButtons; // buttons to press while camping
-	int m_doorOpenAttempt; // attempt's to open the door
 
 	float m_duckTime; // time to duck
 	float m_jumpTime; // time last jump happened
@@ -936,8 +932,7 @@ private:
 	bool IsBehindSmokeClouds(edict_t* ent);
 	void TaskNormal(int i, int destIndex, Vector src);
 	void RunTask(void);
-	void CheckTasksPriorities(void);
-	void PushTask(Task* task);
+	void ApplyTaskFilters(void);
 
 	bool IsShootableBreakable(edict_t* ent);
 	bool RateGroundWeapon(edict_t* ent);
@@ -1153,6 +1148,7 @@ public:
 	inline Vector EyePosition(void) { return pev->origin + pev->view_ofs; };
 	inline Vector EarPosition(void) { return pev->origin + pev->view_ofs; };
 
+	void RunPlayer(void);
 	void Think(void);
 	void FacePosition(void);
 	void NewRound(void);
@@ -1167,7 +1163,10 @@ public:
 	void SetLastEnemy(edict_t* entity);
 
 	void DeleteSearchNodes(void);
-	Task* GetCurrentTask(void);
+	TaskItem* GetCurrentTask(void);
+	BotTask GetCurrentTaskID(void);
+	int GetCurrentGoalID(void);
+	float GetCurrentTaskTime(void);
 
 	void CheckTouchEntity(edict_t* entity);
 

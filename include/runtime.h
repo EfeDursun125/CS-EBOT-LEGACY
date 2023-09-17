@@ -31,7 +31,7 @@
 #include <float.h>
 #include <time.h>
 #include <stdarg.h>
-#include <emmintrin.h>
+#include <vector>
 
 #pragma warning (disable : 4996) // get rid of this
 
@@ -813,206 +813,45 @@ namespace Math
     }
 }
 
-//
-// Class: Array
-//  Universal template array container.
-//
-template <typename T> class Array
+template <typename T>
+class Array
 {
 private:
-    T* m_elements;
+    std::vector<T> m_elements;
 
-    int m_resizeStep;
-    int m_itemSize;
-    int m_itemCount;
-
-    //
-    // Group: (Con/De)structors
-    //
 public:
+    Array(const int resizeStep = 0) {}
 
-    //
-    // Function: Array
-    //  Default array constructor.
-    //
-    // Parameters:
-    //  resizeStep - Array resize step, when new items added, or old deleted.
-    //
-    Array(int resizeStep = 0)
+    Array(const Array<T>& other) : m_elements(other.m_elements) {}
+
+    ~Array(void) = default;
+
+    void Destroy(void)
     {
-        m_elements = nullptr;
-        m_itemSize = 0;
-        m_itemCount = 0;
-        m_resizeStep = resizeStep;
+        m_elements.clear();
     }
 
-    //
-    // Function: Array
-    //  Array copying constructor.
-    //
-    // Parameters:
-    //  other - Other array that should be assigned to this one.
-    //
-    Array(const Array <T>& other)
-    {
-        m_elements = nullptr;
-        m_itemSize = 0;
-        m_itemCount = 0;
-        m_resizeStep = 0;
-
-        AssignFrom(other);
-    }
-
-    //
-    // Function: ~Array
-    //  Default array destructor.
-    //
-    virtual ~Array(void)
-    {
-        Destory();
-    }
-
-    //
-    // Group: Functions
-    //
-public:
-
-    //
-    // Function: Destory
-    //  Destroys array object, and all elements.
-    //
-    void Destory(void)
-    {
-        m_itemSize = 0;
-        m_itemCount = 0;
-        m_resizeStep = 0;
-        if (m_elements != nullptr)
-        {
-            delete[] m_elements;
-            m_elements = nullptr;
-        }
-    }
-
-    //
-    // Function: SetSize
-    //  Sets the size of the array.
-    //
-    // Parameters:
-    //  newSize - Size to what array should be resized.
-    //  keepData - Keep exiting data, while resizing array or not.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool SetSize(int newSize, bool keepData = true)
+    bool SetSize(const int newSize, const bool keepData = true)
     {
         if (newSize == 0)
         {
-            Destory();
+            Destroy();
             return true;
         }
 
-        int checkSize = 0;
-
-        if (m_resizeStep != 0)
-            checkSize = m_itemCount + m_resizeStep;
-        else
-        {
-            checkSize = m_itemCount / 8;
-
-            if (checkSize < 4)
-                checkSize = 4;
-            else if (checkSize > 1024)
-                checkSize = 1024;
-
-            checkSize += m_itemCount;
-        }
-
-        if (newSize > checkSize)
-            checkSize = newSize;
-
-        T* buffer = new T[checkSize];
-
-        if (keepData && m_elements != nullptr)
-        {
-            if (checkSize < m_itemCount)
-                m_itemCount = checkSize;
-
-            for (int i = 0; i < m_itemCount; i++)
-                buffer[i] = m_elements[i];
-        }
-
-        delete[] m_elements;
-
-        m_elements = buffer;
-        m_itemSize = checkSize;
+        m_elements.resize(newSize);
 
         return true;
     }
 
-    //
-    // Function: GetSize
-    //  Gets allocated size of array.
-    //
-    // Returns:
-    //  Number of allocated items.
-    //
-    int GetSize(void) const
-    {
-        return m_itemSize;
-    }
-
-    //
-    // Function: GetElementNumber
-    //  Gets real number currently in array.
-    //
-    // Returns:
-    //  Number of elements.
-    //
     int GetElementNumber(void) const
     {
-        return m_itemCount;
+        return m_elements.size();
     }
 
-    //
-    // Function: SetEnlargeStep
-    //  Sets step, which used while resizing array data.
-    //
-    // Parameters:
-    //  resizeStep - Step that should be set.
-    //  
-    void SetEnlargeStep(int resizeStep = 0)
+    bool SetAt(const int index, const T object, const bool enlarge = true)
     {
-        m_resizeStep = resizeStep;
-    }
-
-    //
-    // Function: GetEnlargeStep
-    //  Gets the current enlarge step.
-    //
-    // Returns:
-    //  Current resize step.
-    //
-    int GetEnlargeStep(void)
-    {
-        return m_resizeStep;
-    }
-
-    //
-    // Function: SetAt
-    //  Sets element data, at specified index.
-    //
-    // Parameters:
-    //  index - Index where object should be assigned.
-    //  object - Object that should be assigned.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool SetAt(int index, T object, bool enlarge = true)
-    {
-        if (index >= m_itemSize)
+        if (index < 0 || index >= GetElementNumber())
         {
             if (!enlarge || !SetSize(index + 1))
                 return false;
@@ -1020,374 +859,125 @@ public:
 
         m_elements[index] = object;
 
-        if (index >= m_itemCount)
-            m_itemCount = index + 1;
-
         return true;
     }
 
-    //
-    // Function: GetAt
-    //  Gets element from specified index
-    //
-    // Parameters:
-    //  index - Element index to retrieve.
-    //
-    // Returns:
-    //  Element object.
-    //
-    T& GetAt(int index)
+    T& GetAt(const int index)
     {
+        if (index < 0 || index >= GetElementNumber())
+            return m_elements[0];
+
         return m_elements[index];
     }
 
-    //
-    // Function: GetAt
-    //  Gets element at specified index, and store it in reference object.
-    //
-    // Parameters:
-    //  index - Element index to retrieve.
-    //  object - Holder for element reference.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool GetAt(int index, T& object)
+    bool GetAt(const int index, T& object)
     {
-        if (index >= m_itemCount)
+        if (index < 0 || index >= GetElementNumber())
             return false;
 
         object = m_elements[index];
         return true;
     }
 
-    //
-    // Function: InsertAt
-    //  Inserts new element at specified index.
-    //
-    // Parameters:
-    //  index - Index where element should be inserted.
-    //  object - Object that should be inserted.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool InsertAt(int index, T object, bool enlarge = true)
+    bool RemoveAt(const int index, const int count = 1)
     {
-        return InsertAt(index, &object, 1, enlarge);
-    }
-
-    //
-    // Function: InsertAt
-    //  Inserts number of element at specified index.
-    //
-    // Parameters:
-    //  index - Index where element should be inserted.
-    //  objects - Pointer to object list.
-    //  count - Number of element to insert.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool InsertAt(int index, T* objects, int count = 1, bool enlarge = true)
-    {
-        if (objects == nullptr || count < 1)
+        if (index < 0 || index >= GetElementNumber() || count < 1)
             return false;
 
-        int newSize = 0;
-
-        if (m_itemCount > index)
-            newSize = m_itemCount + count;
-        else
-            newSize = index + count;
-
-        if (newSize >= m_itemSize)
-        {
-            if (!enlarge || !SetSize(newSize))
-                return false;
-        }
-
-        if (index >= m_itemCount)
-        {
-            for (int i = 0; i < count; i++)
-                m_elements[i + index] = objects[i];
-
-            m_itemCount = newSize;
-        }
-        else
-        {
-            int i = 0;
-
-            for (i = m_itemCount; i > index; i--)
-                m_elements[i + count - 1] = m_elements[i - 1];
-
-            for (i = 0; i < count; i++)
-                m_elements[i + index] = objects[i];
-
-            m_itemCount += count;
-        }
-        return true;
-    }
-
-    //
-    // Function: InsertAt
-    //  Inserts other array reference into the our array.
-    //
-    // Parameters:
-    //  index - Index where element should be inserted.
-    //  objects - Pointer to object list.
-    //  count - Number of element to insert.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool InsertAt(int index, Array <T>& other, bool enlarge = true)
-    {
-        if (&other == this)
-            return false;
-
-        return InsertAt(index, other.m_elements, other.m_itemCount, enlarge);
-    }
-
-    //
-    // Function: RemoveAt
-    //  Removes elements from specified index.
-    //
-    // Parameters:
-    //  index - Index, where element should be removed.
-    //  count - Number of elements to remove.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool RemoveAt(int index, int count = 1)
-    {
-        if (index + count > m_itemCount)
-            return false;
-
-        if (count < 1)
-            return true;
-
-        m_itemCount -= count;
-
-        for (int i = index; i < m_itemCount; i++)
-            m_elements[i] = m_elements[i + count];
+        m_elements.erase(m_elements.begin() + index, m_elements.begin() + index + count);
 
         return true;
     }
 
-    //
-    // Function: Push
-    //  Appends element to the end of array.
-    //
-    // Parameters:
-    //  object - Object to append.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool Push(T object, bool enlarge = true)
+    void Push(const T& object)
     {
-        return InsertAt(m_itemCount, &object, 1, enlarge);
+        m_elements.push_back(object);
     }
 
-    //
-    // Function: Push
-    //  Appends number of elements to the end of array.
-    //
-    // Parameters:
-    //  objects - Pointer to object list.
-    //  count - Number of element to insert.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool Push(T* objects, int count = 1, bool enlarge = true)
-    {
-        return InsertAt(m_itemCount, objects, count, enlarge);
-    }
-
-    //
-    // Function: Push
-    //  Inserts other array reference into the our array.
-    //
-    // Parameters:
-    //  objects - Pointer to object list.
-    //  count - Number of element to insert.
-    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool Push(Array <T>& other, bool enlarge = true)
-    {
-        if (&other == this)
-            return false;
-
-        return InsertAt(m_itemCount, other.m_elements, other.m_itemCount, enlarge);
-    }
-
-    //
-    // Function: GetData
-    //  Gets the pointer to all element in array.
-    //
-    // Returns:
-    //  Pointer to object list.
-    //
     T* GetData(void)
     {
-        return m_elements;
+        return m_elements.data();
     }
 
-    //
-    // Function: RemoveAll
-    //  Resets array, and removes all elements out of it.
-    // 
-    void RemoveAll(void)
+    bool IsEmpty(void)
     {
-        m_itemCount = 0;
-        SetSize(m_itemCount);
+        return m_elements.empty();
     }
 
-    //
-    // Function: IsEmpty
-    //  Checks whether element is empty.
-    //
-    // Returns:
-    //  True if element is empty, false otherwise.
-    //
-    inline bool IsEmpty(void)
+    void FreeSpace(const bool destroyIfEmpty = true)
     {
-        return m_itemCount <= 0;
-    }
-
-    //
-    // Function: FreeExtra
-    //  Frees unused space.
-    //
-    void FreeSpace(bool destroyIfEmpty = true)
-    {
-        if (m_itemCount == 0)
+        if (IsEmpty())
         {
             if (destroyIfEmpty)
-                Destory();
+                Destroy();
 
             return;
         }
 
-        T* buffer = new T[m_itemCount];
-
-        if (m_elements != nullptr)
-        {
-            for (int i = 0; i < m_itemCount; i++)
-                buffer[i] = m_elements[i];
-        }
-
-        delete[] m_elements;
-
-        m_elements = buffer;
-        m_itemSize = m_itemCount;
+        m_elements.shrink_to_fit();
     }
 
-    //
-    // Function: Pop
-    //  Pops element from array.
-    //
-    // Returns:
-    //  Object popped from the end of array.
-    //
     T Pop(void)
     {
-        T element = m_elements[m_itemCount - 1];
-        RemoveAt(m_itemCount - 1);
+        if (IsEmpty())
+            return m_elements[0];
+
+        const T element = m_elements.back();
+        m_elements.pop_back();
 
         return element;
     }
 
-    //
-    // Function: PopNoReturn
-    //  Pops element from array without returning last element.
-    //
-    T PopNoReturn(void)
+    void PopNoReturn(void)
     {
-        T element = m_elements[m_itemCount - 1];
-        RemoveAt(m_itemCount - 1);
+        if (IsEmpty())
+            return;
+
+        m_elements.pop_back();
     }
 
     T& Last(void)
     {
-        return m_elements[m_itemCount - 1];
+        if (IsEmpty())
+            return m_elements[0];
+
+        return m_elements.back();
+    }
+
+    T& GetRandomElement(void)
+    {
+        if (IsEmpty())
+            return m_elements[0];
+
+        const int randomIndex = frand() % GetElementNumber();
+        return m_elements[randomIndex];
     }
 
     bool GetLast(T& item)
     {
-        if (m_itemCount <= 0)
+        if (IsEmpty())
             return false;
 
-        item = m_elements[m_itemCount - 1];
-
+        item = m_elements.back();
         return true;
     }
 
-    //
-    // Function: AssignFrom
-    //  Reassigns current array with specified one.
-    //
-    // Parameters:
-    //  other - Other array that should be assigned.
-    //
-    // Returns:
-    //  True if operation succeeded, false otherwise.
-    //
-    bool AssignFrom(const Array <T>& other)
+    Array<T>& operator = (const Array<T>& other)
     {
         if (&other == this)
-            return true;
+            return *this;
 
-        if (!SetSize(other.m_itemCount, false))
-            return false;
+        m_elements = other.m_elements;
 
-        for (int i = 0; i < other.m_itemCount; i++)
-            m_elements[i] = other.m_elements[i];
-
-        m_itemCount = other.m_itemCount;
-        m_resizeStep = other.m_resizeStep;
-
-        return true;
-    }
-
-    //
-    // Function: GetRandomElement
-    //  Gets the random element from the array.
-    //
-    // Returns:
-    //  Random element reference.
-    //
-    T& GetRandomElement(void) const
-    {
-        if (m_itemCount == 1)
-            return m_elements[0];
-
-        return m_elements[CRandomInt(0, m_itemCount - 1)];
-    }
-
-    Array <T>& operator = (const Array <T>& other)
-    {
-        AssignFrom(other);
         return *this;
     }
 
-    T& operator [] (int index)
+    T& operator [] (const int index)
     {
-        if (index < m_itemSize && index >= m_itemCount)
-            m_itemCount = index + 1;
+        if (index < 0 || index >= GetElementNumber())
+            return m_elements[0];
 
-        return GetAt(index);
+        return m_elements[index];
     }
 };
 
@@ -1398,418 +988,11 @@ public:
     T2 second;
 
 public:
-    Pair <T1, T2>(void) : first(T1()), second(T2())
-    {
-    }
+    Pair <T1, T2>(void) : first(T1()), second(T2()) {}
 
-    Pair(const T1& f, const T2& s) : first(f), second(s)
-    {
-    }
+    Pair(const T1& f, const T2& s) : first(f), second(s) {}
 
-    template <typename A1, typename A2> Pair(const Pair <A1, A2>& right) : first(right.first), second(right.second)
-    {
-    }
-};
-
-template <class K, class V> class Map
-{
-    //
-    // Typedef: MapEntries
-    //
-public:
-    typedef Array <Pair <K, V> > MapEntries;
-
-    // Group: Private members.
-    //
-private:
-    struct HashItem
-    {
-        //
-        // Group: Members.
-        //
-    public:
-        int index;
-        HashItem* next;
-
-        //
-        // Group: Functions.
-        //
-    public:
-        inline HashItem(void) : next(nullptr)
-        {
-        }
-
-        inline HashItem(int index, HashItem* next) : index(index), next(next)
-        {
-        }
-    };
-
-    int m_hashSize;
-
-    HashItem** m_table;
-    MapEntries m_mapTable;
-
-private:
-    static inline int HashFunc(K tag)
-    {
-        int key = tag;
-
-        key += ~(key << 16);
-        key ^= (key >> 5);
-
-        key += (key << 3);
-        key ^= (key >> 13);
-
-        key += ~(key << 9);
-        key ^= (key >> 17);
-
-        return key;
-    }
-
-    //
-    // Group: (Con/De)structors.
-    //
-public:
-
-    //
-    // Function: Map
-    //
-    // Default constructor for map container.
-    //
-    // Parameters:
-    //	  hashSize - Initial hash size.
-    //
-    inline Map <K, V>(int hashSize = 36) : m_hashSize(hashSize), m_table(new HashItem* [hashSize])
-    {
-        if (m_table == nullptr)
-            return;
-
-        for (int i = 0; i < hashSize; i++)
-            m_table[i] = nullptr;
-    }
-
-    //
-    // Function: ~Map
-    //
-    // Default map container destructor.
-    //
-    // Parameters:
-    //	  hashSize - Initial hash size.
-    //
-    inline ~Map <K, V>(void)
-    {
-        RemoveAll();
-
-        delete[] m_table;
-    }
-
-    //
-    // Group: Functions.
-    //
-public:
-    //
-    // Function: IsExists
-    //
-    // Checks whether specified element exists in container.
-    //
-    // Parameters:
-    //	  keyName - Key that should be looked up.
-    //
-    // Returns:
-    //   True if key exists, false otherwise.
-    //
-    inline bool IsExists(const K& keyName) const
-    {
-        return GetIndex(keyName) != -1;
-    }
-
-    //
-    // Function: SetupMap
-    //
-    // Initializes map, if not initialized automatically.
-    //
-    // Parameters:
-    //	  hashSize - Initial hash size.
-    //
-    inline void SetupMap(int hashSize)
-    {
-        m_hashSize = hashSize;
-        m_table = new HashItem * [hashSize];
-
-        if (m_table == nullptr)
-            return;
-
-        for (int i = 0; i < hashSize; i++)
-            m_table[i] = nullptr;
-    }
-
-    //
-    // Function: IsEmpty
-    //
-    // Checks whether map container is currently empty.
-    //
-    // Returns:
-    //   True if no elements exists, false otherwise.
-    //
-    inline bool IsEmpty(void) const
-    {
-        return m_mapTable.GetAllocatedSize() == 0;
-    }
-
-    //
-    // Function: GetSize
-    //
-    // Retrieves size of the map container.
-    //
-    // Returns:
-    //   Number of elements currently in map container.
-    //
-    inline int GetSize(void) const
-    {
-        return m_mapTable.GetAllocatedSize();
-    }
-
-    //
-    // Function: GetKey
-    //
-    // Gets the key object, by it's index.
-    //
-    // Parameters:
-    //	  index - Index of key.
-    //
-    // Returns:
-    //   Object containing the key.
-    //
-    inline K& GetKey(int index)
-    {
-        return m_mapTable[index].first;
-    }
-
-    //
-    // Function: GetKey
-    //
-    // Gets the constant key object, by it's index.
-    //
-    // Parameters:
-    //	  index - Index of key.
-    //
-    // Returns:
-    //   Constant object containing the key.
-    //
-    inline const K& GetKey(int index) const
-    {
-        return m_mapTable[index].first;
-    }
-
-    // Function: GetValue
-    //
-    // Gets the element object, by it's index.
-    //
-    // Parameters:
-    //	  index - Index of element.
-    //
-    // Returns:
-    //   Object containing the element.
-    //
-    inline V& GetValue(int index)
-    {
-        return m_mapTable[index].second;
-    }
-
-    //
-    // Function: GetValue
-    //
-    // Gets the constant element object, by it's index.
-    //
-    // Parameters:
-    //	  index - Index of element.
-    //
-    // Returns:
-    //   Constant object containing the element.
-    //
-    inline const V& GetValue(int index) const
-    {
-        return m_mapTable[index].second;
-    }
-
-    //
-    // Function: GetElements
-    //
-    // Gets the all elements of container.
-    //
-    // Returns:
-    //   Array of elements, containing inside container.
-    //
-    // See also:
-    //   <MapEntries>
-    //
-    inline MapEntries& GetElements(void)
-    {
-        return m_mapTable;
-    }
-
-    //
-    // Function: Find
-    //
-    //	Finds element by his key name.
-    //
-    // Parameters:
-    //	  keyName - Key name to be searched.
-    //	  element - Holder for element object.
-    //
-    // Returns:
-    //   True if element found, false otherwise.
-    //
-    bool Find(const K& keyName, V& element) const
-    {
-        int index = GetIndex(keyName);
-
-        if (index == -1)
-            return false;
-
-        element = m_mapTable[index].second;
-
-        return true;
-    }
-
-    //
-    // Function: Find
-    //
-    // Finds element by his key name.
-    //
-    // Parameters:
-    //	  keyName - Key name to be searched.
-    //	  elementPointer - Holder for element pointer.
-    //
-    // Returns: True if element found, false otherwise.
-    //
-    bool Find(const K& keyName, V*& elementPointer) const
-    {
-        int index = GetIndex(keyName);
-
-        if (index == -1)
-            return false;
-
-        elementPointer = &m_mapTable[index].second;
-
-        return true;
-    }
-
-    //
-    // Function: Remove
-    //
-    // Removes element from container.
-    //
-    // Parameters:
-    //	  keyName - Key name of element, that should be removed.
-    //
-    // Returns:
-    //   True if key was removed successfully, false otherwise.
-    //
-    bool Remove(const K& keyName)
-    {
-        int hashID = Map::HashFunc <K(keyName) % m_hashSize;
-        HashItem* hashItem = m_table[hashID], * nextHash = nullptr;
-
-        while (hashItem != nullptr)
-        {
-            if (m_mapTable[hashItem->index].first == keyName)
-            {
-                if (nextHash == nullptr)
-                    m_table[hashID] = hashItem->next;
-                else
-                    nextHash->next = hashItem->next;
-
-                m_mapTable.RemoveAt(hashItem->index);
-                delete hashItem;
-
-                return true;
-            }
-            nextHash = hashItem;
-            hashItem = hashItem->next;
-        }
-
-        return false;
-    }
-
-    //
-    // Function: RemoveAll
-    //
-    // Removes all elements from container.
-    //
-    void RemoveAll(void)
-    {
-        HashItem* ptr, * next;
-
-        for (int i = m_hashSize - 1; i < -1; i--)
-        {
-            ptr = m_table[i];
-
-            while (ptr != nullptr)
-            {
-                next = ptr->next;
-
-                delete ptr;
-                ptr = next;
-            }
-
-            m_table[i] = nullptr;
-        }
-
-        m_mapTable.RemoveAll();
-    }
-
-    //
-    // Function: GetIndex
-    //
-    // Gets index of element.
-    //
-    // Parameters:
-    //	  keyName - Key of element.
-    //	  create - If true and no element found by a keyName, create new element.
-    //
-    // Returns:
-    //   Either found index, created index, or -1 in case of error.
-    //
-    int GetIndex(const K& keyName, bool create = false)
-    {
-        int hashID = Map <K, V>::HashFunc(keyName) % m_hashSize;
-
-        for (HashItem* ptr = m_table[hashID]; ptr != nullptr; ptr = ptr->next)
-        {
-            if (m_mapTable[ptr->index].first == keyName)
-                return ptr->index;
-        }
-
-        if (create)
-        {
-            int item = m_mapTable.GetAllocatedSize();
-
-            if (m_mapTable.SetSize(item + 1))
-            {
-                m_table[hashID] = new HashItem(item, m_table[hashID]);
-                m_mapTable[item].first = keyName;
-
-                return item;
-            }
-        }
-
-        return -1;
-    }
-
-    //
-    // Group: Operators.
-    //
-public:
-    inline V& operator [] (const K& keyName)
-    {
-        return m_mapTable[GetIndex(keyName, true)].second;
-    }
-
-    inline const V& operator [] (const K& keyName) const
-    {
-        return m_mapTable[GetIndex(keyName, true)].second;
-    }
+    template <typename A1, typename A2> Pair(const Pair <A1, A2>& right) : first(right.first), second(right.second) {}
 };
 
 class String
@@ -1871,9 +1054,9 @@ private:
     // Parameters:
     //  length - Initial length of string.
     //
-    void Initialize(int length)
+    void Initialize(const int length)
     {
-        int freeSize = m_allocatedSize - m_stringLength - 1;
+        const int freeSize = m_allocatedSize - m_stringLength - 1;
 
         if (length <= freeSize)
             return;
