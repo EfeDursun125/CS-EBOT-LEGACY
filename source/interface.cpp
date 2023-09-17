@@ -32,7 +32,6 @@ ConVar ebot_version("ebot_version", PRODUCT_VERSION, VARTYPE_READONLY);
 ConVar ebot_showwp("ebot_show_waypoints", "0");
 
 ConVar ebot_analyze_create_goal_waypoints("ebot_analyze_starter_waypoints", "1");
-ConVar ebot_think_fps("ebot_think_fps", "20.0");
 
 static float secondTimer;
 static float updateTimer;
@@ -886,10 +885,10 @@ void InitConfig(void)
 						if (!replyKey.keywords.IsEmpty() && !replyKey.replies.IsEmpty())
 						{
 							g_replyFactory.Push(replyKey);
-							replyKey.replies.RemoveAll();
+							replyKey.replies.Destroy();
 						}
 
-						replyKey.keywords.RemoveAll();
+						replyKey.keywords.Destroy();
 						replyKey.keywords = String(&line[4]).Split(',');
 
 						ITERATE_ARRAY(replyKey.keywords, i)
@@ -1907,7 +1906,7 @@ void ClientCommand(edict_t* ent)
 				case 2:
 					if (FindNearestPlayer(reinterpret_cast <void**> (&bot), client->ent, 4096.0, true, true, true))
 					{
-						if (!(bot->pev->weapons & (1 << WEAPON_C4)) && !bot->HasHostage() && (bot->GetCurrentTask()->taskID != TASK_PLANTBOMB) && (bot->GetCurrentTask()->taskID != TASK_DEFUSEBOMB))
+						if (!(bot->pev->weapons & (1 << WEAPON_C4)) && !bot->HasHostage() && (bot->GetCurrentTaskID() != TASK_PLANTBOMB) && (bot->GetCurrentTaskID() != TASK_DEFUSEBOMB))
 						{
 							if (selection == 1)
 							{
@@ -2857,7 +2856,7 @@ void StartFrame_Post(void)
 	if (updateTimer < engine->GetTime())
 	{
 		g_botManager->Think();
-		updateTimer = AddTime(1.0f / ebot_think_fps.GetFloat());
+		updateTimer = AddTime(0.03333333333f);
 	}
 	// **** AI EXECUTION FINISH ****
 
@@ -2896,6 +2895,7 @@ void ServerActivate_Post(edict_t* /*pentEdictList*/, int /*edictCount*/, int /*c
 
 	secondTimer = 0.0f;
 	updateTimer = 0.0f;
+	g_pathTimer = 0.0f;
 	g_sendMessage = true;
 
 	g_isXash = false;

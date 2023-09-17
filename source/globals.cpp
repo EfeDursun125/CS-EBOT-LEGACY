@@ -58,6 +58,7 @@ float g_lastRadioTime[2] = { 0.0f, 0.0f };
 float g_audioTime = 0.0f;
 float g_autoPathDistance = 250.0f;
 float g_fakePingUpdate = 0.0f;
+float g_pathTimer = 0.0f;
 
 float g_DelayTimer = 0.0f;
 
@@ -168,31 +169,30 @@ plugin_info_t Plugin_info =
 };
 
 // table with all available actions for the bots (filtered in & out in Bot::SetConditions) some of them have subactions included
-Task g_taskFilters[] =
+TaskItem g_taskFilters[] =
 {
-   {nullptr, nullptr, TASK_NORMAL, 0, -1, 0.0f, true},
-   {nullptr, nullptr, TASK_PAUSE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_MOVETOPOSITION, 0, -1, 0.0f, true},
-   {nullptr, nullptr, TASK_FOLLOWUSER, 0, -1,0.0f, true},
-   {nullptr, nullptr, TASK_PICKUPITEM, 0, -1, 0.0f, true},
-   {nullptr, nullptr, TASK_CAMP, 0, -1, 0.0f, true},
-   {nullptr, nullptr, TASK_PLANTBOMB, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_DEFUSEBOMB, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_FIGHTENEMY, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_HUNTENEMY, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_SEEKCOVER, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_THROWHEGRENADE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_THROWFBGRENADE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_THROWSMGRENADE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_THROWFLARE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_DOUBLEJUMP, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_ESCAPEFROMBOMB, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_DESTROYBREAKABLE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_HIDE, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_BLINDED, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_SPRAYLOGO, 0, -1, 0.0f, false},
-   {nullptr, nullptr, TASK_MOVETOTARGET, 0, -1, 0.0f, true},
-   {nullptr, nullptr, TASK_GOINGFORCAMP, 0, -1, 0.0f, true}
+   {TASK_NORMAL, 0, -1, 0.0f, true},
+   {TASK_PAUSE, 0, -1, 0.0f, false},
+   {TASK_MOVETOPOSITION, 0, -1, 0.0f, true},
+   {TASK_FOLLOWUSER, 0, -1, 0.0f, true},
+   {TASK_PICKUPITEM, 0, -1, 0.0f, true},
+   {TASK_CAMP, 0, -1, 0.0f, true},
+   {TASK_PLANTBOMB, 0, -1, 0.0f, false},
+   {TASK_DEFUSEBOMB, 0, -1, 0.0f, false},
+   {TASK_FIGHTENEMY, 0, -1, 0.0f, false},
+   {TASK_HUNTENEMY, 0, -1, 0.0f, false},
+   {TASK_SEEKCOVER, 0, -1, 0.0f, false},
+   {TASK_THROWHEGRENADE, 0, -1, 0.0f, false},
+   {TASK_THROWFBGRENADE, 0, -1, 0.0f, false},
+   {TASK_THROWSMGRENADE, 0, -1, 0.0f, false},
+   {TASK_DOUBLEJUMP, 0, -1, 0.0f, false},
+   {TASK_ESCAPEFROMBOMB, 0, -1, 0.0f, false},
+   {TASK_DESTROYBREAKABLE, 0, -1, 0.0f, false},
+   {TASK_HIDE, 0, -1, 0.0f, false},
+   {TASK_BLINDED, 0, -1, 0.0f, false},
+   {TASK_SPRAYLOGO, 0, -1, 0.0f, false},
+   {TASK_MOVETOTARGET, 0, -1, 0.0f, true},
+   {TASK_GOINGFORCAMP, 0, -1, 0.0f, true}
 };
 
 WeaponSelect g_weaponSelect[Const_NumWeapons + 1] =

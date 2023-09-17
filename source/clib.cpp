@@ -200,6 +200,12 @@ size_t cstrlen(const char* str)
 // glibc's strcmp is not working like windows's strcmp, so it retuns incorrect value that causing bot always be in spectating team...
 int cstrcmp(const char* str1, const char* str2)
 {
+	if (str1 == nullptr)
+		return -1;
+
+	if (str2 == nullptr)
+		return -1;
+
 	int t1, t2;
 
 	do
@@ -226,6 +232,12 @@ int cstrcmp(const char* str1, const char* str2)
 
 int cstrncmp(const char* str1, const char* str2, const size_t num)
 {
+	if (str1 == nullptr)
+		return 0;
+
+	if (str2 == nullptr)
+		return 0;
+
 	for (size_t i = 0; i < num; ++i)
 	{
 		if (str1[i] != str2[i])

@@ -321,8 +321,14 @@ void BotControl::Think(void)
 		if (bot == nullptr)
 			continue;
 
-		bot->Think();
+		if (bot->m_thinkDelay < engine->GetTime())
+		{
+			bot->Think();
+			bot->m_thinkDelay = engine->GetTime() + 0.1f;
+		}
+		
 		bot->FacePosition();
+		bot->RunPlayer();
 	}
 }
 
@@ -464,13 +470,13 @@ int BotControl::AddBotAPI(const String& name, int skill, int team)
 	// check the result of creation
 	if (resultOfCall == -1)
 	{
-		m_creationTab.RemoveAll(); // something wrong with waypoints, reset tab of creation
+		m_creationTab.Destroy(); // something wrong with waypoints, reset tab of creation
 		ebot_quota.SetInt(0); // reset quota
 		ChartPrint("[E-BOT] You can input [ebot sgdwp on] make the new waypoints!!");
 	}
 	else if (resultOfCall == -2)
 	{
-		m_creationTab.RemoveAll(); // maximum players reached, so set quota to maximum players
+		m_creationTab.Destroy(); // maximum players reached, so set quota to maximum players
 		ebot_quota.SetInt(GetBotsNum());
 	}
 
@@ -487,19 +493,19 @@ void BotControl::MaintainBotQuota(void)
 	{
 		CreateItem last = m_creationTab.Pop();
 
-		int resultOfCall = CreateBot(last.name, last.skill, last.personality, last.team, last.member);
+		const int resultOfCall = CreateBot(last.name, last.skill, last.personality, last.team, last.member);
 
 		// check the result of creation
 		if (resultOfCall == -1)
 		{
-			m_creationTab.RemoveAll(); // something wrong with waypoints, reset tab of creation
+			m_creationTab.Destroy(); // something wrong with waypoints, reset tab of creation
 			ebot_quota.SetInt(0); // reset quota
 			
 			ChartPrint("[E-BOT] You can input [ebot sgdwp on] make the new waypoints.");
 		}
 		else if (resultOfCall == -2)
 		{
-			m_creationTab.RemoveAll(); // maximum players reached, so set quota to maximum players
+			m_creationTab.Destroy(); // maximum players reached, so set quota to maximum players
 			ebot_quota.SetInt(GetBotsNum());
 		}
 
@@ -534,7 +540,7 @@ void BotControl::MaintainBotQuota(void)
 			m_maintainTime = AddTime(1.0f);
 
 			if (ebot_save_bot_names.GetBool() && !m_savedBotNames.IsEmpty()) // clear the saved names when quota balancing ended
-				m_savedBotNames.Destory();
+				m_savedBotNames.Destroy();
 		}
 
 		if (ebot_quota.GetInt() > maxClients)
@@ -547,7 +553,7 @@ void BotControl::MaintainBotQuota(void)
 void BotControl::InitQuota(void)
 {
 	m_maintainTime = AddTime(2.0f);
-	m_creationTab.RemoveAll();
+	m_creationTab.Destroy();
 	for (int i = 0; i < entityNum; i++)
 		SetEntityActionData(i);
 }
@@ -618,11 +624,11 @@ void BotControl::RemoveAll(void)
 			bot->Kick();
 	}
 
-	m_creationTab.RemoveAll();
+	m_creationTab.Destroy();
 
 	// if everyone is kicked, clear the saved bot names
 	if (ebot_save_bot_names.GetBool() && !m_savedBotNames.IsEmpty())
-		m_savedBotNames.Destory();
+		m_savedBotNames.Destroy();
 
 	// reset cvars
 	ebot_quota.SetInt(0);
@@ -1160,7 +1166,6 @@ void Bot::NewRound(void)
 
 	m_lastDamageType = -1;
 	m_voteMap = 0;
-	m_doorOpenAttempt = 0;
 	m_aimFlags = 0;
 
 	m_position = nullvec;

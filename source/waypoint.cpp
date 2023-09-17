@@ -478,7 +478,7 @@ void Waypoint::ChangeZBCampPoint(Vector origin)
         }
     }
 
-    m_zmHmPoints.RemoveAll();
+    m_zmHmPoints.Destroy();
 
     if (point[1] != -1)
         m_zmHmPoints.Push(point[1]);
@@ -1524,16 +1524,16 @@ Vector Waypoint::GetBottomOrigin(const Path* waypoint)
 
 void Waypoint::InitTypes()
 {
-    m_terrorPoints.RemoveAll();
-    m_ctPoints.RemoveAll();
-    m_goalPoints.RemoveAll();
-    m_campPoints.RemoveAll();
-    m_rescuePoints.RemoveAll();
-    m_sniperPoints.RemoveAll();
-    m_visitedGoals.RemoveAll();
-    m_zmHmPoints.RemoveAll();
-    m_hmMeshPoints.RemoveAll();
-    m_otherPoints.RemoveAll();
+    m_terrorPoints.Destroy();
+    m_ctPoints.Destroy();
+    m_goalPoints.Destroy();
+    m_campPoints.Destroy();
+    m_rescuePoints.Destroy();
+    m_sniperPoints.Destroy();
+    m_visitedGoals.Destroy();
+    m_zmHmPoints.Destroy();
+    m_hmMeshPoints.Destroy();
+    m_otherPoints.Destroy();
 
     for (int i = 0; i < g_numWaypoints; i++)
     {
@@ -1629,69 +1629,56 @@ bool Waypoint::Load(int mode)
         WaypointHeader header;
         fp.Read(&header, sizeof(header));
 
-        if (cstricmp(header.mapName, GetMapName()) && mode == 0)
+        Initialize();
+
+        if (header.fileVersion >= FV_WAYPOINT)
         {
-            m_badMapName = true;
+            g_numWaypoints = header.pointNumber;
 
-            sprintf(m_infoBuffer, "%s.ewp - hacked/broken waypoint file, fileName doesn't match waypoint header information (mapname: '%s', header: '%s')", GetMapName(), GetMapName(), header.mapName);
-            AddLogEntry(LOG_ERROR, m_infoBuffer);
+            for (int i = 0; i < g_numWaypoints; i++)
+            {
+                m_paths[i] = new Path;
 
-            fp.Close();
-            return false;
+                if (m_paths[i] == nullptr)
+                    return false;
+
+                fp.Read(m_paths[i], sizeof(Path));
+            }
         }
         else
         {
-            Initialize();
+            g_numWaypoints = header.pointNumber;
+            PathOLD* paths[g_numWaypoints];
 
-            if (header.fileVersion >= FV_WAYPOINT)
+            for (int i = 0; i < g_numWaypoints; i++)
             {
-                g_numWaypoints = header.pointNumber;
+                paths[i] = new PathOLD;
+                if (paths[i] == nullptr)
+                    return false;
 
-                for (int i = 0; i < g_numWaypoints; i++)
+                fp.Read(paths[i], sizeof(PathOLD));
+
+                m_paths[i] = new Path;
+                if (m_paths[i] == nullptr)
+                    return false;
+
+                m_paths[i]->origin = paths[i]->origin;
+                m_paths[i]->radius = paths[i]->radius;
+                m_paths[i]->flags = paths[i]->flags;
+                m_paths[i]->mesh = static_cast<int16>(paths[i]->campStartX);
+                m_paths[i]->gravity = paths[i]->campStartY;
+
+                for (int C = 0; C < 8; C++)
                 {
-                    m_paths[i] = new Path;
-
-                    if (m_paths[i] == nullptr)
-                        return false;
-
-                    fp.Read(m_paths[i], sizeof(Path));
+                    m_paths[i]->index[C] = paths[i]->index[C];
+                    m_paths[i]->connectionFlags[C] = paths[i]->connectionFlags[C];
                 }
             }
-            else
-            {
-                g_numWaypoints = header.pointNumber;
-                PathOLD* paths[g_numWaypoints];
 
-                for (int i = 0; i < g_numWaypoints; i++)
-                {
-                    paths[i] = new PathOLD;
-                    if (paths[i] == nullptr)
-                        return false;
-
-                    fp.Read(paths[i], sizeof(PathOLD));
-
-                    m_paths[i] = new Path;
-                    if (m_paths[i] == nullptr)
-                        return false;
-
-                    m_paths[i]->origin = paths[i]->origin;
-                    m_paths[i]->radius = paths[i]->radius;
-                    m_paths[i]->flags = paths[i]->flags;
-                    m_paths[i]->mesh = static_cast<int16>(paths[i]->campStartX);
-                    m_paths[i]->gravity = paths[i]->campStartY;
-
-                    for (int C = 0; C < 8; C++)
-                    {
-                        m_paths[i]->index[C] = paths[i]->index[C];
-                        m_paths[i]->connectionFlags[C] = paths[i]->connectionFlags[C];
-                    }
-                }
-
-                Save();
-            }
-
-            m_waypointPaths = true;
+            Save();
         }
+
+        m_waypointPaths = true;
 
         if (cstrncmp(header.author, "EfeDursun125", 12) == 0 || cstrncmp(header.author, "Mysticpawn", 10) == 0 || cstrncmp(header.author, "Ark | Mysticpawn", 16) == 0)
             sprintf(m_infoBuffer, "Using Official Waypoint File By: %s", header.author);
@@ -1838,6 +1825,10 @@ void Waypoint::SaveOLD(void)
 
         for (int i = 0; i < header.pointNumber; i++)
         {
+            paths[i] = new PathOLD;
+            if (!paths[i])
+                continue;
+
             paths[i]->pathNumber = i;
             paths[i]->origin = m_paths[i]->origin;
             paths[i]->flags = m_paths[i]->flags;
@@ -1888,9 +1879,8 @@ void Waypoint::SaveOLD(void)
                         paths[i]->connectionVelocity[x].y = (waypointOrigin.y - myOrigin.y) / timeToReachWaypoint;
                         paths[i]->connectionVelocity[x].z = 2.0f * (waypointOrigin.z - myOrigin.z - 0.5f * 1.0f * SquaredF(timeToReachWaypoint)) / timeToReachWaypoint;
 
-                        const float limit = (250.0f * 1.25f);
-                        if (paths[i]->connectionVelocity[x].z > limit)
-                            paths[i]->connectionVelocity[x].z = limit;
+                        if (paths[i]->connectionVelocity[x].z > 250.0f)
+                            paths[i]->connectionVelocity[x].z = 250.0f;
                     }
                 }
             }
@@ -1899,6 +1889,9 @@ void Waypoint::SaveOLD(void)
         // save the waypoint paths...
         for (int i = 0; i < header.pointNumber; i++)
             fp.Write(paths[i], sizeof(PathOLD));
+
+        for (int i = 0; i < header.pointNumber; i++)
+            delete paths[i];
 
         fp.Close();
     }
@@ -1955,12 +1948,12 @@ bool Waypoint::Reachable(edict_t* entity, const int index)
     Vector src = GetEntityOrigin(entity);
     Vector dest = m_paths[index]->origin;
 
-    if ((dest - src).GetLengthSquared() >= SquaredF(1200.0f))
+    if ((dest - src).GetLengthSquared() > SquaredF(1200.0f))
         return false;
 
     if (entity->v.waterlevel != 2 && entity->v.waterlevel != 3)
     {
-        if ((dest.z > src.z + 62.0f || dest.z < src.z - 100.0f) && (!(GetPath(index)->flags & WAYPOINT_LADDER) || (dest - src).GetLengthSquared2D() >= SquaredF(120.0f)))
+        if ((dest.z > src.z + 62.0f || dest.z < src.z - 100.0f) && (!(GetPath(index)->flags & WAYPOINT_LADDER) || (dest - src).GetLengthSquared2D() > SquaredF(120.0f)))
             return false;
     }
 
@@ -3151,13 +3144,13 @@ Waypoint::Waypoint(void)
     m_pathDisplayTime = 0.0f;
     m_arrowDisplayTime = 0.0f;
 
-    m_terrorPoints.RemoveAll();
-    m_ctPoints.RemoveAll();
-    m_goalPoints.RemoveAll();
-    m_campPoints.RemoveAll();
-    m_rescuePoints.RemoveAll();
-    m_sniperPoints.RemoveAll();
-    m_otherPoints.RemoveAll();
+    m_terrorPoints.Destroy();
+    m_ctPoints.Destroy();
+    m_goalPoints.Destroy();
+    m_campPoints.Destroy();
+    m_rescuePoints.Destroy();
+    m_sniperPoints.Destroy();
+    m_otherPoints.Destroy();
 }
 
 Waypoint::~Waypoint(void)

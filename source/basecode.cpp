@@ -385,7 +385,7 @@ void Bot::ZmCampPointAction(int mode)
 			campPointWaypointIndex = m_chosenGoalIndex;
 		}
 	}
-	else if (mode == 0 && g_waypoint->IsZBCampPoint(GetCurrentTask()->data) && IsValidWaypoint(GetCurrentTask()->data))
+	else if (mode == 0 && g_waypoint->IsZBCampPoint(GetCurrentGoalID()) && IsValidWaypoint(GetCurrentGoalID()))
 	{
 		if (&m_navNode[0] != nullptr)
 		{
@@ -395,13 +395,13 @@ void Bot::ZmCampPointAction(int mode)
 			while (navid != nullptr && movePoint <= 2)
 			{
 				movePoint++;
-				if (GetCurrentTask()->data == navid->index)
+				if (GetCurrentGoalID() == navid->index)
 				{
 					auto navPoint = g_waypoint->GetPath(navid->index);
 					if ((navPoint->origin - pev->origin).GetLengthSquared2D() <= SquaredF(256.0f) && navPoint->origin.z + 40.0f <= pev->origin.z && navPoint->origin.z - 25.0f >= pev->origin.z && IsWaypointOccupied(navid->index))
 					{
 						campAction = (movePoint * 1.8f);
-						campPointWaypointIndex = GetCurrentTask()->data;
+						campPointWaypointIndex = GetCurrentGoalID();
 						break;
 					}
 				}
@@ -702,22 +702,22 @@ void Bot::FindItem(void)
 	if (IsZombieMode() && m_currentWeapon != WEAPON_KNIFE) // if we're holding knife, mostly our guns dont have a ammo
 		return;
 
-	if (GetCurrentTask()->taskID == TASK_ESCAPEFROMBOMB)
+	if (GetCurrentTaskID() == TASK_ESCAPEFROMBOMB)
 		return;
 
-	if (GetCurrentTask()->taskID == TASK_PLANTBOMB)
+	if (GetCurrentTaskID() == TASK_PLANTBOMB)
 		return;
 
-	if (GetCurrentTask()->taskID == TASK_THROWHEGRENADE)
+	if (GetCurrentTaskID() == TASK_THROWHEGRENADE)
 		return;
 
-	if (GetCurrentTask()->taskID == TASK_THROWFBGRENADE)
+	if (GetCurrentTaskID() == TASK_THROWFBGRENADE)
 		return;
 
-	if (GetCurrentTask()->taskID == TASK_THROWSMGRENADE)
+	if (GetCurrentTaskID() == TASK_THROWSMGRENADE)
 		return;
 
-	if (GetCurrentTask()->taskID == TASK_DESTROYBREAKABLE)
+	if (GetCurrentTaskID() == TASK_DESTROYBREAKABLE)
 		return;
 
 	if (!FNullEnt(m_enemy))
@@ -940,7 +940,7 @@ void Bot::FindItem(void)
 				m_itemIgnore = ent;
 				allowPickup = false;
 
-				if (m_skill > 80 && ChanceOf(50) && GetCurrentTask()->taskID != TASK_GOINGFORCAMP && GetCurrentTask()->taskID != TASK_CAMP)
+				if (m_skill > 80 && ChanceOf(50) && GetCurrentTaskID() != TASK_GOINGFORCAMP && GetCurrentTaskID() != TASK_CAMP)
 				{
 					int index = FindDefendWaypoint(entityOrigin);
 					m_campposition = g_waypoint->GetPath(index)->origin;
@@ -1794,9 +1794,10 @@ int Bot::BuyWeaponMode(int weaponId)
 	return gunMode;
 }
 
-// this function iven some values min and max, clamp the inputs to be inside the [min, max] range
-Task* ClampDesire(Task* first, float min, float max)
+TaskItem* ClampDesire(TaskItem* first, float min, float max)
 {
+	// this function iven some values min and max, clamp the inputs to be inside the [min, max] range.
+
 	if (first->desire < min)
 		first->desire = min;
 	else if (first->desire > max)
@@ -1805,36 +1806,41 @@ Task* ClampDesire(Task* first, float min, float max)
 	return first;
 }
 
-// this function returns the behavior having the higher activation level
-Task* MaxDesire(Task* first, Task* second)
+TaskItem* MaxDesire(TaskItem* first, TaskItem* second)
 {
+	// this function returns the behavior having the higher activation level.
+
 	if (first->desire > second->desire)
 		return first;
 
 	return second;
 }
 
-// this function returns the first behavior if its activation level is anything higher than zero
-Task* SubsumeDesire(Task* first, Task* second)
+TaskItem* SubsumeDesire(TaskItem* first, TaskItem* second)
 {
+	// this function returns the first behavior if its activation level is anything higher than zero.
+
 	if (first->desire > 0)
 		return first;
 
 	return second;
 }
 
-// this function returns the input behavior if it's activation level exceeds the threshold, or some default behavior otherwise
-Task* ThresholdDesire(Task* first, float threshold, float desire)
+TaskItem* ThresholdDesire(TaskItem* first, float threshold, float desire)
 {
+	// this function returns the input behavior if it's activation level exceeds the threshold, or some default
+	// behavior otherwise.
+
 	if (first->desire < threshold)
 		first->desire = desire;
 
 	return first;
 }
 
-// this function clamp the inputs to be the last known value outside the [min, max] range
 float HysteresisDesire(float cur, float min, float max, float old)
 {
+	// this function clamp the inputs to be the last known value outside the [min, max] range.
+
 	if (cur <= min || cur >= max)
 		old = cur;
 
@@ -1960,14 +1966,22 @@ void Bot::SetConditions(void)
 		m_itemCheckTime = engine->GetTime() + g_gameVersion == HALFLIFE ? 1.0f : CRandomInt(2.0f, 4.0f);
 	}
 
+	ApplyTaskFilters();
+}
+
+void Bot::ApplyTaskFilters(void)
+{
+	// initialize & calculate the desire for all actions based on distances, emotions and other stuff
+	GetCurrentTask();
+
 	float tempFear = m_fearLevel;
 	float tempAgression = m_agressionLevel;
 
 	// decrease fear if teammates near
 	int friendlyNum = 0;
 
-	if (m_lastEnemyOrigin != nullvec && m_numFriendsLeft > 0 && m_numEnemiesLeft > 0)
-		friendlyNum = GetNearbyFriendsNearPosition(pev->origin, 320.0f) - GetNearbyEnemiesNearPosition(m_lastEnemyOrigin, 512.0f);
+	if (m_lastEnemyOrigin != nullvec)
+		friendlyNum = GetNearbyFriendsNearPosition(pev->origin, 500.0f) - GetNearbyEnemiesNearPosition(m_lastEnemyOrigin, 500.0f);
 
 	if (friendlyNum > 0)
 		tempFear = tempFear * 0.5f;
@@ -1979,11 +1993,8 @@ void Bot::SetConditions(void)
 		tempAgression = tempAgression * 0.5f;
 	}
 
-	// initialize & calculate the desire for all actions based on distances, emotions and other stuff
-	GetCurrentTask();
-
 	// bot found some item to use?
-	if (m_pickupType != PICKTYPE_NONE && !FNullEnt(m_pickupItem) && !(m_states & STATE_SEEINGENEMY))
+	if (!FNullEnt(m_pickupItem) && GetCurrentTaskID() != TASK_ESCAPEFROMBOMB)
 	{
 		m_states |= STATE_PICKUPITEM;
 
@@ -1991,10 +2002,9 @@ void Bot::SetConditions(void)
 			g_taskFilters[TASK_PICKUPITEM].desire = 50.0f; // always pickup button
 		else
 		{
-			float distance = (SquaredF(500.0f) - (GetEntityOrigin(m_pickupItem) - pev->origin).GetLengthSquared()) * 0.2f;
-
-			if (distance > SquaredF(60.0f))
-				distance = SquaredF(60.0f);
+			float distance = (500.0f - (GetEntityOrigin(m_pickupItem) - pev->origin).GetLength()) * 0.2f;
+			if (distance > 50.0f)
+				distance = 50.0f;
 
 			g_taskFilters[TASK_PICKUPITEM].desire = distance;
 		}
@@ -2005,22 +2015,22 @@ void Bot::SetConditions(void)
 		g_taskFilters[TASK_PICKUPITEM].desire = 0.0f;
 	}
 
-	float desireLevel = 0.0f;
-
 	// calculate desire to attack
-	if (GetCurrentTask()->taskID != TASK_THROWFBGRENADE && GetCurrentTask()->taskID != TASK_THROWHEGRENADE && GetCurrentTask()->taskID != TASK_THROWSMGRENADE && (m_states & STATE_SEEINGENEMY) && ReactOnEnemy())
+	if ((m_states & STATE_SEEINGENEMY) && ReactOnEnemy())
 		g_taskFilters[TASK_FIGHTENEMY].desire = TASKPRI_FIGHTENEMY;
-	else if (GetCurrentTask()->taskID != TASK_THROWFBGRENADE && GetCurrentTask()->taskID != TASK_THROWHEGRENADE && GetCurrentTask()->taskID != TASK_THROWSMGRENADE)
-		g_taskFilters[TASK_FIGHTENEMY].desire = 0;
+	else
+		g_taskFilters[TASK_FIGHTENEMY].desire = 0.0f;
 
 	// calculate desires to seek cover or hunt
-	if (!IsZombieMode() && IsValidPlayer(m_lastEnemy) && m_lastEnemyOrigin != nullvec && !((g_mapType & MAP_DE) && g_bombPlanted) && !m_isBomber && (m_loosedBombWptIndex == -1 && m_team == TEAM_TERRORIST))
+	if (!IsZombieMode() && IsValidPlayer(m_lastEnemy) && m_lastEnemyOrigin != nullvec)
 	{
-		float distance = (m_lastEnemyOrigin - pev->origin).GetLengthSquared();
+		float distance = (m_lastEnemyOrigin - pev->origin).GetLength();
+
+		// retreat level depends on bot health
+		float retreatLevel = (100.0f - (pev->health > 100.0f ? 100.0f : pev->health)) * tempFear;
 		float timeSeen = m_seeEnemyTime - engine->GetTime();
 		float timeHeard = m_heardSoundTime - engine->GetTime();
 		float ratio = 0.0f;
-		float retreatLevel = (100.0f - pev->health) * tempFear;
 
 		if (timeSeen > timeHeard)
 		{
@@ -2033,33 +2043,25 @@ void Bot::SetConditions(void)
 			ratio = timeHeard * 0.1f;
 		}
 
-		if (m_isZombieBot)
-			ratio = 0;
-		else
-		{
-			if (!FNullEnt(m_enemy) && IsZombieEntity(m_enemy))
-				ratio *= 10.0f;
-			else if (!FNullEnt(m_lastEnemy) && IsZombieEntity(m_lastEnemy))
-				ratio *= 6.0f;
-			else if (g_bombPlanted || m_isStuck)
-				ratio *= 0.33333333333f;
-			else if (m_isVIP || m_isReloading)
-				ratio *= 2.0f;
-		}
+		if (g_bombPlanted || m_isStuck)
+			ratio /= 3.0f; // reduce the seek cover desire if bomb is planted
+		else if (m_isVIP || m_isReloading)
+			ratio *= 3.0f; // triple the seek cover desire if bot is VIP or reloading
 
-		if (!m_isZombieBot && ((!FNullEnt(m_enemy) && IsZombieEntity(m_enemy)) || (!FNullEnt(m_lastEnemy) && IsZombieEntity(m_lastEnemy))))
+		if (distance > 500.0f)
 			g_taskFilters[TASK_SEEKCOVER].desire = retreatLevel * ratio;
 
 		// if half of the round is over, allow hunting
 		// FIXME: it probably should be also team/map dependant
-		if (FNullEnt(m_enemy) && (g_timeRoundMid < engine->GetTime()) && !m_isUsingGrenade && m_personality != PERSONALITY_CAREFUL && m_currentWaypointIndex != g_waypoint->FindNearestInCircle(m_lastEnemyOrigin))
+		if (GetCurrentTaskID() != TASK_ESCAPEFROMBOMB && FNullEnt(m_enemy) && g_timeRoundMid < engine->GetTime() && !m_isUsingGrenade && m_currentWaypointIndex != g_waypoint->FindNearestInCircle(m_lastEnemyOrigin) && m_personality != PERSONALITY_CAREFUL)
 		{
-			desireLevel = 4096.0f - ((1.0f - tempAgression) * csqrtf(distance));
-			desireLevel = (100 * desireLevel) / 4096.0f;
+			float desireLevel = 4096.0f - ((1.0f - tempAgression) * distance);
+
+			desireLevel = (100.0f * desireLevel) / 4096.0;
 			desireLevel -= retreatLevel;
 
-			if (desireLevel > 89)
-				desireLevel = 89;
+			if (desireLevel > 89.0f)
+				desireLevel = 89.0f;
 
 			if (IsDeathmatchMode())
 				desireLevel *= 2;
@@ -2077,15 +2079,15 @@ void Bot::SetConditions(void)
 			g_taskFilters[TASK_HUNTENEMY].desire = desireLevel;
 		}
 		else
-			g_taskFilters[TASK_HUNTENEMY].desire = 0;
+			g_taskFilters[TASK_HUNTENEMY].desire = 0.0f;
 	}
 	else
 	{
-		g_taskFilters[TASK_SEEKCOVER].desire = 0;
-		g_taskFilters[TASK_HUNTENEMY].desire = 0;
+		g_taskFilters[TASK_SEEKCOVER].desire = 0.0f;
+		g_taskFilters[TASK_HUNTENEMY].desire = 0.0f;
 	}
 
-	// blinded behaviour
+	// blinded behavior
 	if (m_blindTime > engine->GetTime())
 		g_taskFilters[TASK_BLINDED].desire = TASKPRI_BLINDED;
 	else
@@ -2103,442 +2105,151 @@ void Bot::SetConditions(void)
 	// utility i wrote so there could still be some weird behaviors, it's
 	// hard to check them all out.
 
-	m_oldCombatDesire = HysteresisDesire(g_taskFilters[TASK_FIGHTENEMY].desire, 40.0, 90.0, m_oldCombatDesire);
+	m_oldCombatDesire = HysteresisDesire(g_taskFilters[TASK_FIGHTENEMY].desire, 40.0f, 90.0f, m_oldCombatDesire);
 	g_taskFilters[TASK_FIGHTENEMY].desire = m_oldCombatDesire;
 
-	Task* taskOffensive = &g_taskFilters[TASK_FIGHTENEMY];
-	Task* taskPickup = &g_taskFilters[TASK_PICKUPITEM];
+	TaskItem* taskOffensive = &g_taskFilters[TASK_FIGHTENEMY];
+	TaskItem* taskPickup = &g_taskFilters[TASK_PICKUPITEM];
 
 	// calc survive (cover/hide)
-	Task* taskSurvive = ThresholdDesire(&g_taskFilters[TASK_SEEKCOVER], 40.0, 0.0f);
+	TaskItem* taskSurvive = ThresholdDesire(&g_taskFilters[TASK_SEEKCOVER], 40.0f, 0.0f);
 	taskSurvive = SubsumeDesire(&g_taskFilters[TASK_HIDE], taskSurvive);
 
+	TaskItem* def = ThresholdDesire(&g_taskFilters[TASK_HUNTENEMY], 41.0f, 0.0f); // don't allow hunting if desires 60<
 	taskOffensive = SubsumeDesire(taskOffensive, taskPickup); // if offensive task, don't allow picking up stuff
 
-	Task* final = SubsumeDesire(&g_taskFilters[TASK_BLINDED], MaxDesire(taskOffensive, &g_taskFilters[TASK_HIDE])); // reason about fleeing instead
+	TaskItem* taskSub = MaxDesire(taskOffensive, def); // default normal & careful tasks against offensive actions
+	TaskItem* final = SubsumeDesire(&g_taskFilters[TASK_BLINDED], MaxDesire(taskSurvive, taskSub)); // reason about fleeing instead
 
-	if (m_tasks != nullptr)
-		final = MaxDesire(final, m_tasks);
-
-	PushTask(final);
+	if (!m_tasks.IsEmpty())
+	{
+		final = MaxDesire(final, GetCurrentTask());
+		PushTask(final->id, final->desire, final->data, final->time, final->resume); // push the final behavior in our task stack to carry out
+	}
 }
-
 // this function resets bot tasks stack, by removing all entries from the stack
 void Bot::ResetTasks(void)
 {
-	if (!m_tasks)
-		return; // reliability check
-
-	Task* next = m_tasks->next;
-	Task* prev = m_tasks;
-
-	while (m_tasks != nullptr)
-	{
-		prev = m_tasks->prev;
-
-		delete m_tasks;
-		m_tasks = prev;
-	}
-
-	m_tasks = next;
-
-	while (m_tasks != nullptr)
-	{
-		next = m_tasks->next;
-
-		delete m_tasks;
-		m_tasks = next;
-	}
-
-	m_tasks = nullptr;
+	m_tasks.Destroy();
 }
 
-// this function checks the tasks priorities
-void Bot::CheckTasksPriorities(void)
-{
-	if (!m_tasks)
-	{
-		GetCurrentTask();
-		return;
-	}
-
-	Task* oldTask = m_tasks;
-	Task* prev = nullptr;
-	Task* next = nullptr;
-
-	while (m_tasks->prev != nullptr)
-	{
-		prev = m_tasks->prev;
-		m_tasks = prev;
-	}
-
-	Task* firstTask = m_tasks;
-	Task* maxDesiredTask = m_tasks;
-
-	float maxDesire = m_tasks->desire;
-
-	// search for the most desired task
-	while (m_tasks->next != nullptr)
-	{
-		next = m_tasks->next;
-		m_tasks = next;
-
-		if (m_tasks->desire >= maxDesire)
-		{
-			maxDesiredTask = m_tasks;
-			maxDesire = m_tasks->desire;
-		}
-	}
-
-	m_tasks = maxDesiredTask; // now we found the most desired pushed task...
-
-	// something was changed with priorities, check if some task doesn't need to be deleted...
-	if (oldTask != maxDesiredTask)
-	{
-		m_tasks = firstTask;
-
-		while (m_tasks != nullptr)
-		{
-			next = m_tasks->next;
-
-			// some task has to be deleted if cannot be continued...
-			if (m_tasks != maxDesiredTask && !m_tasks->canContinue)
-			{
-				if (m_tasks->prev != nullptr)
-					m_tasks->prev->next = m_tasks->next;
-
-				if (m_tasks->next != nullptr)
-					m_tasks->next->prev = m_tasks->prev;
-
-				delete m_tasks;
-			}
-			m_tasks = next;
-		}
-	}
-
-	m_tasks = maxDesiredTask;
-
-	if (IsValidWaypoint(ebot_debuggoal.GetInt()))
-		m_chosenGoalIndex = ebot_debuggoal.GetInt();
-	else
-		m_chosenGoalIndex = m_tasks->data;
-
-	if (!IsValidWaypoint(m_chosenGoalIndex))
-		m_chosenGoalIndex = g_waypoint->m_otherPoints.GetRandomElement();
-}
-
-// this function builds task
-void Bot::PushTask(BotTask taskID, float desire, int data, float time, bool canContinue, bool force)
+void Bot::PushTask(BotTask id, float desire, int data, float time, bool resume, bool force)
 {
 	if (!force)
 	{
-		if (taskID == TASK_GOINGFORCAMP && !CampingAllowed())
+		if (id == TASK_GOINGFORCAMP && !CampingAllowed())
 			return;
 
-		if (taskID == TASK_ESCAPEFROMBOMB && !g_bombPlanted)
+		if (id == TASK_ESCAPEFROMBOMB && !g_bombPlanted)
 			return;
 	}
 
-	float realTime;
+	if (!m_tasks.IsEmpty())
+	{
+		TaskItem& item = m_tasks.Last();
 
-	// auto game time
-	if (time != -1.0f && time < engine->GetTime())
-		realTime = AddTime(time);
+		if (item.id == id)
+		{
+			item.desire = desire;
+			return;
+		}
+	}
+
+	TaskItem item;
+
+	item.id = id;
+	item.desire = desire;
+	item.data = data;
+	item.time = time;
+	item.resume = resume;
+
+	m_tasks.Push(item);
+
+	DeleteSearchNodes();
+	IgnoreCollisionShortly();
+
+	// leader bot?
+	if (m_isLeader && GetCurrentTaskID() == TASK_SEEKCOVER)
+		CommandTeam(); // reorganize team if fleeing
+
+	if (GetCurrentTaskID() == TASK_CAMP)
+		SelectBestWeapon();
+
+	if (ebot_debuggoal.GetInt() != -1)
+		m_chosenGoalIndex = ebot_debuggoal.GetInt();
 	else
-		realTime = time;
-
-	Task task = { nullptr, nullptr, taskID, desire, data, realTime, canContinue };
-	PushTask(&task); // use standard function to start task
+		m_chosenGoalIndex = GetCurrentTask()->data;
 }
 
-// this function adds task pointer on the bot task stack
-void Bot::PushTask(Task* task)
+TaskItem* Bot::GetCurrentTask(void)
 {
-	bool newTaskDifferent = false;
-	bool foundTaskExisting = false;
-	bool checkPriorities = false;
-
-	Task* oldTask = GetCurrentTask(); // remember our current task
-
-	// at the beginning need to clean up all null tasks...
-	if (!m_tasks)
+	if (m_tasks.IsEmpty())
 	{
-		m_lastCollTime = engine->GetTime() + 0.5f;
+		m_tasks.Destroy();
 
-		Task* newTask = new Task;
+		TaskItem task;
 
-		newTask->taskID = TASK_NORMAL;
-		newTask->desire = TASKPRI_NORMAL;
-		newTask->canContinue = true;
-		newTask->time = 0.0f;
-		newTask->data = -1;
-		newTask->next = newTask->prev = nullptr;
+		task.id = TASK_NORMAL;
+		task.desire = TASKPRI_NORMAL;
+		task.data = -1;
+		task.time = 0.0f;
+		task.resume = true;
 
-		m_tasks = newTask;
-		DeleteSearchNodes();
-
-		if (task == nullptr)
-			return;
-		else if (task->taskID == TASK_NORMAL)
-		{
-			m_tasks->desire = TASKPRI_NORMAL;
-			m_tasks->data = task->data;
-			m_tasks->time = task->time;
-
-			return;
-		}
-	}
-	else if (task == nullptr)
-		return;
-
-	// it shouldn't happen this condition now as false...
-	if (m_tasks != nullptr)
-	{
-		if (m_tasks->taskID == task->taskID)
-		{
-			if (m_tasks->data != task->data)
-			{
-				m_lastCollTime = engine->GetTime() + 0.5f;
-
-				DeleteSearchNodes();
-				m_tasks->data = task->data;
-			}
-
-			if (m_tasks->desire != task->desire)
-			{
-				m_tasks->desire = task->desire;
-				checkPriorities = true;
-			}
-			else if (m_tasks->data == task->data)
-				return;
-		}
-		else
-		{
-			// find the first task on the stack and don't allow push the new one like the same already existing one
-			while (m_tasks->prev != nullptr)
-			{
-				m_tasks = m_tasks->prev;
-
-				if (m_tasks->taskID == task->taskID)
-				{
-					foundTaskExisting = true;
-
-					if (m_tasks->desire != task->desire)
-						checkPriorities = true;
-
-					m_tasks->desire = task->desire;
-					m_tasks->data = task->data;
-					m_tasks->time = task->time;
-					m_tasks->canContinue = task->canContinue;
-					m_tasks = oldTask;
-
-					break; // now we may need to check the current max desire or next tasks...
-				}
-			}
-
-			// now go back to the previous stack position and try to find the same task as one of "the next" ones (already pushed before and not finished yet)
-			if (!foundTaskExisting && !checkPriorities)
-			{
-				m_tasks = oldTask;
-
-				while (m_tasks->next != nullptr)
-				{
-					m_tasks = m_tasks->next;
-
-					if (m_tasks->taskID == task->taskID)
-					{
-						foundTaskExisting = true;
-
-						if (m_tasks->desire != task->desire)
-							checkPriorities = true;
-
-						m_tasks->desire = task->desire;
-						m_tasks->data = task->data;
-						m_tasks->time = task->time;
-						m_tasks->canContinue = task->canContinue;
-						m_tasks = oldTask;
-
-						break; // now we may need to check the current max desire...
-					}
-				}
-			}
-
-			if (!foundTaskExisting)
-				newTaskDifferent = true; // we have some new task pushed on the stack...
-		}
+		m_tasks.Push(task);
 	}
 
-	m_tasks = oldTask;
-
-	if (newTaskDifferent)
-	{
-		Task* newTask = new Task;
-
-		newTask->taskID = task->taskID;
-		newTask->desire = task->desire;
-		newTask->canContinue = task->canContinue;
-		newTask->time = task->time;
-		newTask->data = task->data;
-		newTask->next = nullptr;
-
-		while (m_tasks->next != nullptr)
-			m_tasks = m_tasks->next;
-
-		newTask->prev = m_tasks;
-		m_tasks->next = newTask;
-
-		checkPriorities = true;
-	}
-	m_tasks = oldTask;
-
-	// needs check the priorities and setup the task with the max desire...
-	if (!checkPriorities)
-		return;
-
-	CheckTasksPriorities();
-
-	// the max desired task has been changed...
-	if (m_tasks != oldTask)
-	{
-		DeleteSearchNodes();
-		m_lastCollTime = engine->GetTime() + 0.5f;
-
-		// leader bot?
-		if (newTaskDifferent && m_isLeader && m_tasks->taskID == TASK_SEEKCOVER)
-			CommandTeam(); // reorganize team if fleeing
-
-		if (newTaskDifferent && m_tasks->taskID == TASK_CAMP)
-			SelectBestWeapon();
-	}
-}
-
-// this function gets bot's current task
-Task* Bot::GetCurrentTask(void)
-{
-	if (!m_tasks)
-	{
-		Task* newTask = new Task;
-
-		newTask->taskID = TASK_NORMAL;
-		newTask->desire = TASKPRI_NORMAL;
-		newTask->data = -1;
-		newTask->time = 0.0f;
-		newTask->canContinue = true;
-		newTask->next = newTask->prev = nullptr;
-
-		m_tasks = newTask;
-		m_lastCollTime = engine->GetTime() + 0.5f;
-		return m_tasks;
-	}
-
-	return m_tasks;
+	return &m_tasks.Last();
 }
 
 // this function removes one task from the bot task stack
-void Bot::RemoveCertainTask(BotTask taskID)
+void Bot::RemoveCertainTask(BotTask id)
 {
-	if (!m_tasks || (m_tasks != nullptr && m_tasks->taskID == TASK_NORMAL))
+	if (m_tasks.IsEmpty() || (!m_tasks.IsEmpty() && GetCurrentTaskID() == TASK_NORMAL))
 		return; // since normal task can be only once on the stack, don't remove it...
 
-	bool checkPriorities = false;
-
-	Task* task = m_tasks;
-	Task* oldTask = m_tasks;
-	Task* oldPrevTask = task->prev;
-	Task* oldNextTask = task->next;
-
-	while (task->prev != nullptr)
-		task = task->prev;
-
-	while (task != nullptr)
+	if (GetCurrentTaskID() == id)
 	{
-		Task* next = task->next;
-		Task* prev = task->prev;
-
-		if (task->taskID == taskID)
-		{
-			if (prev != nullptr)
-				prev->next = next;
-
-			if (next != nullptr)
-				next->prev = prev;
-
-			if (task == oldTask)
-				oldTask = nullptr;
-			else if (task == oldPrevTask)
-				oldPrevTask = nullptr;
-			else if (task == oldNextTask)
-				oldNextTask = nullptr;
-
-			delete task;
-
-			checkPriorities = true;
-			break;
-		}
-		task = next;
+		DeleteSearchNodes();
+		m_tasks.Pop();
+		return;
 	}
 
-	if (oldTask != nullptr)
-		m_tasks = oldTask;
-	else if (oldPrevTask != nullptr)
-		m_tasks = oldPrevTask;
-	else if (oldNextTask != nullptr)
-		m_tasks = oldNextTask;
-	else
-		GetCurrentTask();
+	ITERATE_ARRAY(m_tasks, i)
+	{
+		if (m_tasks[i].id == id)
+			m_tasks.RemoveAt(i);
+	}
 
-	if (checkPriorities)
-		CheckTasksPriorities();
+	DeleteSearchNodes();
 }
 
 // this function called whenever a task is completed
 void Bot::TaskComplete(void)
 {
-	if (!m_tasks)
-	{
-		DeleteSearchNodes(); // delete all path finding nodes
+	if (m_tasks.IsEmpty())
 		return;
-	}
 
-	if (m_tasks->taskID == TASK_NORMAL)
+	do
 	{
-		DeleteSearchNodes(); // delete all path finding nodes
+		m_tasks.Pop();
+	} while (!m_tasks.IsEmpty() && !m_tasks.Last().resume);
 
-		m_tasks->data = -1;
-		m_chosenGoalIndex = -1;
-
-		return;
-	}
-
-	Task* next = m_tasks->next;
-	Task* prev = m_tasks->prev;
-
-	if (next != nullptr)
-		next->prev = prev;
-
-	if (prev != nullptr)
-		prev->next = next;
-
-	delete m_tasks;
-	m_tasks = nullptr;
-
-	if (prev != nullptr && next != nullptr)
-	{
-		if (prev->desire >= next->desire)
-			m_tasks = prev;
-		else
-			m_tasks = next;
-	}
-	else if (prev != nullptr)
-		m_tasks = prev;
-	else if (next != nullptr)
-		m_tasks = next;
-
-	if (!m_tasks)
-		GetCurrentTask();
-
-	CheckTasksPriorities();
 	DeleteSearchNodes();
+}
+
+BotTask Bot::GetCurrentTaskID(void)
+{
+	return GetCurrentTask()->id;
+}
+
+int Bot::GetCurrentGoalID(void)
+{
+	return GetCurrentTask()->data;
+}
+
+float Bot::GetCurrentTaskTime(void)
+{
+	return GetCurrentTask()->time;
 }
 
 void Bot::CheckGrenadeThrow(void)
@@ -2555,7 +2266,7 @@ void Bot::CheckGrenadeThrow(void)
 	if (m_seeEnemyTime + 5.0f < engine->GetTime())
 		return;
 
-	if (ebot_knifemode.GetBool() || m_grenadeCheckTime > engine->GetTime() || m_isUsingGrenade || GetCurrentTask()->taskID == TASK_PLANTBOMB || GetCurrentTask()->taskID == TASK_DEFUSEBOMB || m_isReloading)
+	if (ebot_knifemode.GetBool() || m_grenadeCheckTime > engine->GetTime() || m_isUsingGrenade || GetCurrentTaskID() == TASK_PLANTBOMB || GetCurrentTaskID() == TASK_DEFUSEBOMB || m_isReloading)
 	{
 		m_states &= ~(STATE_THROWEXPLODE | STATE_THROWFLASH | STATE_THROWSMOKE);
 		return;
@@ -2808,7 +2519,7 @@ bool Bot::ReactOnEnemy(void)
 				}
 				else if (currentWaypoint->flags & WAYPOINT_FALLRISK)
 					goto last;
-				else if (GetCurrentTask()->taskID == TASK_CAMP)
+				else if (GetCurrentTaskID() == TASK_CAMP)
 				{
 					if (enemyIndex == m_zhCampPointIndex)
 						m_isEnemyReachable = true;
@@ -2852,7 +2563,7 @@ bool Bot::ReactOnEnemy(void)
 		}
 
 	last:
-		if (!m_isEnemyReachable && (m_isZombieBot || GetCurrentTask()->taskID != TASK_CAMP))
+		if (!m_isEnemyReachable && (m_isZombieBot || GetCurrentTaskID() != TASK_CAMP))
 			m_enemyReachableTimer = AddTime(CRandomFloat(0.15f, 0.35f));
 		else
 			m_enemyReachableTimer = AddTime(CRandomFloat(0.25f, 0.55f));
@@ -2870,7 +2581,7 @@ bool Bot::ReactOnEnemy(void)
 // don't allow shooting through walls when pausing or camping
 bool Bot::LastEnemyShootable(void)
 {
-	if (!(m_aimFlags & AIM_LASTENEMY) || FNullEnt(m_lastEnemy) || GetCurrentTask()->taskID == TASK_PAUSE || GetCurrentTask()->taskID == TASK_CAMP)
+	if (!(m_aimFlags & AIM_LASTENEMY) || FNullEnt(m_lastEnemy) || GetCurrentTaskID() == TASK_PAUSE || GetCurrentTaskID() == TASK_CAMP)
 		return false;
 
 	return GetShootingConeDeviation(GetEntity(), &m_lastEnemyOrigin) >= 0.90;
@@ -2885,7 +2596,7 @@ void Bot::CheckRadioCommands(void)
 		return;
 
 	// don't allow bot listen you if bot is busy
-	if (GetCurrentTask()->taskID == TASK_DEFUSEBOMB || GetCurrentTask()->taskID == TASK_PICKUPITEM || GetCurrentTask()->taskID == TASK_PLANTBOMB || HasHostage() || m_isBomber || m_isVIP)
+	if (GetCurrentTaskID() == TASK_DEFUSEBOMB || GetCurrentTaskID() == TASK_PICKUPITEM || GetCurrentTaskID() == TASK_PLANTBOMB || HasHostage() || m_isBomber || m_isVIP)
 	{
 		m_radioOrder = 0;
 		return;
@@ -2928,7 +2639,7 @@ void Bot::CheckRadioCommands(void)
 				RadioMessage(Radio_Affirmative);
 				m_targetEntity = m_radioEntity;
 
-				BotTask taskID = GetCurrentTask()->taskID;
+				BotTask taskID = GetCurrentTaskID();
 				if (taskID == TASK_PAUSE || taskID == TASK_CAMP || taskID == TASK_GOINGFORCAMP)
 					TaskComplete();
 
@@ -2948,7 +2659,7 @@ void Bot::CheckRadioCommands(void)
 			m_targetEntity = m_radioEntity;
 
 			// don't pause/camp/follow anymore
-			BotTask taskID = GetCurrentTask()->taskID;
+			BotTask taskID = GetCurrentTaskID();
 
 			if (taskID == TASK_PAUSE || taskID == TASK_CAMP || taskID == TASK_HIDE || taskID == TASK_GOINGFORCAMP)
 				TaskComplete();
@@ -2977,7 +2688,7 @@ void Bot::CheckRadioCommands(void)
 		{
 			RadioMessage(Radio_Affirmative);
 
-			if (GetCurrentTask()->taskID == TASK_CAMP || GetCurrentTask()->taskID == TASK_PAUSE)
+			if (GetCurrentTaskID() == TASK_CAMP || GetCurrentTaskID() == TASK_PAUSE)
 				return;
 
 			int campindex = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
@@ -3132,12 +2843,12 @@ void Bot::CheckRadioCommands(void)
 			if (m_fearLevel < 0.0f)
 				m_fearLevel = 0.0f;
 
-			if (GetCurrentTask()->taskID == TASK_CAMP || GetCurrentTask()->taskID == TASK_PAUSE || GetCurrentTask()->taskID == TASK_HIDE || GetCurrentTask()->taskID == TASK_GOINGFORCAMP)
+			if (GetCurrentTaskID() == TASK_CAMP || GetCurrentTaskID() == TASK_PAUSE || GetCurrentTaskID() == TASK_HIDE || GetCurrentTaskID() == TASK_GOINGFORCAMP)
 				TaskComplete();
 		}
 		else if (FNullEnt(m_enemy) && IsVisible(GetTopOrigin(m_radioEntity), GetEntity()) || distance <= SquaredF(1536.0f))
 		{
-			BotTask taskID = GetCurrentTask()->taskID;
+			BotTask taskID = GetCurrentTaskID();
 
 			if (taskID == TASK_PAUSE || taskID == TASK_CAMP)
 			{
@@ -3172,7 +2883,7 @@ void Bot::CheckRadioCommands(void)
 		{
 			RadioMessage(Radio_Affirmative);
 
-			if (GetCurrentTask()->taskID == TASK_CAMP || GetCurrentTask()->taskID == TASK_PAUSE)
+			if (GetCurrentTaskID() == TASK_CAMP || GetCurrentTaskID() == TASK_PAUSE)
 				TaskComplete();
 
 			m_targetEntity = nullptr;
@@ -3185,7 +2896,7 @@ void Bot::CheckRadioCommands(void)
 
 	case Radio_RegroupTeam:
 		// if no more enemies found AND bomb planted, switch to knife to get to bombplace faster
-		if (m_team == TEAM_COUNTER && m_currentWeapon != WEAPON_KNIFE && m_numEnemiesLeft == 0 && g_bombPlanted && GetCurrentTask()->taskID != TASK_DEFUSEBOMB)
+		if (m_team == TEAM_COUNTER && m_currentWeapon != WEAPON_KNIFE && m_numEnemiesLeft == 0 && g_bombPlanted && GetCurrentTaskID() != TASK_DEFUSEBOMB)
 		{
 			SelectKnife();
 
@@ -3196,7 +2907,7 @@ void Bot::CheckRadioCommands(void)
 
 			RadioMessage(Radio_Affirmative);
 		}
-		else if (m_team == TEAM_TERRORIST && m_numEnemiesLeft > 0 && g_bombPlanted && GetCurrentTask()->taskID != TASK_PLANTBOMB && GetCurrentTask()->taskID != TASK_CAMP)
+		else if (m_team == TEAM_TERRORIST && m_numEnemiesLeft > 0 && g_bombPlanted && GetCurrentTaskID() != TASK_PLANTBOMB && GetCurrentTaskID() != TASK_CAMP)
 		{
 			TaskComplete();
 
@@ -3234,7 +2945,7 @@ void Bot::CheckRadioCommands(void)
 		{
 			RadioMessage(Radio_Affirmative);
 
-			BotTask taskID = GetCurrentTask()->taskID;
+			BotTask taskID = GetCurrentTaskID();
 			if (taskID == TASK_PAUSE || taskID == TASK_CAMP)
 				TaskComplete();
 
@@ -3270,14 +2981,14 @@ void Bot::CheckRadioCommands(void)
 			if (m_agressionLevel < 0.0f)
 				m_agressionLevel = 0.0f;
 
-			if (GetCurrentTask()->taskID == TASK_CAMP && !FNullEnt(m_lastEnemy))
+			if (GetCurrentTaskID() == TASK_CAMP && !FNullEnt(m_lastEnemy))
 			{
 				RadioMessage(Radio_Negative);
 				GetCurrentTask()->time += CRandomFloat(ebot_camp_min.GetFloat(), ebot_camp_min.GetFloat());
 			}
 			else
 			{
-				BotTask taskID = GetCurrentTask()->taskID;
+				BotTask taskID = GetCurrentTaskID();
 				if (taskID == TASK_PAUSE || taskID == TASK_CAMP || taskID == TASK_HIDE || taskID == TASK_HUNTENEMY || taskID == TASK_GOINGFORCAMP)
 				{
 					RadioMessage(Radio_Affirmative);
@@ -3329,10 +3040,10 @@ void Bot::CheckRadioCommands(void)
 		break;
 
 	case Radio_ReportTeam:
-		switch (GetCurrentTask()->taskID)
+		switch (GetCurrentTaskID())
 		{
 		case TASK_NORMAL:
-			if (IsValidWaypoint(GetCurrentTask()->data))
+			if (IsValidWaypoint(GetCurrentGoalID()))
 			{
 				if (!FNullEnt(m_enemy))
 				{
@@ -3439,10 +3150,10 @@ void Bot::CheckRadioCommands(void)
 			if (IsValidWaypoint(bombPoint) && !g_waypoint->IsGoalVisited(bombPoint))
 			{
 				// does this bot want to defuse?
-				if (GetCurrentTask()->taskID == TASK_NORMAL)
+				if (GetCurrentTaskID() == TASK_NORMAL)
 				{
 					// is he approaching this goal?
-					if (GetCurrentTask()->data == bombPoint)
+					if (GetCurrentGoalID() == bombPoint)
 					{
 						GetCurrentTask()->data = -1;
 						RadioMessage(Radio_Affirmative);
@@ -3462,11 +3173,11 @@ void Bot::CheckRadioCommands(void)
 		{
 			RadioMessage(Radio_Affirmative);
 
-			if (GetCurrentTask()->taskID == TASK_CAMP)
+			if (GetCurrentTaskID() == TASK_CAMP)
 				GetCurrentTask()->time = engine->GetTime() + CRandomFloat(ebot_camp_min.GetFloat(), ebot_camp_max.GetFloat());
 			else
 			{
-				BotTask taskID = GetCurrentTask()->taskID;
+				BotTask taskID = GetCurrentTaskID();
 				if (taskID == TASK_PAUSE || taskID == TASK_CAMP)
 					TaskComplete();
 
@@ -3560,7 +3271,7 @@ float Bot::GetWalkSpeed(void)
 	if (IsZombieMode() || IsOnLadder() || m_numEnemiesLeft <= 0 || 
 		m_currentTravelFlags & PATHFLAG_JUMP || 
 		pev->button & IN_JUMP || pev->oldbuttons & IN_JUMP || 
-		pev->flags & FL_DUCKING || pev->button & IN_DUCK || pev->oldbuttons & IN_DUCK || IsInWater() || GetCurrentTask()->taskID == TASK_SEEKCOVER)
+		pev->flags & FL_DUCKING || pev->button & IN_DUCK || pev->oldbuttons & IN_DUCK || IsInWater() || GetCurrentTaskID() == TASK_SEEKCOVER)
 		return pev->maxspeed;
 
 	return pev->maxspeed * 0.4f;
@@ -3811,6 +3522,13 @@ void Bot::ChooseAimDirection(void)
 		m_lookAtCache = m_lookAt;
 }
 
+void Bot::RunPlayer(void)
+{
+	m_msecVal = (engine->GetTime() - m_msecInterval) * 1000.0f;
+	m_msecInterval = engine->GetTime();
+	(*g_engfuncs.pfnRunPlayerMove) (GetEntity(), m_moveAngles, m_moveSpeed, m_strafeSpeed, 0.0f, static_cast <unsigned short> (pev->button), static_cast <uint8_t> (pev->impulse), static_cast <uint8_t> (m_msecVal));
+}
+
 void Bot::Think(void)
 {
 	pev->button = 0;
@@ -3868,7 +3586,7 @@ void Bot::Think(void)
 			m_lastEnemy = nullptr;
 
 		// at least walk randomly
-		if (!IsZombieMode() && !IsValidWaypoint(GetCurrentTask()->data))
+		if (!IsZombieMode() && !IsValidWaypoint(GetCurrentGoalID()))
 			m_chosenGoalIndex = CRandomInt(0, g_numWaypoints - 1);
 
 		if (m_slowthinktimer < engine->GetTime())
@@ -3926,7 +3644,7 @@ void Bot::Think(void)
 
 				// clear the used line buffer every now and then
 				if (m_sayTextBuffer.lastUsedSentences.GetElementNumber() > CRandomInt(4, 6))
-					m_sayTextBuffer.lastUsedSentences.RemoveAll();
+					m_sayTextBuffer.lastUsedSentences.Destroy();
 			}
 		}
 	}
@@ -3955,7 +3673,7 @@ void Bot::Think(void)
 			if (ebot_use_radio.GetInt() == 2 && m_chatterTimer < engine->GetTime())
 				SwitchChatterIcon(false);
 
-			if (m_buyingFinished && !(pev->maxspeed < 10.0f && GetCurrentTask()->taskID != TASK_PLANTBOMB && GetCurrentTask()->taskID != TASK_DEFUSEBOMB) && !ebot_stopbots.GetBool())
+			if (m_buyingFinished && !(pev->maxspeed < 10.0f && GetCurrentTaskID() != TASK_PLANTBOMB && GetCurrentTaskID() != TASK_DEFUSEBOMB) && !ebot_stopbots.GetBool())
 				botMovement = true;
 
 			if (m_randomattacktimer < engine->GetTime() && !engine->IsFriendlyFireOn() && !HasHostage()) // simulate players with random knife attacks
@@ -3996,10 +3714,6 @@ void Bot::Think(void)
 		MoveAction();
 		DebugModeMsg();
 	}
-
-	m_msecVal = (engine->GetTime() - m_msecInterval) * 1000.0f;
-	m_msecInterval = engine->GetTime();
-	(*g_engfuncs.pfnRunPlayerMove) (GetEntity(), m_moveAngles, m_moveSpeed, m_strafeSpeed, 0.0f, static_cast <unsigned short> (pev->button), static_cast <uint8_t> (pev->impulse), static_cast <uint8_t> (m_msecVal));
 }
 
 void Bot::SecondThink(void)
@@ -4020,7 +3734,7 @@ void Bot::SecondThink(void)
 		if (ebot_force_flashlight.GetBool() && !m_isZombieBot && !(pev->effects & EF_DIMLIGHT))
 			pev->impulse = 100;
 
-		if (g_bombPlanted && m_team == TEAM_COUNTER && (pev->origin - g_waypoint->GetBombPosition()).GetLengthSquared() <= SquaredF(768.0f) && !IsBombDefusing(g_waypoint->GetBombPosition()))
+		if (g_bombPlanted && m_team == TEAM_COUNTER && (pev->origin - g_waypoint->GetBombPosition()).GetLengthSquared() < SquaredF(768.0f) && !IsBombDefusing(g_waypoint->GetBombPosition()))
 			ResetTasks();
 	}
 	else
@@ -4160,13 +3874,11 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 				if (g_mapType & MAP_CS)
 				{
 					const int hostageWptIndex = FindHostage();
-
 					if (IsValidWaypoint(hostageWptIndex) && m_currentWaypointIndex != hostageWptIndex)
 						GetCurrentTask()->data = hostageWptIndex;
 					else // no hostage? search goal waypoints
 					{
 						const int goalindex = g_waypoint->m_goalPoints.GetRandomElement();
-
 						if (IsValidWaypoint(goalindex))
 						{
 							if (m_isStuck || m_currentWaypointIndex == goalindex)
@@ -4204,7 +3916,7 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 	if (IsValidWaypoint(ebot_debuggoal.GetInt()))
 	{
 		// check if we reached it
-		if (IsVisible(g_waypoint->GetPath(ebot_debuggoal.GetInt())->origin, GetEntity()) && (g_waypoint->GetPath(m_currentWaypointIndex)->origin - pev->origin).GetLengthSquared() <= SquaredF(20.0f) && GetCurrentTask()->data == ebot_debuggoal.GetInt())
+		if (IsVisible(g_waypoint->GetPath(ebot_debuggoal.GetInt())->origin, GetEntity()) && (g_waypoint->GetPath(m_currentWaypointIndex)->origin - pev->origin).GetLengthSquared() < SquaredF(20.0f) && GetCurrentGoalID() == ebot_debuggoal.GetInt())
 		{
 			m_moveSpeed = 0.0f;
 			m_strafeSpeed = 0.0f;
@@ -4349,11 +4061,8 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 					{
 						// request an help also
 						RadioMessage(Radio_NeedBackup);
-
 						int index = FindDefendWaypoint(pev->origin);
-
 						m_campposition = g_waypoint->GetPath(index)->origin;
-
 						PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + ebot_camp_max.GetFloat(), true);
 					}
 					else
@@ -4378,8 +4087,8 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 		m_moveSpeed = pev->maxspeed;
 
 		// did we already decide about a goal before?
-		if (IsValidWaypoint(GetCurrentTask()->data) && !m_isBomber)
-			destIndex = GetCurrentTask()->data;
+		if (IsValidWaypoint(GetCurrentGoalID()) && !m_isBomber)
+			destIndex = GetCurrentGoalID();
 		else
 			destIndex = FindGoal();
 
@@ -4405,7 +4114,7 @@ void Bot::RunTask(void)
 	const float timeToBlowUp = GetBombTimeleft();
 	float defuseRemainingTime = m_hasDefuser ? 7.0f : 12.0f - engine->GetTime();
 
-	switch (GetCurrentTask()->taskID)
+	switch (GetCurrentTaskID())
 	{
 		// normal task
 	case TASK_NORMAL:
@@ -4417,7 +4126,7 @@ void Bot::RunTask(void)
 		m_aimStopTime = 0.0f;
 
 		// bot didn't spray this round?
-		if (m_timeLogoSpray <= engine->GetTime() && GetCurrentTask()->time > engine->GetTime())
+		if (m_timeLogoSpray <= engine->GetTime() && GetCurrentTaskTime() > engine->GetTime())
 		{
 			MakeVectors(pev->v_angle);
 			Vector sprayOrigin = EyePosition() + (g_pGlobals->v_forward * 128);
@@ -4430,7 +4139,7 @@ void Bot::RunTask(void)
 
 			m_entity = sprayOrigin;
 
-			if (GetCurrentTask()->time - 0.5 < engine->GetTime())
+			if (GetCurrentTaskTime() - 0.5f < engine->GetTime())
 			{
 				// emit spraycan sound
 				EMIT_SOUND_DYN2(GetEntity(), CHAN_VOICE, "player/sprayer.wav", 1.0, ATTN_NORM, 0, 100);
@@ -4486,8 +4195,8 @@ void Bot::RunTask(void)
 			DeleteSearchNodes();
 
 			// is there a remembered index?
-			if (IsValidWaypoint(GetCurrentTask()->data))
-				destIndex = GetCurrentTask()->data;
+			if (IsValidWaypoint(GetCurrentGoalID()))
+				destIndex = GetCurrentGoalID();
 			else // no. we need to find a new one
 				destIndex = GetEntityWaypoint(m_lastEnemy);
 
@@ -4589,8 +4298,8 @@ void Bot::RunTask(void)
 				else
 					destIndex = FindCoverWaypoint(2048.0f);
 			}
-			else if (IsValidWaypoint(GetCurrentTask()->data))
-				destIndex = GetCurrentTask()->data;
+			else if (IsValidWaypoint(GetCurrentGoalID()))
+				destIndex = GetCurrentGoalID();
 			else
 				destIndex = FindCoverWaypoint(1024.0f);
 
@@ -4599,6 +4308,7 @@ void Bot::RunTask(void)
 
 			m_campDirection = 0;
 			m_prevGoalIndex = destIndex;
+
 			GetCurrentTask()->data = destIndex;
 
 			if (destIndex != m_currentWaypointIndex && IsValidWaypoint(destIndex))
@@ -4667,7 +4377,7 @@ void Bot::RunTask(void)
 			pev->button |= m_campButtons;
 
 		// stop camping if time over or gets hurt by something else than bullets
-		if (GetCurrentTask()->time < engine->GetTime() || m_lastDamageType > 0)
+		if (GetCurrentTaskTime() < engine->GetTime() || m_lastDamageType > 0)
 			TaskComplete();
 
 		break;
@@ -4741,8 +4451,8 @@ void Bot::RunTask(void)
 		{
 			DeleteSearchNodes();
 
-			if (IsValidWaypoint(GetCurrentTask()->data))
-				destIndex = GetCurrentTask()->data;
+			if (IsValidWaypoint(GetCurrentGoalID()))
+				destIndex = GetCurrentGoalID();
 			else
 				destIndex = g_waypoint->FindNearest(m_campposition);
 
@@ -4846,7 +4556,7 @@ void Bot::RunTask(void)
 			if (!g_waypoint->m_hmMeshPoints.IsEmpty())
 			{
 				Array <int> MeshWaypoints;
-				if (GetCurrentTask()->time > engine->GetTime() + 60.0f)
+				if (GetCurrentTaskTime() > engine->GetTime() + 60.0f)
 				{
 					for (int i = 0; i <= g_waypoint->m_hmMeshPoints.GetElementNumber(); i++)
 					{
@@ -4869,7 +4579,7 @@ void Bot::RunTask(void)
 						m_chosenGoalIndex = myCampPoint;
 						m_prevGoalIndex = myCampPoint;
 						m_myMeshWaypoint = myCampPoint;
-						MeshWaypoints.RemoveAll();
+						MeshWaypoints.Destroy();
 
 						float max = 12.0f;
 						if (!FNullEnt(m_enemy))
@@ -4881,6 +4591,7 @@ void Bot::RunTask(void)
 						}
 
 						GetCurrentTask()->time = engine->GetTime() + CRandomFloat(4.0f, max);
+
 						FindPath(m_currentWaypointIndex, m_myMeshWaypoint);
 					}
 				}
@@ -4975,7 +4686,7 @@ void Bot::RunTask(void)
 		pev->button |= IsZombieMode() ? m_campButtons : IN_DUCK;
 
 		// stop camping if time over or gets hurt by something else than bullets
-		if (GetCurrentTask()->time < engine->GetTime() || m_lastDamageType > 0)
+		if (GetCurrentTaskTime() < engine->GetTime() || m_lastDamageType > 0)
 			TaskComplete();
 
 		break;
@@ -5032,7 +4743,7 @@ void Bot::RunTask(void)
 			m_campButtons = 0;
 			m_prevGoalIndex = -1;
 
-			if (GetCurrentTask()->taskID == TASK_HIDE)
+			if (GetCurrentTaskID() == TASK_HIDE)
 				TaskComplete();
 
 			break;
@@ -5041,7 +4752,7 @@ void Bot::RunTask(void)
 		pev->button |= m_campButtons;
 		m_navTimeset = engine->GetTime();
 
-		if (m_lastDamageType > 0 || GetCurrentTask()->time < engine->GetTime())
+		if (m_lastDamageType > 0 || GetCurrentTaskTime() < engine->GetTime())
 		{
 			if (m_isReloading && (!FNullEnt(m_enemy) || !FNullEnt(m_lastEnemy)) && m_skill > 70)
 				GetCurrentTask()->time += 2.0f;
@@ -5073,7 +4784,7 @@ void Bot::RunTask(void)
 			DeleteSearchNodes();
 
 			int forcedestIndex = -1;
-			int goal = GetCurrentTask()->data;
+			int goal = GetCurrentGoalID();
 
 			if (IsValidWaypoint(goal))
 				forcedestIndex = goal;
@@ -5084,7 +4795,6 @@ void Bot::RunTask(void)
 			{
 				m_prevGoalIndex = forcedestIndex;
 				GetCurrentTask()->data = forcedestIndex;
-
 				FindPath(m_currentWaypointIndex, forcedestIndex);
 			}
 			else
@@ -5170,7 +4880,7 @@ void Bot::RunTask(void)
 			m_checkTerrain = true;
 			m_moveToGoal = true;
 
-			if (GetCurrentTask()->taskID == TASK_DEFUSEBOMB)
+			if (GetCurrentTaskID() == TASK_DEFUSEBOMB)
 			{
 				m_aimFlags &= ~AIM_ENTITY;
 				TaskComplete();
@@ -5349,7 +5059,7 @@ void Bot::RunTask(void)
 			bool needMoveToTarget = false;
 			if (!GoalIsValid())
 				needMoveToTarget = true;
-			else if (GetCurrentTask()->data != destIndex)
+			else if (GetCurrentGoalID() != destIndex)
 			{
 				needMoveToTarget = true;
 				if (&m_navNode[0] != nullptr)
@@ -5765,7 +5475,7 @@ void Bot::RunTask(void)
 
 		// bot helps human player (or other bot) to get somewhere
 	case TASK_DOUBLEJUMP:
-		if (FNullEnt(m_doubleJumpEntity) || !IsAlive(m_doubleJumpEntity) || !IsVisible(GetEntityOrigin(m_doubleJumpEntity), GetEntity()) || (m_aimFlags & AIM_ENEMY) || (IsValidWaypoint(m_travelStartIndex) && GetCurrentTask()->time + (g_waypoint->GetTravelTime(m_moveSpeed, g_waypoint->GetPath(m_travelStartIndex)->origin, m_doubleJumpOrigin) + 11.0f) < engine->GetTime()))
+		if (FNullEnt(m_doubleJumpEntity) || !IsAlive(m_doubleJumpEntity) || !IsVisible(GetEntityOrigin(m_doubleJumpEntity), GetEntity()) || (m_aimFlags & AIM_ENEMY) || (IsValidWaypoint(m_travelStartIndex) && GetCurrentTaskTime() + (g_waypoint->GetTravelTime(m_moveSpeed, g_waypoint->GetPath(m_travelStartIndex)->origin, m_doubleJumpOrigin) + 11.0f) < engine->GetTime()))
 		{
 			ResetDoubleJumpState();
 
@@ -5823,13 +5533,12 @@ void Bot::RunTask(void)
 		{
 			DeleteSearchNodes();
 
-			int boostIndex = g_waypoint->FindNearest(m_doubleJumpOrigin);
+			const int boostIndex = g_waypoint->FindNearest(m_doubleJumpOrigin);
 
 			if (IsValidWaypoint(boostIndex))
 			{
 				m_prevGoalIndex = boostIndex;
 				m_travelStartIndex = m_currentWaypointIndex;
-
 				GetCurrentTask()->data = boostIndex;
 
 				// always take the shortest path
@@ -5889,6 +5598,7 @@ void Bot::RunTask(void)
 
 			m_prevGoalIndex = destIndex;
 			GetCurrentTask()->data = destIndex;
+
 			FindPath(m_currentWaypointIndex, destIndex);
 		}
 
@@ -6198,13 +5908,13 @@ void Bot::DebugModeMsg(void)
 
 	static int index, goal, taskID;
 
-	if (m_tasks != nullptr)
+	if (GetCurrentTask() != nullptr)
 	{
-		if (taskID != m_tasks->taskID || index != m_currentWaypointIndex || goal != m_tasks->data || timeDebugUpdate < engine->GetTime())
+		if (taskID != GetCurrentTask()->id || index != m_currentWaypointIndex || goal != GetCurrentTask()->data || timeDebugUpdate < engine->GetTime())
 		{
-			taskID = m_tasks->taskID;
+			taskID = GetCurrentTask()->id;
 			index = m_currentWaypointIndex;
-			goal = m_tasks->data;
+			goal = GetCurrentTask()->data;
 
 			char taskName[80];
 
@@ -6433,7 +6143,7 @@ void Bot::DebugModeMsg(void)
 				botType, m_moneyAmount, m_isZombieBot ? "Zombie" : "Normal",
 				enemyName, pickName,
 
-				m_currentWaypointIndex, m_prevGoalIndex, m_tasks->data,
+				m_currentWaypointIndex, m_prevGoalIndex, GetCurrentTask()->data,
 				navIndex[0], navIndex[1],
 				g_clients[client].wpIndex, g_clients[client].wpIndex2,
 				m_moveSpeed, m_strafeSpeed,
@@ -6610,7 +6320,7 @@ void Bot::BotAI(void)
 	m_moveAngles.ClampAngles();
 	m_moveAngles.x *= -1.0f; // invert for engine
 
-	if (GetCurrentTask()->taskID == TASK_CAMP || GetCurrentTask()->taskID == TASK_DESTROYBREAKABLE)
+	if (GetCurrentTaskID() == TASK_CAMP || GetCurrentTaskID() == TASK_DESTROYBREAKABLE)
 		SelectBestWeapon();
 
 	if (IsZombieMode())
@@ -6629,7 +6339,7 @@ void Bot::BotAI(void)
 			}
 
 			extern ConVar ebot_escape;
-			if (ebot_escape.GetBool() && GetCurrentTask()->taskID != TASK_CAMP && GetCurrentTask()->taskID != TASK_DESTROYBREAKABLE)
+			if (ebot_escape.GetBool() && GetCurrentTaskID() != TASK_CAMP && GetCurrentTaskID() != TASK_DESTROYBREAKABLE)
 			{
 				if (FNullEnt(m_enemy) && FNullEnt(m_breakableEntity) && m_seeEnemyTime + 2.0f < engine->GetTime())
 					SelectKnife();
@@ -6689,7 +6399,7 @@ void Bot::BotAI(void)
 
 		if (!IsOnLadder())
 		{
-			if (!FNullEnt(m_enemy) && GetCurrentTask()->taskID != TASK_CAMP)
+			if (!FNullEnt(m_enemy) && GetCurrentTaskID() != TASK_CAMP)
 			{
 				m_moveToGoal = false; // don't move to goal
 				m_navTimeset = engine->GetTime();
@@ -7414,7 +7124,7 @@ Vector Bot::CheckThrow(const Vector& start, Vector end)
 // this function checks if bomb is can be heard by the bot, calculations done by manual testing
 Vector Bot::CheckBombAudible(void)
 {
-	if (!g_bombPlanted || (GetCurrentTask()->taskID == TASK_ESCAPEFROMBOMB))
+	if (!g_bombPlanted || (GetCurrentTaskID() == TASK_ESCAPEFROMBOMB))
 		return nullvec; // reliability check
 
 	Vector bombOrigin = g_waypoint->GetBombPosition();
@@ -7594,7 +7304,7 @@ bool Bot::CampingAllowed(void)
 		}
 	}
 
-	if (ebot_followuser.GetInt() > 0 && (m_radioOrder == Radio_FollowMe || GetCurrentTask()->taskID == TASK_CAMP))
+	if (ebot_followuser.GetInt() > 0 && (m_radioOrder == Radio_FollowMe || GetCurrentTaskID() == TASK_CAMP))
 	{
 		int numFollowers = 0;
 
@@ -7624,7 +7334,7 @@ bool Bot::OutOfBombTimer(void)
 	if (!g_bombPlanted)
 		return false;
 
-	if (GetCurrentTask()->taskID == TASK_DEFUSEBOMB || m_hasProgressBar || GetCurrentTask()->taskID == TASK_ESCAPEFROMBOMB)
+	if (GetCurrentTaskID() == TASK_DEFUSEBOMB || m_hasProgressBar || GetCurrentTaskID() == TASK_ESCAPEFROMBOMB)
 		return false; // if CT bot already start defusing, or already escaping, return false
 
 	// calculate left time
@@ -7834,11 +7544,11 @@ bool Bot::IsBombDefusing(Vector bombOrigin)
 		float bombDistance = (client.origin - bombOrigin).GetLengthSquared();
 		if (bot != nullptr)
 		{
-			if (m_team != bot->m_team || bot->GetCurrentTask()->taskID == TASK_ESCAPEFROMBOMB || bot->GetCurrentTask()->taskID == TASK_CAMP || bot->GetCurrentTask()->taskID == TASK_SEEKCOVER)
+			if (m_team != bot->m_team || bot->GetCurrentTaskID() == TASK_ESCAPEFROMBOMB || bot->GetCurrentTaskID() == TASK_CAMP || bot->GetCurrentTaskID() == TASK_SEEKCOVER)
 				continue; // skip other mess
 
 			// if close enough, mark as progressing
-			if (bombDistance < distanceToBomb && (bot->GetCurrentTask()->taskID == TASK_DEFUSEBOMB || bot->m_hasProgressBar))
+			if (bombDistance < distanceToBomb && (bot->GetCurrentTaskID() == TASK_DEFUSEBOMB || bot->m_hasProgressBar))
 			{
 				defusingInProgress = true;
 				break;

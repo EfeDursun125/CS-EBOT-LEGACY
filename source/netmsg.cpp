@@ -277,7 +277,6 @@ void NetworkMsg::Execute(void* p)
             if (victimer != nullptr)
             {
                 victimer->m_isAlive = false;
-                victimer->GetCurrentTask()->data = -1;
                 victimer->DeleteSearchNodes();
             }
 
