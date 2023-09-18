@@ -34,7 +34,7 @@ NetworkMsg::NetworkMsg(void)
         m_registerdMessages[i] = NETMSG_UNDEFINED;
 }
 
-void NetworkMsg::HandleMessageIfRequired(int messageType, int requiredType)
+void NetworkMsg::HandleMessageIfRequired(const int messageType, const int requiredType)
 {
     if (messageType == m_registerdMessages[requiredType])
         SetMessage(requiredType);

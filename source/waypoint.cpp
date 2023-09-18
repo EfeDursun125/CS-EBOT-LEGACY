@@ -422,6 +422,9 @@ int Waypoint::FindFarest(const Vector& origin, float maxDistance)
     int index = -1;
     for (int i = 0; i < g_numWaypoints; i++)
     {
+        if (!m_paths[i])
+            continue;
+
         const float distance = (m_paths[i]->origin - origin).GetLengthSquared();
         if (distance > squaredDistance)
         {
@@ -441,7 +444,10 @@ int Waypoint::FindNearestInCircle(const Vector& origin, float maxDistance)
     int index = -1;
     for (int i = 0; i < g_numWaypoints; i++)
     {
-        const  float distance = (m_paths[i]->origin - origin).GetLength();
+        if (!m_paths[i])
+            continue;
+
+        const float distance = (m_paths[i]->origin - origin).GetLength();
         if (distance < maxDist)
         {
             index = i;
@@ -622,7 +628,7 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
                 continue;
 
             const Path* path = g_waypoint->GetPath(wpIndex[i]);
-            if (path == nullptr)
+            if (!path)
                 continue;
 
             // Use the path variable in the condition     
@@ -659,6 +665,9 @@ void Waypoint::FindInRadius(Vector origin, float radius, int* holdTab, int* coun
     const float rad = SquaredF(radius);
     for (int i = 0; i < g_numWaypoints; i++)
     {
+        if (!m_paths[i])
+            continue;
+
         if ((m_paths[i]->origin - origin).GetLengthSquared() < rad)
         {
             *holdTab++ = i;
@@ -677,6 +686,9 @@ void Waypoint::FindInRadius(Array <int>& queueID, float radius, Vector origin)
     const float rad = SquaredF(radius);
     for (int i = 0; i < g_numWaypoints; i++)
     {
+        if (!m_paths[i])
+            continue;
+
         if ((m_paths[i]->origin - origin).GetLengthSquared() < rad)
             queueID.Push(i);
     }
@@ -686,15 +698,6 @@ void Waypoint::SgdWp_Set(const char* modset)
 {
     if (cstricmp(modset, "on") == 0)
     {
-        if (m_badMapName)
-        {
-            Initialize();
-            Load(1);
-            ChartPrint("[SgdWP] I found the bad waypoint data ***");
-            ChartPrint("[SgdWP] And I will load your bad waypoint data right now ***");
-            ChartPrint("[SgdWP] If this is bad waypoint, you need delete this ***");
-        }
-
         ServerCommand("mp_roundtime 9");
         ServerCommand("sv_restart 1");
         ServerCommand("mp_timelimit 0");
@@ -1161,8 +1164,7 @@ void Waypoint::DeleteByIndex(int index)
 
 void Waypoint::DeleteFlags(void)
 {
-    int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
-
+    const int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
     if (index != -1)
     {
         m_paths[index]->flags = 0;
@@ -1173,8 +1175,7 @@ void Waypoint::DeleteFlags(void)
 // this function allow manually changing flags
 void Waypoint::ToggleFlags(int toggleFlag)
 {
-    int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
-
+    const int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
     if (index != -1)
     {
         if (m_paths[index]->flags & toggleFlag)
@@ -1199,7 +1200,7 @@ void Waypoint::ToggleFlags(int toggleFlag)
 // this function allow manually setting the zone radius
 void Waypoint::SetRadius(int radius)
 {
-    int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
+    const int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
 
     if (g_sautoWaypoint)
     {
@@ -1235,34 +1236,56 @@ bool Waypoint::IsConnected(int pointA, int pointB)
     return false;
 }
 
-// this function finds waypoint the user is pointing at.
+// this function finds waypoint the user is pointing at
 int Waypoint::GetFacingIndex(void)
 {
-    int pointedIndex = -1;
-    float viewCone[3] = { 0.0, 0.0, 0.0 };
+    if (FNullEnt(g_hostEntity))
+        return -1;
 
-    // find the waypoint the user is pointing at
+    int pointedIndex = -1;
+    float range = 5.32f;
+    auto nearestNode = FindNearest(g_hostEntity->v.origin, 54.0f);
+
+    // check bounds from eyes of editor
+    const auto& editorEyes = g_hostEntity->v.origin + g_hostEntity->v.view_ofs;
+
     for (int i = 0; i < g_numWaypoints; i++)
     {
-        if ((m_paths[i]->origin - GetEntityOrigin(g_hostEntity)).GetLengthSquared() > SquaredF(768.0f))
+        const Path* path = m_paths[i].get();
+        if (!path)
             continue;
 
-        // get the current view cone
-        viewCone[0] = GetShootingConeDeviation(g_hostEntity, &m_paths[i]->origin);
-        Vector bound = m_paths[i]->origin - Vector(0.0f, 0.0f, m_paths[i]->flags & WAYPOINT_CROUCH ? 8.0f : 15.0f);
+        // skip nearest waypoint to editor, since this used mostly for adding / removing paths
+        if (nearestNode == i)
+            continue;
 
-        // get the current view cone
-        viewCone[1] = GetShootingConeDeviation(g_hostEntity, &bound);
-        bound = m_paths[i]->origin + Vector(0.0f, 0.0f, m_paths[i]->flags & WAYPOINT_CROUCH ? 8.0f : 15.0f);
+        const Vector to = path->origin - g_hostEntity->v.origin;
+        Vector angles = (to.ToAngles() - g_hostEntity->v.v_angle);
+        angles.ClampAngles();
 
-        // get the current view cone
-        viewCone[2] = GetShootingConeDeviation(g_hostEntity, &bound);
+        // skip the waypoints that are too far away from us, and we're not looking at them directly
+        if (to.GetLengthSquared() > SquaredF(500.0f) || cabsf(angles.y) > range)
+            continue;
 
-        // check if we can see it
-        if (viewCone[0] < 0.998f && viewCone[1] < 0.997f && viewCone[2] < 0.997f)
+        // check if visible, (we're not using visiblity tables here, as they not valid at time of waypoint editing)
+        TraceResult tr{};
+        TraceLine(editorEyes, path->origin, false, false, g_hostEntity, &tr);
+
+        if (tr.flFraction != 1.0f)
+            continue;
+
+        const float bestAngle = angles.y;
+
+        angles = -g_hostEntity->v.v_angle;
+        angles.x = -angles.x;
+        angles += ((path->origin - Vector(0.0f, 0.0f, (path->flags & WAYPOINT_CROUCH) ? 17.0f : 34.0f)) - editorEyes).ToAngles();
+        angles.ClampAngles();
+
+        if (angles.x > 0.0f)
             continue;
 
         pointedIndex = i;
+        range = bestAngle;
     }
 
     return pointedIndex;
