@@ -44,7 +44,6 @@ ConVar ebot_force_flashlight("ebot_force_flashlight", "0");
 ConVar ebot_use_flare("ebot_zm_use_flares", "1");
 ConVar ebot_chat_percent("ebot_chat_percent", "20");
 ConVar ebot_eco_rounds("ebot_eco_rounds", "1");
-ConVar ebot_avoid_grenades("ebot_avoid_grenades", "1");
 ConVar ebot_breakable_health_limit("ebot_breakable_health_limit", "3000.0");
 
 ConVar ebot_chatter_path("ebot_chatter_path", "radio/bot");
@@ -65,7 +64,7 @@ void Bot::PushMessageQueue(int message)
 		// notify other bots of the spoken text otherwise, bots won't respond to other bots (network messages aren't sent from bots)
 		for (const auto& bot : g_botManager->m_bots)
 		{
-			if (bot != nullptr && bot != this)
+			if (bot != nullptr && bot.get() != this)
 			{
 				if (m_isAlive == bot->m_isAlive)
 				{
@@ -387,18 +386,17 @@ void Bot::ZmCampPointAction(int mode)
 	}
 	else if (mode == 0 && g_waypoint->IsZBCampPoint(GetCurrentGoalID()) && IsValidWaypoint(GetCurrentGoalID()))
 	{
-		if (&m_navNode[0] != nullptr)
+		if (&m_navNode.get()[0] != nullptr)
 		{
-			PathNode* navid = &m_navNode[0];
-			navid = navid->next;
+			shared_ptr<PathNode> navid = shared_ptr<PathNode>(&m_navNode.get()[0]);
 			int movePoint = 0;
 			while (navid != nullptr && movePoint <= 2)
 			{
 				movePoint++;
 				if (GetCurrentGoalID() == navid->index)
 				{
-					auto navPoint = g_waypoint->GetPath(navid->index);
-					if ((navPoint->origin - pev->origin).GetLengthSquared2D() <= SquaredF(256.0f) && navPoint->origin.z + 40.0f <= pev->origin.z && navPoint->origin.z - 25.0f >= pev->origin.z && IsWaypointOccupied(navid->index))
+					Path* navPoint = g_waypoint->GetPath(navid->index);
+					if ((navPoint->origin - pev->origin).GetLengthSquared2D() < SquaredF(256.0f) && navPoint->origin.z + 40.0f <= pev->origin.z && navPoint->origin.z - 25.0f >= pev->origin.z && IsWaypointOccupied(navid->index))
 					{
 						campAction = (movePoint * 1.8f);
 						campPointWaypointIndex = GetCurrentGoalID();
@@ -439,114 +437,6 @@ void Bot::ZmCampPointAction(int mode)
 		m_strafeSpeed = 0.0f;
 
 		m_checkCampPointTime = 0.0f;
-	}
-}
-
-void Bot::AvoidEntity(void)
-{
-	if (m_isZombieBot || !ebot_avoid_grenades.GetBool() || FNullEnt(m_avoidEntity) || (m_avoidEntity->v.flags & FL_ONGROUND) || (m_avoidEntity->v.effects & EF_NODRAW) || (IsValidWaypoint(m_currentWaypointIndex) && g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_FALLRISK))
-	{
-		m_avoidEntity = nullptr;
-		m_needAvoidEntity = 0;
-		return;
-	}
-
-	edict_t* entity = nullptr;
-	int i, allEntity = 0;
-	int avoidEntityId[checkEntityNum];
-	for (i = 0; i < checkEntityNum; i++)
-		avoidEntityId[i] = -1;
-
-	while (!FNullEnt(entity = FIND_ENTITY_BY_CLASSNAME(entity, "grenade")))
-	{
-		if (cstrcmp(STRING(entity->v.model) + 9, "smokegrenade.mdl") == 0)
-			continue;
-
-		avoidEntityId[allEntity] = ENTINDEX(entity);
-		allEntity++;
-
-		if (allEntity >= checkEntityNum)
-			break;
-	}
-
-	for (i = 0; i < entityNum; i++)
-	{
-		if (allEntity >= checkEntityNum)
-			break;
-
-		if (g_entityId[i] == -1 || g_entityAction[i] != 2)
-			continue;
-
-		if (m_team == g_entityTeam[i])
-			continue;
-
-		entity = INDEXENT(g_entityId[i]);
-		if (FNullEnt(entity) || entity->v.effects & EF_NODRAW)
-			continue;
-
-		avoidEntityId[allEntity] = g_entityId[i];
-		allEntity++;
-	}
-
-	for (i = 0; i < allEntity; i++)
-	{
-		if (avoidEntityId[i] == -1)
-			continue;
-
-		entity = INDEXENT(avoidEntityId[i]);
-
-		if (cstrcmp(STRING(entity->v.classname), "grenade") == 0)
-		{
-			if (IsZombieMode() && cstrcmp(STRING(entity->v.model) + 9, "flashbang.mdl") == 0)
-				continue;
-
-			if (cstrcmp(STRING(entity->v.model) + 9, "hegrenade.mdl") == 0 && (GetTeam(entity->v.owner) == m_team && entity->v.owner != GetEntity()))
-				continue;
-		}
-
-		const Vector entityOrigin = GetEntityOrigin(entity);
-		if (InFieldOfView(entityOrigin - EyePosition()) > pev->fov * 0.5f && !EntityIsVisible(entityOrigin))
-			continue;
-
-		if (cstrcmp(STRING(entity->v.model) + 9, "flashbang.mdl") == 0)
-		{
-			Vector position = (entityOrigin - EyePosition()).ToAngles();
-			if (m_skill >= 70)
-			{
-				pev->v_angle.y = AngleNormalize(position.y + 180.0f);
-				m_canChooseAimDirection = false;
-				return;
-			}
-		}
-
-		if ((entity->v.flags & FL_ONGROUND) == 0)
-		{
-			float distance = (entityOrigin - pev->origin).GetLengthSquared();
-			float distanceMoved = ((entityOrigin + entity->v.velocity * m_frameInterval) - pev->origin).GetLengthSquared();
-
-			if (distanceMoved < distance && distance < SquaredF(500))
-			{
-				if (IsValidWaypoint(m_currentWaypointIndex))
-				{
-					if ((entityOrigin - g_waypoint->GetPath(m_currentWaypointIndex)->origin).GetLengthSquared() > distance || ((entityOrigin + entity->v.velocity * m_frameInterval) - g_waypoint->GetPath(m_currentWaypointIndex)->origin).GetLengthSquared() > distanceMoved)
-						continue;
-				}
-
-				MakeVectors(pev->v_angle);
-
-				Vector dirToPoint = (pev->origin - entityOrigin).Normalize2D();
-				Vector rightSide = g_pGlobals->v_right.Normalize2D();
-
-				if ((dirToPoint | rightSide) > 0)
-					m_needAvoidEntity = -1;
-				else
-					m_needAvoidEntity = 1;
-
-				m_avoidEntity = entity;
-
-				return;
-			}
-		}
 	}
 }
 
@@ -1056,7 +946,7 @@ void Bot::FindItem(void)
 		{
 			for (const auto& bot : g_botManager->m_bots)
 			{
-				if (bot != nullptr && bot != this && bot->m_isAlive && bot->m_pickupItem == pickupItem && bot->m_team == m_team)
+				if (bot != nullptr && bot.get() != this && bot->m_isAlive && bot->m_pickupItem == pickupItem && bot->m_team == m_team)
 				{
 					m_pickupItem = nullptr;
 					m_pickupType = PICKTYPE_NONE;
@@ -1065,7 +955,7 @@ void Bot::FindItem(void)
 			}
 		}
 
-		Vector pickupOrigin = GetEntityOrigin(pickupItem);
+		const Vector pickupOrigin = GetEntityOrigin(pickupItem);
 		if (pickupOrigin.z > EyePosition().z + 12.0f || IsDeadlyDrop(pickupOrigin))
 		{
 			m_pickupItem = nullptr;
@@ -1362,7 +1252,7 @@ void Bot::CheckMessageQueue(void)
 
 					for (const auto& bot : g_botManager->m_bots)
 					{
-						if (bot != nullptr && bot != this && bot->m_team == m_team)
+						if (bot != nullptr && bot.get() != this && bot->m_team == m_team)
 						{
 							bot->m_radioOrder = m_radioSelect;
 							bot->m_radioEntity = GetEntity();
@@ -1929,7 +1819,7 @@ void Bot::SetConditions(void)
 	// check if our current enemy is still valid
 	if (!FNullEnt(m_lastEnemy))
 	{
-		if (IsNotAttackLab(m_lastEnemy) || (!IsAlive(m_lastEnemy) && m_shootAtDeadTime < engine->GetTime()))
+		if (IsNotAttackLab(m_lastEnemy) || !IsAlive(m_lastEnemy))
 			SetLastEnemy(nullptr);
 	}
 	else
@@ -5013,7 +4903,7 @@ void Bot::RunTask(void)
 
 			while (!points.IsEmpty())
 			{
-				int newIndex = points.Pop();
+				const int newIndex = points.Pop();
 
 				// if waypoint not yet used, assign it as dest
 				if (IsValidWaypoint(newIndex) && !IsWaypointOccupied(newIndex) && (newIndex != m_currentWaypointIndex))
@@ -5062,9 +4952,9 @@ void Bot::RunTask(void)
 			else if (GetCurrentGoalID() != destIndex)
 			{
 				needMoveToTarget = true;
-				if (&m_navNode[0] != nullptr)
+				if (&m_navNode.get()[0] != nullptr)
 				{
-					PathNode* node = m_navNode;
+					shared_ptr<PathNode> node = shared_ptr<PathNode>(&m_navNode.get()[0]);
 
 					while (node->next != nullptr)
 						node = node->next;
@@ -6107,7 +5997,7 @@ void Bot::DebugModeMsg(void)
 				sprintf(gamemodName, "UNKNOWN MODE");
 			}
 
-			PathNode* navid = &m_navNode[0];
+			PathNode* navid = &m_navNode.get()[0];
 			int navIndex[2] = { 0, 0 };
 
 			while (navid != nullptr)
@@ -6120,7 +6010,7 @@ void Bot::DebugModeMsg(void)
 					break;
 				}
 
-				navid = navid->next;
+				navid = navid->next.get();
 			}
 
 			const int client = ENTINDEX(GetEntity()) - 1;
@@ -6168,11 +6058,11 @@ void Bot::DebugModeMsg(void)
 				WRITE_SHORT(FixedUnsigned16(0, 1 << 8));
 				WRITE_SHORT(FixedUnsigned16(0, 1 << 8));
 				WRITE_SHORT(FixedUnsigned16(1.0, 1 << 8));
-				WRITE_STRING(const_cast <const char*> (&outputBuffer[0]));
+				WRITE_STRING(const_cast<const char*>(&outputBuffer[0]));
 				MESSAGE_END();
 			}
 
-			timeDebugUpdate = engine->GetTime() + 1.0f;
+			timeDebugUpdate = engine->GetTime() + 0.5f;
 		}
 
 		if (m_moveTargetOrigin != nullvec && !FNullEnt(m_moveTargetEntity))
@@ -6185,14 +6075,17 @@ void Bot::DebugModeMsg(void)
 			engine->DrawLine(g_hostEntity, pev->origin, m_destOrigin, Color(0, 0, 255, 255), 10, 0, 5, 1, LINE_SIMPLE);
 
 		// now draw line from source to destination
-		PathNode* node = &m_navNode[0];
+		PathNode* node = &m_navNode.get()[0];
 
 		Vector src = nullvec;
 		while (node != nullptr)
 		{
 			Path* path = g_waypoint->GetPath(node->index);
+			if (!path)
+				return;
+
 			src = path->origin;
-			node = node->next;
+			node = node->next.get();
 
 			if (node != nullptr)
 			{
@@ -6207,15 +6100,11 @@ void Bot::DebugModeMsg(void)
 				}
 
 				if (jumpPoint)
-					engine->DrawLine(g_hostEntity, src, g_waypoint->GetPath(node->index)->origin,
-						Color(255, 0, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
+					engine->DrawLine(g_hostEntity, src, g_waypoint->GetPath(node->index)->origin, Color(255, 0, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
 				else
 				{
-					engine->DrawLine(g_hostEntity, src, g_waypoint->GetPath(node->index)->origin,
-						Color(255, 100, 55, 255), 15, 0, 8, 1, LINE_SIMPLE);
-
-					engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f),
-						Color(0, 255, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
+					engine->DrawLine(g_hostEntity, src, g_waypoint->GetPath(node->index)->origin, Color(255, 100, 55, 255), 15, 0, 8, 1, LINE_SIMPLE);
+					engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(0, 255, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
 				}
 			}
 		}
@@ -6223,22 +6112,19 @@ void Bot::DebugModeMsg(void)
 		if (IsValidWaypoint(m_prevWptIndex))
 		{
 			src = g_waypoint->GetPath(m_prevWptIndex)->origin;
-			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f),
-				Color(255, 0, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
+			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(255, 0, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
 		}
 
 		if (IsValidWaypoint(m_currentWaypointIndex))
 		{
 			src = g_waypoint->GetPath(m_currentWaypointIndex)->origin;
-			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f),
-				Color(0, 255, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
+			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(0, 255, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
 		}
 
 		if (IsValidWaypoint(m_prevGoalIndex))
 		{
 			src = g_waypoint->GetPath(m_prevGoalIndex)->origin;
-			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f),
-				Color(0, 255, 255, 255), 15, 0, 8, 1, LINE_SIMPLE);
+			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(0, 255, 255, 255), 15, 0, 8, 1, LINE_SIMPLE);
 		}
 	}
 }
@@ -6287,7 +6173,6 @@ void Bot::BotAI(void)
 
 	Vector src, dest;
 
-	AvoidEntity();
 	m_isUsingGrenade = false;
 
 	RunTask(); // execute current task
@@ -6304,17 +6189,10 @@ void Bot::BotAI(void)
 	// set the reaction time (surprise momentum) different each frame according to skill
 	m_idealReactionTime = CRandomFloat(g_skillTab[m_skill / 20].minSurpriseTime, g_skillTab[m_skill / 20].maxSurpriseTime);
 
-	auto flag = g_waypoint->GetPath(m_currentWaypointIndex)->flags;
-	Vector directionOld;
-	
-	if (IsOnLadder() || flag & WAYPOINT_LADDER || flag & WAYPOINT_FALLRISK || flag & WAYPOINT_JUMP)
-		directionOld = m_destOrigin - pev->origin;
-	else
-		directionOld = (m_destOrigin + pev->velocity * -m_frameInterval) - (pev->origin + pev->velocity * m_frameInterval);
-
-	Vector directionNormal = directionOld.Normalize();
-	Vector direction = directionNormal;
-	directionNormal.z = 0.0f;
+	const float inter = m_frameInterval + g_pGlobals->frametime;
+	const Vector directionOld = (m_destOrigin + pev->velocity * -inter) - (pev->origin + pev->velocity * inter);
+	const Vector directionNormal = directionOld.Normalize2D();
+	const Vector direction = directionNormal;
 
 	m_moveAngles = directionOld.ToAngles();
 	m_moveAngles.ClampAngles();
@@ -6762,16 +6640,6 @@ void Bot::BotAI(void)
 	}
 	else
 		m_isStuck = false;
-
-	// must avoid a grenade?
-	if (m_needAvoidEntity != 0)
-	{
-		// Don't duck to get away faster
-		pev->button &= ~IN_DUCK;
-
-		m_moveSpeed = -pev->maxspeed;
-		m_strafeSpeed = pev->maxspeed * m_needAvoidEntity;
-	}
 
 	bool OnLadderNoDuck = false;
 	if (IsOnLadder() || (IsValidWaypoint(m_currentWaypointIndex) && g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_LADDER))
