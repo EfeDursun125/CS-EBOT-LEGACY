@@ -2844,7 +2844,6 @@ public:
     {
         m_logger = logger;
 
-
         if (m_logger && m_logFile.IsValid())
         {
             m_logFile.Close();

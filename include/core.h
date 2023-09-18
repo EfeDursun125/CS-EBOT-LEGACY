@@ -1269,7 +1269,7 @@ public:
 class NetworkMsg : public Singleton <NetworkMsg>
 {
 private:
-	Bot* m_bot;
+	shared_ptr<Bot> m_bot;
 	int m_state;
 	int m_message;
 	int m_registerdMessages[NETMSG_NUM];
@@ -1279,14 +1279,14 @@ public:
 	~NetworkMsg(void) { };
 
 	void Execute(void* p);
-	void Reset(void) { m_message = NETMSG_UNDEFINED; m_state = 0; m_bot = nullptr; };
-	void HandleMessageIfRequired(int messageType, int requiredType);
+	void Reset(void) { m_message = NETMSG_UNDEFINED; m_state = 0; m_bot.reset(); };
+	void HandleMessageIfRequired(const int messageType, const int requiredType);
 
-	void SetMessage(int message) { m_message = message; }
-	void SetBot(Bot* bot) { m_bot = bot; }
+	void SetMessage(const int message) { m_message = message; }
+	void SetBot(Bot* bot) { m_bot = shared_ptr<Bot>(bot); }
 
-	int GetId(int messageType) { return m_registerdMessages[messageType]; }
-	void SetId(int messageType, int messsageIdentifier) { m_registerdMessages[messageType] = messsageIdentifier; }
+	int GetId(const int messageType) { return m_registerdMessages[messageType]; }
+	void SetId(const int messageType, const int messsageIdentifier) { m_registerdMessages[messageType] = messsageIdentifier; }
 };
 
 // waypoint operation class
