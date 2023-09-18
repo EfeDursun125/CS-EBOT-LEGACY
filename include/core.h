@@ -521,7 +521,7 @@ const int WeaponBits_Secondary = ((1 << WEAPON_P228) | (1 << WEAPON_ELITE) | (1 
 struct PathNode
 {
 	int index;
-	PathNode* next;
+	shared_ptr<PathNode> next;
 };
 
 // links keywords and replies together
@@ -766,8 +766,8 @@ private:
 	int m_collStateIndex; // index into collide moves
 	CollisionState m_collisionState; // collision State
 
-	PathNode* m_navNode; // pointer to current node from path
-	PathNode* m_navNodeStart; // pointer to start of path finding nodes
+	shared_ptr<PathNode> m_navNode; // pointer to current node from path
+	shared_ptr<PathNode> m_navNodeStart; // pointer to start of path finding nodes
 	uint8_t m_visibility; // visibility flags
 
 	int m_cachedWaypointIndex; // for zombies
@@ -795,9 +795,6 @@ private:
 	Vector m_camp; // aiming vector when camping.
 
 	bool m_wantsToFire; // bot needs consider firing
-	float m_shootAtDeadTime; // time to shoot at dying players
-	edict_t* m_avoidEntity; // pointer to grenade entity to avoid
-	char m_needAvoidEntity; // which direction to strafe away
 
 	float m_followWaitTime; // wait to follow time
 	edict_t* m_targetEntity; // the entity that the bot is trying to reach
@@ -820,6 +817,8 @@ private:
 	float m_msecInterval; // used for leon hartwig's method for msec calculation
 	float m_impulse;
 
+	float m_aimInterval; // bot's aim interval
+	float m_lastAimTime; // time aim last thinked
 	float m_frameInterval; // bot's frame interval
 	float m_lastThinkTime; // time bot last thinked
 	float m_thinkDelay; // delay for bot think
@@ -874,8 +873,6 @@ private:
 	void CheckBurstMode(float distance);
 
 	int CheckMaxClip(int weaponId, int* weaponIndex);
-
-	void AvoidEntity(void);
 
 	void ZombieModeAi(void);
 	void ZmCampPointAction(int mode = 0);
@@ -996,6 +993,7 @@ private:
 	int GetCampAimingWaypoint(void);
 	void FindPath(int srcIndex, int destIndex);
 	void FindShortestPath(int srcIndex, int destIndex);
+	bool IsPathPossible(const int srcIndex, const int destIndex);
 	void SecondThink(void);
 	void CalculatePing(void);
 
@@ -1218,7 +1216,7 @@ protected:
 	int CreateBot(String name, int skill, int personality, int team, int member);
 
 public:
-	Bot* m_bots[32]; // all available bots
+	shared_ptr<Bot> m_bots[32]; // all available bots
 	Array <String> m_savedBotNames; // storing the bot names
 	Array <String> m_avatars; // storing the steam ids
 
@@ -1297,7 +1295,7 @@ class Waypoint : public Singleton <Waypoint>
 	friend class Bot;
 
 private:
-	Path* m_paths[Const_MaxWaypoints];
+	shared_ptr<Path> m_paths[Const_MaxWaypoints];
 	bool m_badMapName;
 
 	bool m_isOnLadder;

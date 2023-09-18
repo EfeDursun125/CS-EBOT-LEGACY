@@ -32,6 +32,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <vector>
+#include <memory>
 
 #pragma warning (disable : 4996) // get rid of this
 
@@ -998,7 +999,7 @@ public:
 class String
 {
 private:
-    char* m_bufferPtr;
+    std::shared_ptr<char[]> m_bufferPtr;
     int m_allocatedSize;
     int m_stringLength;
 
@@ -1014,20 +1015,18 @@ private:
     // Parameters:
     //  size - New size of buffer.
     //
-    void UpdateBufferSize(int size)
+    void UpdateBufferSize(const int size)
     {
         if (size <= m_allocatedSize)
             return;
 
         m_allocatedSize = size + 16;
-        char* tempBuffer = new char[size + 1];
+        std::shared_ptr<char[]> tempBuffer(new char[size + 1], std::default_delete<char[]>());
 
         if (m_bufferPtr != nullptr)
         {
-            cstrcpy(tempBuffer, m_bufferPtr);
+            cstrcpy(tempBuffer.get(), m_bufferPtr.get());
             tempBuffer[m_stringLength] = 0;
-
-            delete[] m_bufferPtr;
         }
 
         m_bufferPtr = tempBuffer;
@@ -1042,9 +1041,9 @@ private:
     //  destIndex - Destination index.
     //  sourceIndex - Source index.
     //
-    void MoveItems(int destIndex, int sourceIndex)
+    void MoveItems(const int destIndex, const int sourceIndex)
     {
-        cmemmove(m_bufferPtr + destIndex, m_bufferPtr + sourceIndex, sizeof(char) * (m_stringLength - sourceIndex + 1));
+        cmemmove(m_bufferPtr.get() + destIndex, m_bufferPtr.get() + sourceIndex, sizeof(char) * (m_stringLength - sourceIndex + 1));
     }
 
     //
@@ -1095,7 +1094,7 @@ private:
     //  index - Location to insert space.
     //  size - Size of space insert.
     //
-    void InsertSpace(int& index, int size)
+    void InsertSpace(int& index, const int size)
     {
         CorrectIndex(index);
         Initialize(size);
@@ -1124,40 +1123,28 @@ private:
 public:
     String(void)
     {
-        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
-    }
-
-    ~String(void)
-    {
-        delete[] m_bufferPtr;
     }
 
     String(const char* bufferPtr)
     {
-        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
-
         Assign(bufferPtr);
     }
 
     String(char input)
     {
-        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
-
         Assign(input);
     }
 
     String(const String& inputString)
     {
-        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
-
         Assign(inputString.GetBuffer());
     }
 
@@ -1168,12 +1155,12 @@ public:
 
     inline char* GetRawData(void)
     {
-        return m_bufferPtr;
+        return m_bufferPtr.get();
     }
 
     inline const char* GetRawData(void) const
     {
-        return m_bufferPtr;
+        return m_bufferPtr.get();
     }
 
     //
@@ -1185,7 +1172,7 @@ public:
     //
     const char* GetBuffer(void)
     {
-        if (m_bufferPtr == nullptr || *m_bufferPtr == 0x0)
+        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1200,7 +1187,7 @@ public:
     //
     const char* GetBuffer(void) const
     {
-        if (m_bufferPtr == nullptr || *m_bufferPtr == 0x0)
+        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1215,7 +1202,7 @@ public:
     //
     float ToFloat(void)
     {
-        return static_cast <float> (catof(m_bufferPtr));
+        return catof(m_bufferPtr.get());
     }
 
     //
@@ -1227,7 +1214,7 @@ public:
     //
     int ToInt(void) const
     {
-        return catoi(m_bufferPtr);
+        return catoi(m_bufferPtr.get());
     }
 
     //
@@ -1236,7 +1223,7 @@ public:
     //
     void ReleaseBuffer(void)
     {
-        ReleaseBuffer(cstrlen(m_bufferPtr));
+        ReleaseBuffer(cstrlen(m_bufferPtr.get()));
     }
 
     //
@@ -1246,7 +1233,7 @@ public:
     // Parameters:
     //  newLength - End of buffer.
     //
-    void ReleaseBuffer(int newLength)
+    void ReleaseBuffer(const int newLength)
     {
         m_bufferPtr[newLength] = 0;
         m_stringLength = newLength;
@@ -1262,12 +1249,12 @@ public:
     // Returns:
     //  Pointer to string buffer.
     //
-    char* GetBuffer(int minLength)
+    char* GetBuffer(const int minLength)
     {
         if (minLength >= m_allocatedSize)
             UpdateBufferSize(minLength + 1);
 
-        return m_bufferPtr;
+        return m_bufferPtr.get();
     }
 
     //
@@ -1280,7 +1267,7 @@ public:
     // Returns:
     //  Pointer to string buffer.
     //
-    char* GetBufferSetLength(int length)
+    char* GetBufferSetLength(const int length)
     {
         char* buffer = GetBuffer(length);
 
@@ -1300,9 +1287,9 @@ public:
     void Append(const char* bufferPtr)
     {
         UpdateBufferSize(m_stringLength + cstrlen(bufferPtr) + 1);
-        cstrcat(m_bufferPtr, bufferPtr);
+        cstrcat(m_bufferPtr.get(), bufferPtr);
 
-        m_stringLength = cstrlen(m_bufferPtr);
+        m_stringLength = cstrlen(m_bufferPtr.get());
     }
 
     //
@@ -1332,8 +1319,8 @@ public:
         const char* bufferPtr = inputString.GetBuffer();
         UpdateBufferSize(m_stringLength + cstrlen(bufferPtr));
 
-        cstrcat(m_bufferPtr, bufferPtr);
-        m_stringLength = cstrlen(m_bufferPtr);
+        cstrcat(m_bufferPtr.get(), bufferPtr);
+        m_stringLength = cstrlen(m_bufferPtr.get());
     }
 
     //
@@ -1400,8 +1387,8 @@ public:
 
         if (m_bufferPtr != nullptr)
         {
-            cstrcpy(m_bufferPtr, bufferPtr);
-            m_stringLength = cstrlen(m_bufferPtr);
+            cstrcpy(m_bufferPtr.get(), bufferPtr);
+            m_stringLength = cstrlen(m_bufferPtr.get());
         }
         else
             m_stringLength = 0;
@@ -1640,16 +1627,17 @@ public:
         else if (startIndex + count >= m_stringLength)
             count = m_stringLength - startIndex;
 
-        int i = 0, j = 0;
-        char* holder = new char[m_stringLength + 1];
+        if (count <= 0)
+            return result;
 
-        for (i = startIndex; i < startIndex + count; i++)
-            holder[j++] = m_bufferPtr[i];
+        std::shared_ptr<char[]> holder(new char[count + 1], std::default_delete<char[]>());
 
-        holder[j] = 0;
-        result.Assign(holder);
+        for (int i = 0; i < count; i++)
+            holder[i] = m_bufferPtr[startIndex + i];
 
-        delete[] holder;
+        holder[count] = '\0';
+        result.Assign(holder.get());
+
         return result;
     }
 
@@ -1744,8 +1732,8 @@ public:
     //
     String ToReverse(void)
     {
-        char* source = m_bufferPtr + GetLength() - 1;
-        char* dest = m_bufferPtr;
+        char* source = m_bufferPtr.get() + GetLength() - 1;
+        char* dest = m_bufferPtr.get();
 
         while (source > dest)
         {
@@ -1763,7 +1751,7 @@ public:
             }
         }
 
-        return m_bufferPtr;
+        return m_bufferPtr.get();
     }
 
     //
@@ -1805,7 +1793,7 @@ public:
     //
     int Compare(const String& string) const
     {
-        return cstrcmp(m_bufferPtr, string.m_bufferPtr);
+        return cstrcmp(m_bufferPtr.get(), string.m_bufferPtr.get());
     }
 
     //
@@ -1820,7 +1808,7 @@ public:
     //
     int Compare(const char* str) const
     {
-        return cstrcmp(m_bufferPtr, str);
+        return cstrcmp(m_bufferPtr.get(), str);
     }
 
     //
@@ -1835,7 +1823,7 @@ public:
     //
     int Collate(const String& string) const
     {
-        return strcoll(m_bufferPtr, string.m_bufferPtr);
+        return strcoll(m_bufferPtr.get(), string.m_bufferPtr.get());
     }
 
     //
@@ -1866,12 +1854,12 @@ public:
     //
     int Find(char input, int startIndex) const
     {
-        char* str = m_bufferPtr + startIndex;
+        char* str = m_bufferPtr.get() + startIndex;
 
         for (;;)
         {
             if (*str == input)
-                return str - m_bufferPtr;
+                return str - m_bufferPtr.get();
 
             if (*str == 0)
                 return -1;
@@ -1924,6 +1912,7 @@ public:
             if (j == string.m_stringLength)
                 return startIndex;
         }
+
         return -1;
     }
 
@@ -1942,14 +1931,14 @@ public:
         if (m_stringLength == 0)
             return -1;
 
-        char* str = m_bufferPtr + m_stringLength - 1;
+        char* str = m_bufferPtr.get() + m_stringLength - 1;
 
         for (;;)
         {
             if (*str == ch)
-                return str - m_bufferPtr;
+                return str - m_bufferPtr.get();
 
-            if (str == m_bufferPtr)
+            if (str == m_bufferPtr.get())
                 return -1;
             str--;
         }
@@ -1972,6 +1961,7 @@ public:
             if (string.Find(m_bufferPtr[i]) >= 0)
                 return i;
         }
+
         return -1;
     }
 
@@ -1984,7 +1974,7 @@ public:
     //
     String& TrimRight(void)
     {
-        char* str = m_bufferPtr;
+        char* str = m_bufferPtr.get();
         char* last = nullptr;
 
         while (*str != 0)
@@ -1996,11 +1986,12 @@ public:
             }
             else
                 last = nullptr;
+
             str++;
         }
 
         if (last != nullptr)
-            Delete(last - m_bufferPtr);
+            Delete(last - m_bufferPtr.get());
 
         return *this;
     }
@@ -2014,12 +2005,12 @@ public:
     //
     String& TrimLeft(void)
     {
-        char* str = m_bufferPtr;
+        char* str = m_bufferPtr.get();
 
         while (IsTrimChar(*str))
             str++;
 
-        if (str != m_bufferPtr)
+        if (str != m_bufferPtr.get())
         {
             int first = int(str - GetBuffer());
             char* buffer = GetBuffer(GetLength());
@@ -2030,6 +2021,7 @@ public:
             cmemmove(buffer, str, (length + 1) * sizeof(char));
             ReleaseBuffer(length);
         }
+
         return *this;
     }
 
@@ -2054,7 +2046,7 @@ public:
     //
     void TrimRight(char ch)
     {
-        const char* str = m_bufferPtr;
+        const char* str = m_bufferPtr.get();
         const char* last = nullptr;
 
         while (*str != 0)
@@ -2072,7 +2064,7 @@ public:
 
         if (last != nullptr)
         {
-            int i = last - m_bufferPtr;
+            int i = last - m_bufferPtr.get();
             Delete(i, m_stringLength - i);
         }
     }
@@ -2086,12 +2078,12 @@ public:
     //
     void TrimLeft(char ch)
     {
-        char* str = m_bufferPtr;
+        char* str = m_bufferPtr.get();
 
         while (ch == *str)
             str++;
 
-        Delete(0, str - m_bufferPtr);
+        Delete(0, str - m_bufferPtr.get());
     }
 
     //
@@ -2133,11 +2125,12 @@ public:
         if (string.m_stringLength == 0)
             return m_stringLength;
 
-        int numInsertChars = string.m_stringLength;
+        const int numInsertChars = string.m_stringLength;
         InsertSpace(index, numInsertChars);
 
         for (int i = 0; i < numInsertChars; i++)
             m_bufferPtr[index + i] = string[i];
+
         m_stringLength += numInsertChars;
 
         return m_stringLength;
@@ -2174,6 +2167,7 @@ public:
             position++;
             num++;
         }
+
         return num;
     }
 
@@ -2196,8 +2190,8 @@ public:
         if (newString.m_stringLength == 0)
             return 0;
 
-        int oldLength = oldString.m_stringLength;
-        int newLength = newString.m_stringLength;
+        const int oldLength = oldString.m_stringLength;
+        const int newLength = newString.m_stringLength;
 
         int num = 0;
         int position = 0;
@@ -2215,6 +2209,7 @@ public:
             position += newLength;
             num++;
         }
+
         return num;
     }
 
@@ -2229,7 +2224,7 @@ public:
     // Returns:
     //  New string length.
     //
-    int Delete(int index, int count = 1)
+    int Delete(const int index, int count = 1)
     {
         if (index + count > m_stringLength)
             count = m_stringLength - index;
@@ -2239,6 +2234,7 @@ public:
             MoveItems(index, index + count);
             m_stringLength -= count;
         }
+
         return m_stringLength;
     }
 
@@ -2272,7 +2268,7 @@ public:
     //
     bool Contains(const String& what)
     {
-        return cstrstr(m_bufferPtr, what.m_bufferPtr) != nullptr;
+        return cstrstr(m_bufferPtr.get(), what.m_bufferPtr.get()) != nullptr;
     }
 
     //
@@ -2285,13 +2281,14 @@ public:
     unsigned long Hash(void)
     {
         unsigned long hash = 0;
-        const char* ptr = m_bufferPtr;
+        const char* ptr = m_bufferPtr.get();
 
         while (*ptr)
         {
             hash = (hash << 5) + hash + (*ptr);
             ptr++;
         }
+
         return hash;
     }
 
@@ -2511,21 +2508,18 @@ public:
     //
     inline bool GetBuffer(String& buffer, int count = 256) const
     {
-        char* tempBuffer = new char[static_cast <uint32_t> (count)];
-        buffer.SetEmpty();
+        std::shared_ptr<char> tempBuffer(new char[count], std::default_delete<char[]>());
 
         if (tempBuffer == nullptr)
             return false;
 
-        if (fgets(tempBuffer, count, m_handle) != nullptr)
-        {
-            buffer = tempBuffer;
-            delete[] tempBuffer;
+        buffer.SetEmpty();
 
+        if (fgets(tempBuffer.get(), count, m_handle) != nullptr)
+        {
+            buffer = tempBuffer.get();
             return true;
         }
-
-        delete[] tempBuffer;
 
         return false;
     }

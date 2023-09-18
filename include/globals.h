@@ -105,7 +105,7 @@ extern TaskItem g_taskFilters[];
 
 extern edict_t* g_hostEntity;
 extern edict_t* g_worldEdict;
-extern Library* g_gameLib;
+extern shared_ptr<Library> g_gameLib;
 
 extern DLL_FUNCTIONS g_functionTable;
 extern EntityAPI_t g_entityAPI;
