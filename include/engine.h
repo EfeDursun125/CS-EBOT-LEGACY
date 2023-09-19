@@ -1571,13 +1571,6 @@ typedef int BOOL;
 #define MAX_PATH PATH_MAX
 #include <limits.h>
 #include <stdarg.h>
-#ifndef min
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-#endif
-#ifndef max
-#define max(a,b) (((a) > (b)) ? (a) : (b))
-#define _vsnprintf(a,b,c,d) vsnprintf(a,b,c,d)
-#endif
 #endif //_WIN32
 
 
@@ -3086,7 +3079,7 @@ public:
 
     inline float Fire(void)
     {
-        TraceResult tr;
+        TraceResult tr{};
 
         if (m_hullNumber != -1)
             g_engfuncs.pfnTraceHull(m_start, m_end, m_monsters ? 1 : 0, m_hullNumber, m_ignore ? m_ignore : nullptr, &tr);

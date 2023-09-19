@@ -518,10 +518,84 @@ const int WeaponBits_Primary = ((1 << WEAPON_XM1014) | (1 << WEAPON_M3) | (1 << 
 const int WeaponBits_Secondary = ((1 << WEAPON_P228) | (1 << WEAPON_ELITE) | (1 << WEAPON_USP) | (1 << WEAPON_GLOCK18) | (1 << WEAPON_DEAGLE) | (1 << WEAPON_FN57));
 
 // this structure links waypoints returned from pathfinder
-struct PathNode
+class PathNode
 {
-	int index;
-	shared_ptr<PathNode> next;
+private:
+	size_t m_cursor = 0;
+	size_t m_length = 0;
+	unique_ptr <int[]> m_path;
+
+public:
+	explicit PathNode(void) = default;
+	~PathNode(void) = default;
+
+public:
+	int& Next(void)
+	{
+		return At(1);
+	}
+
+	int& First(void)
+	{
+		return At(0);
+	}
+
+	int& Last(void)
+	{
+		return At(Length() - 1);
+	}
+
+	int& At(const size_t index)
+	{
+		return m_path[m_cursor + index];
+	}
+
+	void Shift(void)
+	{
+		++m_cursor;
+	}
+
+	void Reverse(void)
+	{
+		size_t i;
+		for (i = 0; i < m_length / 2; ++i)
+			swap(m_path[i], m_path[m_length - 1 - i]);
+	}
+
+	size_t Length(void) const
+	{
+		if (m_cursor >= m_length)
+			return 0;
+
+		return m_length - m_cursor;
+	}
+
+	bool HasNext(void) const
+	{
+		return Length() > m_cursor;
+	}
+
+	bool IsEmpty() const
+	{
+		return !Length();
+	}
+
+	void Add(const int node)
+	{
+		m_path[m_length++] = node;
+	}
+
+	void Clear(void)
+	{
+		m_cursor = 0;
+		m_length = 0;
+		m_path[0] = 0;
+	}
+
+	void Init(size_t length)
+	{
+		m_path = make_unique<int[]>(length);
+	}
 };
 
 // links keywords and replies together
@@ -766,8 +840,7 @@ private:
 	int m_collStateIndex; // index into collide moves
 	CollisionState m_collisionState; // collision State
 
-	shared_ptr<PathNode> m_navNode; // pointer to current node from path
-	shared_ptr<PathNode> m_navNodeStart; // pointer to start of path finding nodes
+	PathNode m_navNode; // pointer to current node from path
 	uint8_t m_visibility; // visibility flags
 
 	int m_cachedWaypointIndex; // for zombies
@@ -817,8 +890,8 @@ private:
 	float m_msecInterval; // used for leon hartwig's method for msec calculation
 	float m_impulse;
 
-	float m_aimInterval; // bot's aim interval
-	float m_lastAimTime; // time aim last thinked
+	float m_aimInterval;
+	float m_lastAimTime;
 	float m_frameInterval; // bot's frame interval
 	float m_lastThinkTime; // time bot last thinked
 	float m_thinkDelay; // delay for bot think
@@ -910,7 +983,6 @@ private:
 	int GetMessageQueue(void);
 	bool GoalIsValid(void);
 	bool HeadTowardWaypoint(void);
-	bool HasNextPath(void);
 	float InFieldOfView(Vector dest);
 
 	bool IsBombDefusing(Vector bombOrigin);
@@ -939,7 +1011,6 @@ private:
 	void SetStrafeSpeed(Vector moveDir, float strafeSpeed);
 	void StartGame(void);
 	void TaskComplete(void);
-	bool GetBestNextWaypoint(void);
 	int GetBestWeaponCarried(void);
 	int GetBestSecondaryWeaponCarried(void);
 
@@ -993,7 +1064,6 @@ private:
 	int GetCampAimingWaypoint(void);
 	void FindPath(int srcIndex, int destIndex);
 	void FindShortestPath(int srcIndex, int destIndex);
-	bool IsPathPossible(const int srcIndex, const int destIndex);
 	void SecondThink(void);
 	void CalculatePing(void);
 
@@ -1216,7 +1286,7 @@ protected:
 	int CreateBot(String name, int skill, int personality, int team, int member);
 
 public:
-	shared_ptr<Bot> m_bots[32]; // all available bots
+	Bot* m_bots[32]; // all available bots
 	Array <String> m_savedBotNames; // storing the bot names
 	Array <String> m_avatars; // storing the steam ids
 
@@ -1269,21 +1339,21 @@ public:
 class NetworkMsg : public Singleton <NetworkMsg>
 {
 private:
-	shared_ptr<Bot> m_bot;
+	Bot* m_bot;
 	int m_state;
 	int m_message;
 	int m_registerdMessages[NETMSG_NUM];
 
 public:
 	NetworkMsg(void);
-	~NetworkMsg(void) { };
+	~NetworkMsg(void) {};
 
 	void Execute(void* p);
-	void Reset(void) { m_message = NETMSG_UNDEFINED; m_state = 0; m_bot.reset(); };
+	void Reset(void) { m_message = NETMSG_UNDEFINED; m_state = 0; m_bot = nullptr; };
 	void HandleMessageIfRequired(const int messageType, const int requiredType);
 
 	void SetMessage(const int message) { m_message = message; }
-	void SetBot(Bot* bot) { m_bot = shared_ptr<Bot>(bot); }
+	void SetBot(Bot* bot) { m_bot = bot; }
 
 	int GetId(const int messageType) { return m_registerdMessages[messageType]; }
 	void SetId(const int messageType, const int messsageIdentifier) { m_registerdMessages[messageType] = messsageIdentifier; }
@@ -1295,8 +1365,7 @@ class Waypoint : public Singleton <Waypoint>
 	friend class Bot;
 
 private:
-	shared_ptr<Path> m_paths[Const_MaxWaypoints];
-	bool m_badMapName;
+	Path* m_paths[Const_MaxWaypoints];
 
 	bool m_isOnLadder;
 	bool m_waypointPaths;

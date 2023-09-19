@@ -836,7 +836,7 @@ public:
     {
         if (newSize == 0)
         {
-            Destroy();
+            m_elements.clear();
             return true;
         }
 
@@ -852,20 +852,19 @@ public:
 
     bool SetAt(const int index, const T object, const bool enlarge = true)
     {
-        if (index < 0 || index >= GetElementNumber())
+        if (index < 0 || index >= m_elements.size())
         {
             if (!enlarge || !SetSize(index + 1))
                 return false;
         }
 
         m_elements[index] = object;
-
         return true;
     }
 
     T& GetAt(const int index)
     {
-        if (index < 0 || index >= GetElementNumber())
+        if (index < 0 || index >= m_elements.size())
             return m_elements[0];
 
         return m_elements[index];
@@ -873,7 +872,7 @@ public:
 
     bool GetAt(const int index, T& object)
     {
-        if (index < 0 || index >= GetElementNumber())
+        if (index < 0 || index >= m_elements.size())
             return false;
 
         object = m_elements[index];
@@ -882,11 +881,10 @@ public:
 
     bool RemoveAt(const int index, const int count = 1)
     {
-        if (index < 0 || index >= GetElementNumber() || count < 1)
+        if (index < 0 || index >= m_elements.size() || count < 1)
             return false;
 
         m_elements.erase(m_elements.begin() + index, m_elements.begin() + index + count);
-
         return true;
     }
 
@@ -907,10 +905,10 @@ public:
 
     void FreeSpace(const bool destroyIfEmpty = true)
     {
-        if (IsEmpty())
+        if (m_elements.empty())
         {
             if (destroyIfEmpty)
-                Destroy();
+                m_elements.clear();
 
             return;
         }
@@ -920,7 +918,7 @@ public:
 
     T Pop(void)
     {
-        if (IsEmpty())
+        if (m_elements.empty())
             return m_elements[0];
 
         const T element = m_elements.back();
@@ -931,7 +929,7 @@ public:
 
     void PopNoReturn(void)
     {
-        if (IsEmpty())
+        if (m_elements.empty())
             return;
 
         m_elements.pop_back();
@@ -939,7 +937,7 @@ public:
 
     T& Last(void)
     {
-        if (IsEmpty())
+        if (m_elements.empty())
             return m_elements[0];
 
         return m_elements.back();
@@ -947,16 +945,16 @@ public:
 
     T& GetRandomElement(void)
     {
-        if (IsEmpty())
+        if (m_elements.empty())
             return m_elements[0];
 
-        const int randomIndex = frand() % GetElementNumber();
+        const int randomIndex = frand() % m_elements.size();
         return m_elements[randomIndex];
     }
 
     bool GetLast(T& item)
     {
-        if (IsEmpty())
+        if (m_elements.empty())
             return false;
 
         item = m_elements.back();
@@ -969,13 +967,12 @@ public:
             return *this;
 
         m_elements = other.m_elements;
-
         return *this;
     }
 
     T& operator [] (const int index)
     {
-        if (index < 0 || index >= GetElementNumber())
+        if (index < 0 || index >= m_elements.size())
             return m_elements[0];
 
         return m_elements[index];
@@ -1027,6 +1024,7 @@ private:
         {
             cstrcpy(tempBuffer.get(), m_bufferPtr.get());
             tempBuffer[m_stringLength] = 0;
+            m_bufferPtr.reset();
         }
 
         m_bufferPtr = tempBuffer;
@@ -1172,7 +1170,7 @@ public:
     //
     const char* GetBuffer(void)
     {
-        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
+        if (!m_bufferPtr || *m_bufferPtr.get() == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1187,7 +1185,7 @@ public:
     //
     const char* GetBuffer(void) const
     {
-        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
+        if (!m_bufferPtr || *m_bufferPtr.get() == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1424,6 +1422,8 @@ public:
             m_bufferPtr[0] = 0;
             m_stringLength = 0;
         }
+
+        m_bufferPtr.reset();
     }
 
     //
@@ -1435,7 +1435,7 @@ public:
     //
     bool IsEmpty(void) const
     {
-        if (m_bufferPtr == nullptr || m_stringLength == 0)
+        if (!m_bufferPtr || m_stringLength == 0)
             return true;
 
         return false;
@@ -1450,7 +1450,7 @@ public:
     //
     int GetLength(void)
     {
-        if (m_bufferPtr == nullptr)
+        if (!m_bufferPtr)
             return 0;
 
         return m_stringLength;
@@ -1596,7 +1596,7 @@ public:
         return *this;
     }
 
-    char operator [] (int index)
+    char operator [] (const int index)
     {
         if (index > m_stringLength)
             return -1;
@@ -1615,7 +1615,7 @@ public:
     // Returns:
     //  Tokenized string.
     //
-    String Mid(int startIndex, int count = -1)
+    String Mid(const int startIndex, int count = -1)
     {
         String result;
 
@@ -1630,7 +1630,7 @@ public:
         if (count <= 0)
             return result;
 
-        std::shared_ptr<char[]> holder(new char[count + 1], std::default_delete<char[]>());
+        std::unique_ptr<char[]> holder(new char[count + 1], std::default_delete<char[]>());
 
         for (int i = 0; i < count; i++)
             holder[i] = m_bufferPtr[startIndex + i];
@@ -1651,7 +1651,7 @@ public:
     // Returns:
     //  Tokenized string.
     //
-    String Mid(int startIndex)
+    String Mid(const int startIndex)
     {
         return Mid(startIndex, m_stringLength - startIndex);
     }
@@ -1666,7 +1666,7 @@ public:
     // Returns:
     //  Tokenized string.
     //
-    String Left(int count)
+    String Left(const int count)
     {
         return Mid(0, count);
     }
@@ -1700,7 +1700,8 @@ public:
     {
         String result;
 
-        for (int i = 0; i < GetLength(); i++)
+        const int length = GetLength();
+        for (int i = 0; i < length; i++)
             result += ctoupper(m_bufferPtr[i]);
 
         return result;
@@ -1717,7 +1718,8 @@ public:
     {
         String result;
 
-        for (int i = 0; i < GetLength(); i++)
+        const int length = GetLength();
+        for (int i = 0; i < length; i++)
             result += ctolower(m_bufferPtr[i]);
 
         return result;
@@ -1744,8 +1746,7 @@ public:
             }
             else
             {
-                char ch = *source;
-
+                const char ch = *source;
                 *source-- = *dest;
                 *dest++ = ch;
             }
@@ -1823,7 +1824,7 @@ public:
     //
     int Collate(const String& string) const
     {
-        return strcoll(m_bufferPtr.get(), string.m_bufferPtr.get());
+        return cstrcoll(m_bufferPtr.get(), string.m_bufferPtr.get());
     }
 
     //
@@ -1852,7 +1853,7 @@ public:
     // Returns:
     //  Index of character.
     //
-    int Find(char input, int startIndex) const
+    int Find(char input, const int startIndex) const
     {
         char* str = m_bufferPtr.get() + startIndex;
 
@@ -2012,11 +2013,11 @@ public:
 
         if (str != m_bufferPtr.get())
         {
-            int first = int(str - GetBuffer());
+            const int first = int(str - GetBuffer());
             char* buffer = GetBuffer(GetLength());
 
             str = buffer + first;
-            int length = GetLength() - first;
+            const int length = GetLength() - first;
 
             cmemmove(buffer, str, (length + 1) * sizeof(char));
             ReleaseBuffer(length);
@@ -2064,7 +2065,7 @@ public:
 
         if (last != nullptr)
         {
-            int i = last - m_bufferPtr.get();
+            const int i = last - m_bufferPtr.get();
             Delete(i, m_stringLength - i);
         }
     }
@@ -2349,6 +2350,7 @@ public:
     }
 };
 
+
 //
 // Class: File
 // A simple wrapper to a stdio FILE.
@@ -2491,7 +2493,7 @@ public:
     //
     inline uint8_t GetCharacter(void) const
     {
-        return  static_cast <uint8_t> (fgetc(m_handle));
+        return static_cast<uint8_t>(fgetc(m_handle));
     }
 
     //
@@ -2509,11 +2511,10 @@ public:
     inline bool GetBuffer(String& buffer, int count = 256) const
     {
         std::shared_ptr<char> tempBuffer(new char[count], std::default_delete<char[]>());
-
-        if (tempBuffer == nullptr)
-            return false;
-
         buffer.SetEmpty();
+
+        if (!tempBuffer)
+            return false;
 
         if (fgets(tempBuffer.get(), count, m_handle) != nullptr)
         {
@@ -2843,6 +2844,7 @@ public:
     inline void SetLoggerEngine(ILoggerEngine* logger)
     {
         m_logger = logger;
+
 
         if (m_logger && m_logFile.IsValid())
         {
