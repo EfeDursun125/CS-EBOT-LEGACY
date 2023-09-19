@@ -510,7 +510,7 @@ bool Bot::IsFriendInLineOfFire(float distance)
 
 	MakeVectors(pev->v_angle);
 
-	TraceResult tr;
+	TraceResult tr{};
 	TraceLine(EyePosition(), EyePosition() + distance * pev->v_angle.Normalize(), false, false, GetEntity(), &tr);
 
 	if (!FNullEnt(tr.pHit))
@@ -581,7 +581,7 @@ bool Bot::IsShootableThruObstacle(edict_t* entity)
 	if (currentWeaponPenetrationPower == 0)
 		return false;
 
-	TraceResult tr;
+	TraceResult tr{};
 	Vector dest = GetEntityOrigin(entity);
 
 	float obstacleDistance = 0.0f;
@@ -1177,7 +1177,7 @@ void Bot::CombatFight(void)
 				}
 			}
 
-			if (baseDistance > 0.0f && distance <= SquaredF(baseDistance))
+			if (baseDistance > 0.0f && distance < SquaredF(baseDistance))
 			{
 				DeleteSearchNodes();
 				m_destOrigin = destOrigin;
@@ -1216,7 +1216,7 @@ void Bot::CombatFight(void)
 					PushTask(TASK_SEEKCOVER, TASKPRI_SEEKCOVER, seekindex, 8.0f, true);
 			}
 
-			if (!HasNextPath())
+			if (m_navNode.IsEmpty())
 			{
 				const int nearest = g_waypoint->FindNearest(m_enemyOrigin, 99999999.0f, -1, m_enemy);
 				if (IsValidWaypoint(nearest))

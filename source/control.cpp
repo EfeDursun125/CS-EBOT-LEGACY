@@ -65,7 +65,10 @@ BotControl::~BotControl(void)
 	for (int i = 0; i < 32; i++)
 	{
 		if (m_bots[i])
-			m_bots[i].reset();
+		{
+			delete m_bots[i];
+			m_bots[i] = nullptr;
+		}
 	}
 }
 
@@ -201,12 +204,16 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 		return -2;
 	}
 
-	const int index = ENTINDEX(bot) - 1;
+	int index = ENTINDEX(bot) - 1;
 
 	InternalAssert(index >= 0 && index <= 32); // check index
-	InternalAssert(!m_bots[index]); // check bot slot
+	InternalAssert(m_bots[index] == nullptr); // check bot slot
 
-	m_bots[index] = make_shared<Bot>(bot, skill, personality, team, member);
+	m_bots[index] = new Bot(bot, skill, personality, team, member);
+
+	if (m_bots == nullptr)
+		return -1;
+
 	ServerPrint("Connecting E-Bot - %s | Skill %d", GetEntityName(bot), skill);
 
 	return index;
@@ -218,7 +225,7 @@ int BotControl::GetIndex(edict_t* ent)
 	if (FNullEnt(ent))
 		return -1;
 
-	const int index = ENTINDEX(ent) - 1;
+	int index = ENTINDEX(ent) - 1;
 	if (index < 0 || index >= 32)
 		return -1;
 
@@ -247,7 +254,7 @@ Bot* BotControl::GetBot(int index)
 		return nullptr;
 
 	if (m_bots[index] != nullptr)
-		return m_bots[index].get();
+		return m_bots[index];
 
 	return nullptr; // no bot
 }
@@ -270,7 +277,7 @@ Bot* BotControl::FindOneValidAliveBot(void)
 	}
 
 	if (!foundBots.IsEmpty())
-		return m_bots[foundBots.GetRandomElement()].get();
+		return m_bots[foundBots.GetRandomElement()];
 
 	return nullptr;
 }
@@ -810,7 +817,7 @@ int BotControl::GetBotsNum(void)
 }
 
 // this function returns number of humans playing on the server
-int BotControl::GetHumansNum()
+int BotControl::GetHumansNum(void)
 {
 	int count = 0;
 	for (const auto& client : g_clients)
@@ -884,7 +891,7 @@ void BotControl::CheckTeamEconomics(int team)
 		return;
 
 	// if 80 percent of team have no enough money to purchase primary weapon
-	if ((numTeamPlayers * 80) * 0.01 <= numPoorPlayers)
+	if ((numTeamPlayers * 75) * 0.01f < numPoorPlayers)
 		m_economicsGood[team] = false;
 
 	// winner must buy something!
@@ -903,7 +910,8 @@ void BotControl::Free(void)
 				m_savedBotNames.Push(STRING(m_bots[i]->GetEntity()->v.netname));
 
 			m_bots[i]->m_stayTime = 0.0f;
-			m_bots[i].reset();
+			delete m_bots[i];
+			m_bots[i] = nullptr;
 		}
 	}
 }
@@ -912,7 +920,8 @@ void BotControl::Free(void)
 void BotControl::Free(int index)
 {
 	m_bots[index]->m_stayTime = 0.0f;
-	m_bots[index].reset();
+	delete m_bots[index];
+	m_bots[index] = nullptr;
 }
 
 // this function controls the bot entity
@@ -950,7 +959,10 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "bottomcolor", c_bottomcolor);
 	}
 	else // we hate this, let bot pick weapon by itself... when you buy/pickup weapon it will select the slot but we dont want this.
+	{
+		SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_autowepswitch", "0");
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "_cl_autowepswitch", "0");
+	}
 
 	if (g_gameVersion != CSVER_VERYOLD && !ebot_ping.GetBool())
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "*bot", "1");
@@ -970,6 +982,7 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 	}
 
 	MDLL_ClientPutInServer(bot);
+	bot->v.flags |= FL_FAKECLIENT;
 
 	// initialize all the variables for this bot...
 	m_notStarted = true;  // hasn't joined game yet
@@ -1029,6 +1042,9 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 	// just to be sure
 	m_actMessageIndex = 0;
 	m_pushMessageIndex = 0;
+
+	// init path
+	m_navNode.Init(g_numWaypoints / 2);
 
 	// assign team and class
 	m_wantedTeam = team;

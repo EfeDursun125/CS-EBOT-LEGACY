@@ -137,7 +137,7 @@ bool IsInViewCone(Vector origin, edict_t* ent)
 
 bool IsVisible(const Vector& origin, edict_t* ent)
 {
-	TraceResult tr;
+	TraceResult tr{};
 	TraceLine(GetEntityOrigin(ent), origin, true, true, ent, &tr);
 
 	if (tr.flFraction != 1.0f)
@@ -149,7 +149,7 @@ bool IsVisible(const Vector& origin, edict_t* ent)
 // return walkable position on ground
 Vector GetWalkablePosition(const Vector& origin, edict_t* ent, bool returnNullVec)
 {
-	TraceResult tr;
+	TraceResult tr{};
 	TraceLine(origin, Vector(origin.x, origin.y, -999999.0f), true, false, ent, &tr);
 
 	if (tr.flFraction != 1.0f)
@@ -164,7 +164,7 @@ Vector GetWalkablePosition(const Vector& origin, edict_t* ent, bool returnNullVe
 // same with GetWalkablePosition but gets nearest walkable position
 Vector GetNearestWalkablePosition(const Vector& origin, edict_t* ent, bool returnNullVec)
 {
-	TraceResult tr;
+	TraceResult tr{};
 	TraceLine(origin, Vector(origin.x, origin.y, -999999.0f), true, false, ent, &tr);
 
 	Vector BestOrigin = origin;

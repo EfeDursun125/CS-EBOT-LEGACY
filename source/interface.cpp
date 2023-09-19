@@ -3727,7 +3727,7 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 			return; // we should stop the attempt for loading the real gamedll, since metamod handle this for us
 
 		sprintf(gameDLLName, "%s/dlls/%s", knownMod->name, !IsLinux() ? knownMod->winLib : knownMod->linuxLib);
-		g_gameLib = make_shared<Library>(gameDLLName);
+		g_gameLib = new Library(gameDLLName);
 
 		if ((g_gameLib == nullptr || (g_gameLib && !g_gameLib->IsLoaded())))
 		{
@@ -3752,7 +3752,7 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 				FREE_FILE(buffer);
 			}
 
-			g_gameLib = make_shared<Library>(gameDLLName);
+			g_gameLib = new Library(gameDLLName);
 		}
 	}
 	else
@@ -3783,7 +3783,7 @@ DLL_ENTRYPOINT
 	{
 	   FreeLibraryMemory(); // free everything that's freeable
 	   if (g_gameLib != nullptr)
-		  g_gameLib.reset(); // if dynamic link library of mod is load, free it
+		  delete g_gameLib; // if dynamic link library of mod is load, free it
 	}
 
 	DLL_RETENTRY; // the return data type is OS specific too

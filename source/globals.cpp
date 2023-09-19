@@ -92,7 +92,7 @@ Array <Array <String> > g_chatFactory;
 Array <NameItem> g_botNames;
 Array <KwChat> g_replyFactory;
 
-shared_ptr<Library> g_gameLib = nullptr;
+Library* g_gameLib = nullptr;
 
 meta_globals_t* gpMetaGlobals = nullptr;
 gamedll_funcs_t* gpGamedllFuncs = nullptr;

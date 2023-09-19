@@ -64,7 +64,7 @@ void Bot::PushMessageQueue(int message)
 		// notify other bots of the spoken text otherwise, bots won't respond to other bots (network messages aren't sent from bots)
 		for (const auto& bot : g_botManager->m_bots)
 		{
-			if (bot != nullptr && bot.get() != this)
+			if (bot != nullptr && bot != this)
 			{
 				if (m_isAlive == bot->m_isAlive)
 				{
@@ -113,7 +113,7 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 	if (FNullEnt(targetEntity))
 		return false;
 
-	TraceResult tr;
+	TraceResult tr{};
 	const Vector eyes = EyePosition();
 
 	Vector spot = targetEntity->v.origin;
@@ -215,7 +215,7 @@ bool Bot::IsEnemyViewable(edict_t* entity, bool setEnemy, bool checkOnly)
 
 bool Bot::ItemIsVisible(Vector destination, char* itemName)//, bool bomb)
 {
-	TraceResult tr;
+	TraceResult tr{};
 
 	// trace a line from bot's eyes to destination..
 	TraceLine(EyePosition(), destination, true, false, GetEntity(), &tr);
@@ -246,7 +246,7 @@ bool Bot::ItemIsVisible(Vector destination, char* itemName)//, bool bomb)
 
 bool Bot::EntityIsVisible(Vector dest, bool fromBody)
 {
-	TraceResult tr;
+	TraceResult tr{};
 
 	// trace a line from bot's eyes to destination...
 	TraceLine(fromBody ? pev->origin - Vector(0.0f, 0.0f, 1.0f) : EyePosition(), dest, true, true, GetEntity(), &tr);
@@ -328,7 +328,7 @@ void Bot::ZombieModeAi(void)
 			if (m_team == GetTeam(entity))
 				continue;
 
-			float distance = (pev->origin - GetEntityOrigin(entity)).GetLengthSquared2D();
+			const float distance = (pev->origin - GetEntityOrigin(entity)).GetLengthSquared2D();
 			if (distance < targetDistance)
 			{
 				targetDistance = distance;
@@ -382,30 +382,6 @@ void Bot::ZmCampPointAction(int mode)
 		{
 			campAction = 1.6f;
 			campPointWaypointIndex = m_chosenGoalIndex;
-		}
-	}
-	else if (mode == 0 && g_waypoint->IsZBCampPoint(GetCurrentGoalID()) && IsValidWaypoint(GetCurrentGoalID()))
-	{
-		if (&m_navNode.get()[0] != nullptr)
-		{
-			shared_ptr<PathNode> navid = shared_ptr<PathNode>(&m_navNode.get()[0]);
-			int movePoint = 0;
-			while (navid != nullptr && movePoint <= 2)
-			{
-				movePoint++;
-				if (GetCurrentGoalID() == navid->index)
-				{
-					Path* navPoint = g_waypoint->GetPath(navid->index);
-					if ((navPoint->origin - pev->origin).GetLengthSquared2D() < SquaredF(256.0f) && navPoint->origin.z + 40.0f <= pev->origin.z && navPoint->origin.z - 25.0f >= pev->origin.z && IsWaypointOccupied(navid->index))
-					{
-						campAction = (movePoint * 1.8f);
-						campPointWaypointIndex = GetCurrentGoalID();
-						break;
-					}
-				}
-
-				navid = navid->next;
-			}
 		}
 	}
 
@@ -946,7 +922,7 @@ void Bot::FindItem(void)
 		{
 			for (const auto& bot : g_botManager->m_bots)
 			{
-				if (bot != nullptr && bot.get() != this && bot->m_isAlive && bot->m_pickupItem == pickupItem && bot->m_team == m_team)
+				if (bot != nullptr && bot != this && bot->m_isAlive && bot->m_pickupItem == pickupItem && bot->m_team == m_team)
 				{
 					m_pickupItem = nullptr;
 					m_pickupType = PICKTYPE_NONE;
@@ -955,7 +931,7 @@ void Bot::FindItem(void)
 			}
 		}
 
-		const Vector pickupOrigin = GetEntityOrigin(pickupItem);
+		Vector pickupOrigin = GetEntityOrigin(pickupItem);
 		if (pickupOrigin.z > EyePosition().z + 12.0f || IsDeadlyDrop(pickupOrigin))
 		{
 			m_pickupItem = nullptr;
@@ -972,7 +948,7 @@ void Bot::FindItem(void)
 // mostly used for getting a good camping direction vector if not camping on a camp waypoint
 void Bot::GetCampDirection(Vector* dest)
 {
-	TraceResult tr;
+	TraceResult tr{};
 	Vector src = EyePosition();
 
 	TraceLine(src, *dest, true, true, GetEntity(), &tr);
@@ -1252,7 +1228,7 @@ void Bot::CheckMessageQueue(void)
 
 					for (const auto& bot : g_botManager->m_bots)
 					{
-						if (bot != nullptr && bot.get() != this && bot->m_team == m_team)
+						if (bot != nullptr && bot != this && bot->m_team == m_team)
 						{
 							bot->m_radioOrder = m_radioSelect;
 							bot->m_radioEntity = GetEntity();
@@ -1836,7 +1812,7 @@ void Bot::SetConditions(void)
 
 	if (FNullEnt(m_enemy) && !FNullEnt(m_lastEnemy) && m_lastEnemyOrigin != nullvec && !IsZombieMode() && (pev->origin - m_lastEnemyOrigin).GetLengthSquared() < SquaredF(1600.0f))
 	{
-		TraceResult tr;
+		TraceResult tr{};
 		TraceLine(EyePosition(), m_lastEnemyOrigin, true, true, GetEntity(), &tr);
 
 		if ((tr.flFraction >= 0.2f || tr.pHit != g_worldEdict))
@@ -2342,7 +2318,7 @@ bool Bot::ReactOnEnemy(void)
 
 			if (pev->flags & FL_DUCKING)
 			{
-				if (enemyDistance < SquaredF(32.0f) || !HasNextPath())
+				if (enemyDistance < SquaredF(32.0f) || m_navNode.IsEmpty())
 					m_isEnemyReachable = true;
 
 				pev->speed = pev->maxspeed;
@@ -2352,7 +2328,7 @@ bool Bot::ReactOnEnemy(void)
 			}
 
 			// end of the path, before repathing check the distance if we can reach to enemy
-			if (!HasNextPath())
+			if (m_navNode.IsEmpty())
 			{
 				m_isEnemyReachable = enemyDistance < SquaredF(512.0f);
 				if (m_isEnemyReachable)
@@ -2366,7 +2342,7 @@ bool Bot::ReactOnEnemy(void)
 
 				if (enemyDistance < SquaredF(radius))
 				{
-					TraceResult tr;
+					TraceResult tr{};
 					TraceHull(pev->origin, m_enemyOrigin, true, head_hull, GetEntity(), &tr);
 
 					if (tr.flFraction == 1.0f || (!FNullEnt(tr.pHit) && tr.pHit == m_enemy))
@@ -2431,7 +2407,7 @@ bool Bot::ReactOnEnemy(void)
 							{
 								const Vector origin = GetBottomOrigin(GetEntity());
 
-								TraceResult tr;
+								TraceResult tr{};
 								TraceLine(Vector(origin.x, origin.y, (origin.z + (pev->flags & FL_DUCKING) ? 6.0f : 12.0f)), enemyHead, true, true, GetEntity(), &tr);
 								if (tr.flFraction == 1.0f)
 								{
@@ -3203,7 +3179,7 @@ void Bot::ChooseAimDirection(void)
 	if (m_aimStopTime > engine->GetTime() && FNullEnt(m_enemy) && FNullEnt(m_breakableEntity))
 		return;
 
-	TraceResult tr;
+	TraceResult tr{};
 	cmemset(&tr, 0, sizeof(TraceResult));
 
 	unsigned int flags = m_aimFlags;
@@ -3222,7 +3198,7 @@ void Bot::ChooseAimDirection(void)
 				m_lookAt = m_destOrigin + pev->view_ofs;
 			return;
 		}
-		else if (m_isZombieBot && HasNextPath() && g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_ZOMBIEPUSH)
+		else if (m_isZombieBot && !m_navNode.IsEmpty() && m_navNode.HasNext() && g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_ZOMBIEPUSH)
 		{
 			m_lookAt = pev->flags & FL_DUCKING ? m_waypointOrigin : m_destOrigin + m_moveAngles * m_frameInterval;
 			return;
@@ -3400,8 +3376,8 @@ void Bot::ChooseAimDirection(void)
 				m_lookAt = m_lastEnemyOrigin;
 			m_aimStopTime = 0.0f;
 		}
-		else if (HasNextPath())
-			m_lookAt = g_waypoint->GetPath(m_navNode->next->index)->origin + pev->view_ofs;
+		else if (!m_navNode.IsEmpty() && m_navNode.HasNext())
+			m_lookAt = g_waypoint->GetPath(m_navNode.Next())->origin + pev->view_ofs;
 		else
 			m_lookAt = m_destOrigin + pev->velocity + pev->view_ofs;
 	}
@@ -3988,7 +3964,7 @@ void Bot::TaskNormal(int i, int destIndex, Vector src)
 		GetCurrentTask()->data = destIndex;
 
 		// do pathfinding if it's not the current waypoint
-		if (IsValidWaypoint(destIndex) && m_currentWaypointIndex != destIndex && !HasNextPath())
+		if (IsValidWaypoint(destIndex) && m_currentWaypointIndex != destIndex && m_navNode.IsEmpty())
 			FindPath(m_currentWaypointIndex, destIndex);
 	}
 }
@@ -3998,7 +3974,7 @@ void Bot::RunTask(void)
 {
 	int destIndex, i;
 	Vector src, destination;
-	TraceResult tr;
+	TraceResult tr{};
 
 	bool exceptionCaught = false;
 	const float timeToBlowUp = GetBombTimeleft();
@@ -4903,7 +4879,7 @@ void Bot::RunTask(void)
 
 			while (!points.IsEmpty())
 			{
-				const int newIndex = points.Pop();
+				int newIndex = points.Pop();
 
 				// if waypoint not yet used, assign it as dest
 				if (IsValidWaypoint(newIndex) && !IsWaypointOccupied(newIndex) && (newIndex != m_currentWaypointIndex))
@@ -4952,21 +4928,17 @@ void Bot::RunTask(void)
 			else if (GetCurrentGoalID() != destIndex)
 			{
 				needMoveToTarget = true;
-				if (&m_navNode.get()[0] != nullptr)
+				if (!m_navNode.IsEmpty())
 				{
-					shared_ptr<PathNode> node = shared_ptr<PathNode>(&m_navNode.get()[0]);
-
-					while (node->next != nullptr)
-						node = node->next;
-
-					if (node->index == destIndex)
+					if (m_currentWaypointIndex == destIndex)
+						needMoveToTarget = false;
+					else if (m_navNode.Last() == destIndex)
 						needMoveToTarget = false;
 				}
 			}
 
-			if (needMoveToTarget && (!(pev->flags & FL_DUCKING) || m_damageTime + 0.5f < engine->GetTime() || !HasNextPath()))
+			if (needMoveToTarget && (!(pev->flags & FL_DUCKING) || m_damageTime + 0.5f < engine->GetTime() || m_navNode.IsEmpty()))
 			{
-				DeleteSearchNodes();
 				m_prevGoalIndex = destIndex;
 				GetCurrentTask()->data = destIndex;
 				FindPath(m_currentWaypointIndex, destIndex);
@@ -5997,22 +5969,6 @@ void Bot::DebugModeMsg(void)
 				sprintf(gamemodName, "UNKNOWN MODE");
 			}
 
-			PathNode* navid = &m_navNode.get()[0];
-			int navIndex[2] = { 0, 0 };
-
-			while (navid != nullptr)
-			{
-				if (navIndex[0] == 0)
-					navIndex[0] = navid->index;
-				else
-				{
-					navIndex[1] = navid->index;
-					break;
-				}
-
-				navid = navid->next.get();
-			}
-
 			const int client = ENTINDEX(GetEntity()) - 1;
 
 			char outputBuffer[512];
@@ -6034,7 +5990,7 @@ void Bot::DebugModeMsg(void)
 				enemyName, pickName,
 
 				m_currentWaypointIndex, m_prevGoalIndex, GetCurrentTask()->data,
-				navIndex[0], navIndex[1],
+				m_navNode.IsEmpty() ? -1 : m_navNode.First(), (!m_navNode.IsEmpty() && m_navNode.HasNext()) ? m_navNode.Next() : -1,
 				g_clients[client].wpIndex, g_clients[client].wpIndex2,
 				m_moveSpeed, m_strafeSpeed,
 				m_checkTerrain, m_isStuck);
@@ -6058,11 +6014,11 @@ void Bot::DebugModeMsg(void)
 				WRITE_SHORT(FixedUnsigned16(0, 1 << 8));
 				WRITE_SHORT(FixedUnsigned16(0, 1 << 8));
 				WRITE_SHORT(FixedUnsigned16(1.0, 1 << 8));
-				WRITE_STRING(const_cast<const char*>(&outputBuffer[0]));
+				WRITE_STRING(const_cast <const char*> (&outputBuffer[0]));
 				MESSAGE_END();
 			}
 
-			timeDebugUpdate = engine->GetTime() + 0.5f;
+			timeDebugUpdate = engine->GetTime() + 1.0f;
 		}
 
 		if (m_moveTargetOrigin != nullvec && !FNullEnt(m_moveTargetEntity))
@@ -6074,56 +6030,24 @@ void Bot::DebugModeMsg(void)
 		if (m_destOrigin != nullvec)
 			engine->DrawLine(g_hostEntity, pev->origin, m_destOrigin, Color(0, 0, 255, 255), 10, 0, 5, 1, LINE_SIMPLE);
 
-		// now draw line from source to destination
-		PathNode* node = &m_navNode.get()[0];
-
-		Vector src = nullvec;
-		while (node != nullptr)
-		{
-			Path* path = g_waypoint->GetPath(node->index);
-			if (!path)
-				return;
-
-			src = path->origin;
-			node = node->next.get();
-
-			if (node != nullptr)
-			{
-				bool jumpPoint = false;
-				for (int j = 0; j < Const_MaxPathIndex; j++)
-				{
-					if (path->index[j] == node->index && path->connectionFlags[j] & PATHFLAG_JUMP)
-					{
-						jumpPoint = true;
-						break;
-					}
-				}
-
-				if (jumpPoint)
-					engine->DrawLine(g_hostEntity, src, g_waypoint->GetPath(node->index)->origin, Color(255, 0, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
-				else
-				{
-					engine->DrawLine(g_hostEntity, src, g_waypoint->GetPath(node->index)->origin, Color(255, 100, 55, 255), 15, 0, 8, 1, LINE_SIMPLE);
-					engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(0, 255, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
-				}
-			}
-		}
+		for (size_t i = 0; i < m_navNode.Length() && i + 1 < m_navNode.Length(); ++i)
+			engine->DrawLine(g_hostEntity, g_waypoint->GetPath(m_navNode.At(i))->origin, g_waypoint->GetPath(m_navNode.At(i + 1))->origin, Color(255, 100, 55, 255), 15, 0, 8, 1, LINE_SIMPLE);
 
 		if (IsValidWaypoint(m_prevWptIndex))
 		{
-			src = g_waypoint->GetPath(m_prevWptIndex)->origin;
+			const Vector src = g_waypoint->GetPath(m_prevWptIndex)->origin;
 			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(255, 0, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
 		}
 
 		if (IsValidWaypoint(m_currentWaypointIndex))
 		{
-			src = g_waypoint->GetPath(m_currentWaypointIndex)->origin;
+			const Vector src = g_waypoint->GetPath(m_currentWaypointIndex)->origin;
 			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(0, 255, 0, 255), 15, 0, 8, 1, LINE_SIMPLE);
 		}
 
 		if (IsValidWaypoint(m_prevGoalIndex))
 		{
-			src = g_waypoint->GetPath(m_prevGoalIndex)->origin;
+			const Vector src = g_waypoint->GetPath(m_prevGoalIndex)->origin;
 			engine->DrawLine(g_hostEntity, src - Vector(0.0f, 0.0f, 35.0f), src + Vector(0.0f, 0.0f, 35.0f), Color(0, 255, 255, 255), 15, 0, 8, 1, LINE_SIMPLE);
 		}
 	}
@@ -6137,7 +6061,7 @@ void Bot::BotAI(void)
 	m_wantsToFire = false;
 
 	float movedDistance = 4.0f; // length of different vector (distance bot moved)
-	TraceResult tr;
+	TraceResult tr{};
 
 	// warning: the following timers aren't frame independent so it varies on slower/faster computers
 
@@ -6170,8 +6094,6 @@ void Bot::BotAI(void)
 
 	// do all sensing, calculate/filter all actions here
 	SetConditions();
-
-	Vector src, dest;
 
 	m_isUsingGrenade = false;
 
@@ -6291,7 +6213,7 @@ void Bot::BotAI(void)
 	{
 		if (IsValidWaypoint(m_currentWaypointIndex) && g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_WAITUNTIL)
 		{
-			TraceResult tr;
+			TraceResult tr{};
 			TraceLine(g_waypoint->GetPath(m_currentWaypointIndex)->origin, g_waypoint->GetPath(m_currentWaypointIndex)->origin - Vector(0.0f, 0.0f, 60.0f), false, false, GetEntity(), &tr);
 			if (tr.flFraction == 1.0f)
 			{
@@ -6417,6 +6339,8 @@ void Bot::BotAI(void)
 		}
 		else
 		{
+			Vector src, dest;
+
 			if (!IsValidWaypoint(m_currentWaypointIndex))
 			{
 				DeleteSearchNodes();
@@ -6899,7 +6823,7 @@ void Bot::ResetDoubleJumpState(void)
 // returns null vector if toss is not feasible
 Vector Bot::CheckToss(const Vector& start, Vector end)
 {
-	TraceResult tr;
+	TraceResult tr{};
 	float gravity = engine->GetGravity() * 0.54f;
 
 	end = end - pev->velocity;
@@ -6955,7 +6879,7 @@ Vector Bot::CheckToss(const Vector& start, Vector end)
 Vector Bot::CheckThrow(const Vector& start, Vector end)
 {
 	Vector nadeVelocity = (end - start);
-	TraceResult tr;
+	TraceResult tr{};
 
 	float gravity = engine->GetGravity() * 0.55f;
 	float time = nadeVelocity.GetLengthSquared() / SquaredF(196.0f);
