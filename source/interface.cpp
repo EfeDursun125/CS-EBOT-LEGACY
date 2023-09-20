@@ -127,7 +127,7 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 			if (IsValidBot(client.ent))
 				FakeClientCommand(client.ent, "chooseteam; menuselect %d; menuselect 5", GetTeam(client.ent) == TEAM_COUNTER ? 1 : 2);
 			else
-				(*g_engfuncs.pfnClientCommand) (client.ent, "chooseteam; menuselect %d", GetTeam(client.ent) == TEAM_COUNTER ? 1 : 2);
+				(*g_engfuncs.pfnClientCommand) (client.ent, "chooseteam; menuselect %d; menuselect 5", GetTeam(client.ent) == TEAM_COUNTER ? 1 : 2);
 		}
 	}
 
@@ -161,7 +161,6 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		}
 	}
 
-	// force bots to execute client command
 	// force bots to execute client command
 	else if (cstricmp(arg0, "sendcmd") == 0 || cstricmp(arg0, "order") == 0)
 	{

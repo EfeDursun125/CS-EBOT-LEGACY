@@ -47,6 +47,9 @@ void Waypoint::Initialize(void)
     {
         for (int i = 0; i < g_numWaypoints; i++)
         {
+            if (!m_paths[i])
+                continue;
+
             delete m_paths[i];
             m_paths[i] = nullptr;
         }
@@ -1166,8 +1169,7 @@ void Waypoint::DeleteByIndex(int index)
 
 void Waypoint::DeleteFlags(void)
 {
-    int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
-
+    const int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
     if (index != -1)
     {
         m_paths[index]->flags = 0;
@@ -1248,7 +1250,7 @@ int Waypoint::GetFacingIndex(void)
 
     int pointedIndex = -1;
     float range = 5.32f;
-    auto nearestNode = FindNearest(g_hostEntity->v.origin, 54.0f);
+    const int nearestWaypoint = FindNearest(g_hostEntity->v.origin, 54.0f);
 
     // check bounds from eyes of editor
     const auto& editorEyes = g_hostEntity->v.origin + g_hostEntity->v.view_ofs;
@@ -1260,7 +1262,7 @@ int Waypoint::GetFacingIndex(void)
             continue;
 
         // skip nearest waypoint to editor, since this used mostly for adding / removing paths
-        if (nearestNode == i)
+        if (nearestWaypoint == i)
             continue;
 
         const Vector to = path->origin - g_hostEntity->v.origin;
@@ -1299,7 +1301,6 @@ int Waypoint::GetFacingIndex(void)
 void Waypoint::CreatePath(char dir)
 {
     const int nodeFrom = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
-
     if (nodeFrom == -1)
     {
         CenterPrint("Unable to find nearest waypoint in 75 units");

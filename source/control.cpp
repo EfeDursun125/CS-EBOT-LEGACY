@@ -1309,8 +1309,8 @@ void Bot::Kick(void)
 	if (g_botManager->GetBotsNum() - 1 < ebot_quota.GetInt())
 		ebot_quota.SetInt(g_botManager->GetBotsNum() - 1);
 
-	//if (ebot_save_bot_names.GetBool() && !g_botManager->m_savedBotNames.IsEmpty()) CRASH...
-	//	g_botManager->m_savedBotNames.PopNoReturn();
+	if (ebot_save_bot_names.GetBool() && !g_botManager->m_savedBotNames.IsEmpty())
+		g_botManager->m_savedBotNames.PopNoReturn();
 }
 
 // this function handles the selection of teams & class
@@ -1318,7 +1318,7 @@ void Bot::StartGame(void)
 {
 	if (g_gameVersion == HALFLIFE)
 	{
-		if (CRandomInt(1, 3) == 1)
+		if (CRandomInt(1, 5) == 1)
 			ChatMessage(CHAT_HELLO);
 
 		m_notStarted = false;
@@ -1326,16 +1326,38 @@ void Bot::StartGame(void)
 		return;
 	}
 
+	// check if something has assigned team to us
+	if ((m_team == TEAM_TERRORIST || m_team == TEAM_COUNTER) && IsAlive(GetEntity()))
+	{
+		if (CRandomInt(1, 5) == 1)
+			ChatMessage(CHAT_HELLO);
+
+		m_notStarted = false;
+		m_startAction = CMENU_IDLE;
+		return;
+	}
+	else if (m_team == TEAM_UNASSINGED && m_retryJoin > 5)
+		m_startAction = CMENU_TEAM;
+
+	// if bot was unable to join team, and no menus popups, check for stacked team
+	if (m_startAction == CMENU_IDLE)
+	{
+		if (++m_retryJoin > 10)
+		{
+			m_retryJoin = 0;
+			Kick();
+			return;
+		}
+	}
+
 	// handle counter-strike stuff here...
 	if (m_startAction == CMENU_TEAM)
 	{
-		m_startAction = CMENU_IDLE;  // switch back to idle
+		m_startAction = CMENU_IDLE; // switch back to idle
 
-		if (ebot_forceteam.GetString()[0] == 'C' || ebot_forceteam.GetString()[0] == 'c' ||
-			ebot_forceteam.GetString()[0] == '2')
+		if (ebot_forceteam.GetString()[0] == 'C' || ebot_forceteam.GetString()[0] == 'c' || ebot_forceteam.GetString()[0] == '2')
 			m_wantedTeam = 2;
-		else if (ebot_forceteam.GetString()[0] == 'T' || ebot_forceteam.GetString()[0] == 't' ||
-			ebot_forceteam.GetString()[0] == '1') // 1 = T, 2 = CT
+		else if (ebot_forceteam.GetString()[0] == 'T' || ebot_forceteam.GetString()[0] == 't' || ebot_forceteam.GetString()[0] == '1') // 1 = T, 2 = CT
 			m_wantedTeam = 1;
 
 		if (m_wantedTeam != 1 && m_wantedTeam != 2)
@@ -1346,27 +1368,19 @@ void Bot::StartGame(void)
 	}
 	else if (m_startAction == CMENU_CLASS)
 	{
-		m_startAction = CMENU_IDLE;  // switch back to idle
+		m_startAction = CMENU_IDLE; // switch back to idle
 
-		int maxChoice = g_gameVersion == CSVER_CZERO ? 5 : 4;
+		const int maxChoice = g_gameVersion == CSVER_CZERO ? 5 : 4;
 		m_wantedClass = CRandomInt(1, maxChoice);
 
 		// select the class the bot wishes to use...
-		FakeClientCommand(GetEntity(), "menuselect %d", m_wantedClass);
+		FakeClientCommand(GetEntity(), "menuselect %d", maxChoice);
 
 		// bot has now joined the game (doesn't need to be started)
 		m_notStarted = false;
 
 		// check for greeting other players, since we connected
-		if (CRandomInt(1, 3) == 1)
+		if (CRandomInt(1, 5) == 1)
 			ChatMessage(CHAT_HELLO);
-	}
-	else if ((m_team == TEAM_COUNTER || m_team == TEAM_TERRORIST) && IsAlive(GetEntity())) // something is wrong...
-	{
-		if (CRandomInt(1, 3) == 1)
-			ChatMessage(CHAT_HELLO);
-
-		m_notStarted = false;
-		m_startAction = CMENU_IDLE;
 	}
 }

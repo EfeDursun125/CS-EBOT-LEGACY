@@ -1329,7 +1329,7 @@ bool Bot::IsMorePowerfulWeaponCanBeBought(void)
 		return true;
 	else if (m_currentWeapon == WEAPON_MP5 && m_moneyAmount > 6000)
 		return true;
-	else if (m_currentWeapon == WEAPON_M3 || m_currentWeapon == WEAPON_XM1014 && m_moneyAmount > 4000)
+	else if (m_currentWeapon == WEAPON_M3 || (m_currentWeapon == WEAPON_XM1014 && m_moneyAmount > 4000))
 		return true;
 
 	return false;
@@ -6111,7 +6111,7 @@ void Bot::BotAI(void)
 	// set the reaction time (surprise momentum) different each frame according to skill
 	m_idealReactionTime = CRandomFloat(g_skillTab[m_skill / 20].minSurpriseTime, g_skillTab[m_skill / 20].maxSurpriseTime);
 
-	const float inter = m_frameInterval + g_pGlobals->frametime;
+	const float inter = (m_frameInterval + g_pGlobals->frametime) * 0.5f;
 	const Vector directionOld = (m_destOrigin + pev->velocity * -inter) - (pev->origin + pev->velocity * inter);
 	const Vector directionNormal = directionOld.Normalize2D();
 	const Vector direction = directionNormal;
@@ -6596,11 +6596,11 @@ void Bot::BotAI(void)
 			if (point1Origin != nullvec && point2Origin != nullvec)
 			{
 				if ((point1Origin - point2Origin).GetLengthSquared() >= SquaredF(100.0f))
-					m_jumpTime = engine->GetTime() + CRandomFloat(0.8f, 1.2f);
+					m_jumpTime = engine->GetTime() + CRandomFloat(1.0f, 1.5f);
 				else if (point1Origin.z > point2Origin.z)
-					m_jumpTime = engine->GetTime();
+					m_jumpTime = engine->GetTime() + CRandomFloat(0.25f, 0.5f);
 				else
-					m_jumpTime = engine->GetTime() + CRandomFloat(0.5f, 0.8f);
+					m_jumpTime = engine->GetTime() + CRandomFloat(0.5f, 1.0f);
 			}
 		}
 		else

@@ -404,7 +404,7 @@ bool Bot::DoWaypointNav(void)
 	else if (currentWaypoint->flags & WAYPOINT_CROUCH && !(currentWaypoint->flags & WAYPOINT_CAMP))
 		pev->button |= IN_DUCK;
 
-	const float inter = m_frameInterval + g_pGlobals->frametime;
+	const float inter = (m_frameInterval + g_pGlobals->frametime) * 0.54f;
 	float waypointDistance = 0.0f;
 	float waypointDistance2 = 0.0f;
 	const Vector origin = pev->origin + pev->velocity * inter;
@@ -425,6 +425,11 @@ bool Bot::DoWaypointNav(void)
 			else if (m_moveSpeed > pev->maxspeed)
 				m_moveSpeed = pev->maxspeed;
 		}
+	}
+	else if (!(pev->flags & FL_ONGROUND) && m_jumpTime > engine->GetTime()) // jumping
+	{
+		waypointDistance = (origin - wpOrigin).GetLengthSquared();
+		waypointDistance2 = (pev->origin - m_destOrigin).GetLengthSquared();
 	}
 	else
 	{
@@ -2354,11 +2359,11 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 		return;
 
 	float distance = SquaredF(512.0f);
-	float maxSpeed = SquaredF(pev->maxspeed);
+	const float maxSpeed = SquaredF(pev->maxspeed);
 	m_avoid = nullptr;
 
 	// get our priority
-	unsigned int myPri = GetPlayerPriority(GetEntity());
+	const unsigned int myPri = GetPlayerPriority(GetEntity());
 
 	// find nearest player to bot
 	for (const auto& client : g_clients)
@@ -2384,7 +2389,7 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 			continue;
 
 		// get priority of other player
-		unsigned int otherPri = GetPlayerPriority(client.ent);
+		const unsigned int otherPri = GetPlayerPriority(client.ent);
 
 		// if our priority is better, don't budge
 		if (myPri < otherPri)
@@ -2393,12 +2398,12 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 		// they are higher priority - make way, unless we're already making way for someone more important
 		if (!FNullEnt(m_avoid) && m_avoid != client.ent)
 		{
-			unsigned int avoidPri = GetPlayerPriority(m_avoid);
+			const unsigned int avoidPri = GetPlayerPriority(m_avoid);
 			if (avoidPri < otherPri) // ignore because we're already avoiding someone better
 				continue;
 		}
 
-		float nearest = (pev->origin - client.ent->v.origin).GetLengthSquared();
+		const float nearest = (pev->origin - client.ent->v.origin).GetLengthSquared();
 		if (nearest < maxSpeed && nearest < distance)
 		{
 			m_avoid = client.ent;
@@ -2435,7 +2440,7 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 		}
 	}
 
-	const float interval = (m_frameInterval + g_pGlobals->frametime) * 8.0f;
+	const float interval = (m_frameInterval * 4.0f) + g_pGlobals->frametime;
 
 	// use our movement angles, try to predict where we should be next frame
 	Vector right, forward;
@@ -2467,8 +2472,6 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 			else
 				m_moveSpeed = pev->maxspeed;
 		}
-
-		return;
 	}
 }
 
@@ -2510,6 +2513,9 @@ int Bot::GetCampAimingWaypoint(void)
 
 void Bot::FacePosition(void)
 {
+	if (!m_isAlive)
+		return;
+	
 	// predict enemy
 	if (m_aimFlags & AIM_ENEMY && !FNullEnt(m_enemy))
 	{
@@ -2568,9 +2574,9 @@ void Bot::FacePosition(void)
 	Vector direction = (m_lookAt - EyePosition()).ToAngles() + pev->punchangle;
 	direction.x = -direction.x; // invert for engine
 
-	float accelerate = float(m_skill) * 30.0f;
-	float stiffness = float(m_skill) * 3.0f;
-	float damping = float(m_skill) * 0.2f;
+	float accelerate = float(m_skill) * 40.0f;
+	float stiffness = float(m_skill) * 4.0f;
+	float damping = float(m_skill) * 0.4f;
 
 	m_idealAngles = pev->v_angle;
 
