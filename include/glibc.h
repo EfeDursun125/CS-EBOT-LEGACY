@@ -9,8 +9,6 @@ __asm__(".symver sinf,sinf@GLIBC_2.0");
 __asm__(".symver cosf,cosf@GLIBC_2.0");
 __asm__(".symver tanf,tanf@GLIBC_2.0");
 __asm__(".symver atan2f,atan2f@GLIBC_2.0");
-__asm__(".symver strspn,strspn@GLIBC_2.0");
-__asm__(".symver strcspn,strcspn@GLIBC_2.0");
 __asm__(".symver fopen,fopen@GLIBC_2.0");
 __asm__(".symver fclose,fclose@GLIBC_2.0");
 __asm__(".symver fseek,fseek@GLIBC_2.0");

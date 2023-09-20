@@ -996,7 +996,7 @@ public:
 class String
 {
 private:
-    std::shared_ptr<char[]> m_bufferPtr;
+    std::unique_ptr<char[]> m_bufferPtr;
     int m_allocatedSize;
     int m_stringLength;
 
@@ -1018,7 +1018,7 @@ private:
             return;
 
         m_allocatedSize = size + 16;
-        std::shared_ptr<char[]> tempBuffer(new char[size + 1], std::default_delete<char[]>());
+        std::unique_ptr<char[]> tempBuffer(new char[size + 1]);
 
         if (m_bufferPtr != nullptr)
         {
@@ -1027,7 +1027,7 @@ private:
             m_bufferPtr.reset();
         }
 
-        m_bufferPtr = tempBuffer;
+        m_bufferPtr = std::move(tempBuffer);
         m_allocatedSize = size;
     }
 
@@ -2313,8 +2313,8 @@ public:
 
         do
         {
-            index += strspn(&m_bufferPtr[index], separator);
-            tokenLength = strcspn(&m_bufferPtr[index], separator);
+            index += cstrspn(&m_bufferPtr[index], separator);
+            tokenLength = cstrcspn(&m_bufferPtr[index], separator);
 
             if (tokenLength > 0)
                 holder.Push(Mid(index, tokenLength));
@@ -2349,7 +2349,6 @@ public:
         return Split(sep);
     }
 };
-
 
 //
 // Class: File
@@ -2508,9 +2507,9 @@ public:
     // Returns:
     //   True if operation succeeded, false otherwise.
     //
-    inline bool GetBuffer(String& buffer, int count = 256) const
+    inline bool GetBuffer(String& buffer, const int count = 256) const
     {
-        std::shared_ptr<char> tempBuffer(new char[count], std::default_delete<char[]>());
+        std::unique_ptr<char[]> tempBuffer(new char[count]);
         buffer.SetEmpty();
 
         if (!tempBuffer)

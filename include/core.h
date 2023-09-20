@@ -153,6 +153,8 @@ enum Team
 {
 	TEAM_TERRORIST = 0,
 	TEAM_COUNTER,
+	TEAM_SPECTATOR,
+	TEAM_UNASSINGED,
 	TEAM_COUNT
 };
 
@@ -1089,6 +1091,7 @@ public:
 	edict_t* m_avoid; // higher priority player we need to make way for
 
 	int m_startAction; // team/class selection state
+	int m_retryJoin;
 	int m_team; // bot's team
 	int m_index; // bot's index
 	bool m_isAlive; // has the player been killed or has he just respawned
