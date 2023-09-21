@@ -498,10 +498,6 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 			}
 		}
 
-		// remove waypoint and all corresponding files from hard disk
-		else if (cstricmp(arg1, "erase") == 0)
-			g_waypoint->EraseFromHardDisk();
-
 		// load all waypoints again (overrides all changes, that wasn't saved)
 		else if (cstricmp(arg1, "load") == 0)
 		{
@@ -1312,9 +1308,7 @@ void ClientDisconnect(edict_t* ent)
 	// to reset his entity pointer for safety. There are still a few server frames to go once a
 	// listen server client disconnects, and we don't want to send him any sort of message then.
 
-	int i = ENTINDEX(ent) - 1;
-
-	InternalAssert(i >= 0 && i < 32);
+	const int i = ENTINDEX(ent) - 1;
 
 	// check if its a bot
 	if (g_botManager->GetBot(i) != nullptr && g_botManager->GetBot(i)->pev == &ent->v)

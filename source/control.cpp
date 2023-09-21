@@ -204,18 +204,12 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 		return -2;
 	}
 
-	int index = ENTINDEX(bot) - 1;
-
-	InternalAssert(index >= 0 && index <= 32); // check index
-	InternalAssert(m_bots[index] == nullptr); // check bot slot
-
+	const int index = ENTINDEX(bot) - 1;
 	m_bots[index] = new Bot(bot, skill, personality, team, member);
-
-	if (m_bots == nullptr)
+	if (!m_bots[index])
 		return -1;
 
 	ServerPrint("Connecting E-Bot - %s | Skill %d", GetEntityName(bot), skill);
-
 	return index;
 }
 

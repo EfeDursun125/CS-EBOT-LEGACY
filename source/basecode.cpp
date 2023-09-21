@@ -1355,10 +1355,6 @@ void Bot::PerformWeaponPurchase(void)
 			{
 				ptr--;
 				gunMoney = 0;
-
-				InternalAssert(*ptr > -1);
-				InternalAssert(*ptr < Const_NumWeapons);
-
 				selectedWeapon = &g_weaponSelect[*ptr];
 				loadTime++;
 
@@ -1461,10 +1457,6 @@ void Bot::PerformWeaponPurchase(void)
 			do
 			{
 				ptr--;
-
-				InternalAssert(*ptr > -1);
-				InternalAssert(*ptr < Const_NumWeapons);
-
 				selectedWeapon = &g_weaponSelect[*ptr];
 				loadTime++;
 

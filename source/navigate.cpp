@@ -2355,6 +2355,9 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 	if (ebot_has_semiclip.GetBool())
 		return;
 
+	if (GetGameMode() == MODE_DM || GetGameMode() == MODE_NOTEAM)
+		return;
+
 	if (pev->solid == SOLID_NOT)
 		return;
 
@@ -2655,7 +2658,6 @@ int Bot::FindHostage(void)
 		return -1;
 
 	edict_t* ent = nullptr;
-
 	while (!FNullEnt(ent = FIND_ENTITY_BY_CLASSNAME(ent, "hostage_entity")))
 	{
 		bool canF = true;
@@ -2722,15 +2724,40 @@ int Bot::FindLoosedBomb(void)
 	return -1;
 }
 
-bool Bot::IsWaypointOccupied(int index)
+bool Bot::IsWaypointOccupied(const int index)
 {
 	if (pev->solid == SOLID_NOT)
 		return false;
 
-	for (const auto& bot : g_botManager->m_bots)
+	for (const auto& client : g_clients)
 	{
-		if (bot != nullptr && (bot->m_currentWaypointIndex == index || bot->m_prevWptIndex == index || bot->m_chosenGoalIndex == index || bot->GetCurrentTaskID() == index))
-			return true;
+		if (client.index < 0)
+			continue;
+
+		if (FNullEnt(client.ent))
+			continue;
+
+		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
+			continue;
+
+		auto bot = g_botManager->GetBot(client.index);
+		if (bot != nullptr)
+		{
+			if (bot->m_chosenGoalIndex == index)
+				return true;
+
+			if (bot->m_currentWaypointIndex == index)
+				return true;
+
+			if (bot->m_prevWptIndex == index)
+				return true;
+		}
+		else
+		{
+			const Path* pointer = g_waypoint->GetPath(index);
+			if (pointer && ((client.ent->v.origin + client.ent->v.velocity * m_frameInterval) - pointer->origin).GetLengthSquared() < SquaredI(pointer->radius + 54))
+				return true;
+		}
 	}
 
 	return false;
