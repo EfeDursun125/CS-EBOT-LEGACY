@@ -74,13 +74,6 @@ typedef unsigned short uint16_t;
 #define nullvec Vector::GetNull ()
 
 //
-// Macro: InternalAssert
-//
-// Asserts expression.
-//
-#define Assert(expr)
-
-//
 // Function: FormatBuffer
 // 
 // Formats a buffer using variable arguments.
@@ -2510,10 +2503,10 @@ public:
     inline bool GetBuffer(String& buffer, const int count = 256) const
     {
         std::unique_ptr<char[]> tempBuffer(new char[count]);
-        buffer.SetEmpty();
-
         if (!tempBuffer)
             return false;
+
+        buffer.SetEmpty();
 
         if (fgets(tempBuffer.get(), count, m_handle) != nullptr)
         {

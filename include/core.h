@@ -1436,11 +1436,11 @@ public:
 
 	void Add(int flags, Vector waypointOrigin = nullvec);
 	void Delete(void);
-	void DeleteByIndex(int index);
-	void ToggleFlags(int toggleFlag);
-	void SetRadius(int radius);
-	bool IsConnected(int pointA, int pointB);
-	bool IsConnected(int num);
+	void DeleteByIndex(const int index);
+	void ToggleFlags(const int toggleFlag);
+	void SetRadius(const int radius);
+	bool IsConnected(const int pointA, const int16 pointB);
+	bool IsConnected(const int num);
 	void CreatePath(char dir);
 	void DeletePath(void);
 	void CacheWaypoint(void);
@@ -1455,7 +1455,7 @@ public:
 	Vector GetBottomOrigin(const Path* waypoint);
 
 	bool Download(void);
-	bool Load(int mode = 0);
+	bool Load(void);
 	void Save(void);
 	void SaveOLD(void);
 
@@ -1466,11 +1466,10 @@ public:
 	void ShowWaypointMsg(void);
 	bool NodesValid(void);
 	void CreateBasic(void);
-	void EraseFromHardDisk(void);
 
-	float GetPathDistance(int srcIndex, int destIndex);
+	float GetPathDistance(const int srcIndex, const int destIndex);
 
-	Path* GetPath(int id);
+	Path* GetPath(const int id);
 	char* GetWaypointInfo(int id);
 	char* GetInfo(void) { return m_infoBuffer; }
 
