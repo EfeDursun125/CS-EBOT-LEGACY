@@ -511,7 +511,6 @@ struct AStar_t
 	float g;
 	float f;
 	int parent;
-
 	State state;
 };
 

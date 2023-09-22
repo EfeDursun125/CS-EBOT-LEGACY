@@ -31,7 +31,6 @@
 #include <float.h>
 #include <time.h>
 #include <stdarg.h>
-#include <vector>
 #include <memory>
 
 #pragma warning (disable : 4996) // get rid of this
@@ -71,7 +70,7 @@ typedef unsigned short uint16_t;
 //
 // This macro is a null vector.
 //
-#define nullvec Vector::GetNull ()
+#define nullvec Vector::GetNull()
 
 //
 // Function: FormatBuffer
@@ -311,36 +310,6 @@ namespace Math
         while (angle > 180.0f) angle -= 360.0f;
         while (angle < -180.0f) angle += 360.0f;
         return angle;
-    }
-
-    //
-    // Function: SineCosine
-    //
-    // Very fast platform-dependent sine and cosine calculation routine.
-    //
-    // Parameters:
-    //	  radians - Input degree (angle).
-    //	  sine - Output for Sine.
-    //	  cosine - Output for Cosine.
-    //
-    void inline SineCosine(float radians, float& sine, float& cosine)
-    {
-#if defined (PLATFORM_WIN32)
-        __asm
-        {
-            fld uint32_t ptr[radians]
-            fsincos
-
-            mov edx, uint32_t ptr[cosine]
-            mov eax, uint32_t ptr[sine]
-
-            fstp uint32_t ptr[edx]
-            fstp uint32_t ptr[eax]
-        }
-#else
-        sine = sinf(radians);
-        cosine = cosf(radians);
-#endif
     }
 }
 
@@ -772,9 +741,9 @@ public:
     {
         float sinePitch = 0.0f, cosinePitch = 0.0f, sineYaw = 0.0f, cosineYaw = 0.0f, sineRoll = 0.0f, cosineRoll = 0.0f;
 
-        Math::SineCosine(Math::DegreeToRadian(x), sinePitch, cosinePitch); // compute the sine and cosine of the pitch component
-        Math::SineCosine(Math::DegreeToRadian(y), sineYaw, cosineYaw); // compute the sine and cosine of the yaw component
-        Math::SineCosine(Math::DegreeToRadian(z), sineRoll, cosineRoll); // compute the sine and cosine of the roll component
+        csincosf(Math::DegreeToRadian(x), sinePitch, cosinePitch); // compute the sine and cosine of the pitch component
+        csincosf(Math::DegreeToRadian(y), sineYaw, cosineYaw); // compute the sine and cosine of the yaw component
+        csincosf(Math::DegreeToRadian(z), sineRoll, cosineRoll); // compute the sine and cosine of the roll component
 
         if (forward != nullptr)
         {
@@ -807,168 +776,562 @@ namespace Math
     }
 }
 
-template <typename T>
-class Array
+//
+// Class: Array
+//  Universal template array container.
+//
+template <typename T> class Array
 {
 private:
-    std::vector<T> m_elements;
+    std::unique_ptr<T[]> m_elements;
+    int m_resizeStep;
+    int m_itemSize;
+    int m_itemCount;
 
+    //
+    // Group: (Con/De)structors
+    //
 public:
-    Array(const int resizeStep = 0) {}
 
-    Array(const Array<T>& other) : m_elements(other.m_elements) {}
+    //
+    // Function: Array
+    //  Default array constructor.
+    //
+    // Parameters:
+    //  resizeStep - Array resize step, when new items added, or old deleted.
+    //
+    Array(const int resizeStep = 0) : m_elements(nullptr), m_resizeStep(resizeStep), m_itemSize(0), m_itemCount(0) {}
 
-    ~Array(void) = default;
-
-    void Destroy(void)
+    //
+    // Function: Array
+    //  Array copying constructor.
+    //
+    // Parameters:
+    //  other - Other array that should be assigned to this one.
+    //
+    Array(const Array<T>& other) : m_resizeStep(other.m_resizeStep), m_itemSize(other.m_itemSize), m_itemCount(other.m_itemCount)
     {
-        m_elements.clear();
+        if (m_itemSize > 0)
+        {
+            int i;
+            m_elements = std::make_unique<T[]>(m_itemSize);
+            for (i = 0; i < m_itemCount; i++)
+                m_elements[i] = other.m_elements[i];
+        }
+        else
+            m_elements.reset();
     }
 
+    //
+    // Function: ~Array
+    //  Default array destructor.
+    //
+    virtual ~Array(void)
+    {
+        Destroy();
+    }
+
+    //
+    // Group: Functions
+    //
+public:
+
+    //
+    // Function: Destory
+    //  Destroys array object, and all elements.
+    //
+    void Destroy(void)
+    {
+        m_itemSize = 0;
+        m_itemCount = 0;
+        m_resizeStep = 0;
+        m_elements.reset();
+    }
+
+    //
+    // Function: SetSize
+    //  Sets the size of the array.
+    //
+    // Parameters:
+    //  newSize - Size to what array should be resized.
+    //  keepData - Keep exiting data, while resizing array or not.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
     bool SetSize(const int newSize, const bool keepData = true)
     {
         if (newSize == 0)
         {
-            m_elements.clear();
+            m_elements.reset();
+            m_itemSize = 0;
+            m_itemCount = 0;
             return true;
         }
 
-        m_elements.resize(newSize);
+        std::unique_ptr<T[]> newElements = std::make_unique<T[]>(newSize);
+        if (keepData && m_elements)
+        {
+            int i;
+            const int copyCount = cmin(newSize, m_itemCount);
+            for (i = 0; i < copyCount; i++)
+                newElements[i] = m_elements[i];
+        }
 
+        m_elements = std::move(newElements);
+        m_itemSize = newSize;
+        m_itemCount = cmin(newSize, m_itemCount);
         return true;
     }
 
-    int GetElementNumber(void) const
+    void Swap(const int index1, const int index2)
     {
-        return m_elements.size();
+        if (index1 >= 0 && index1 < m_itemCount && index2 >= 0 && index2 < m_itemCount)
+        {
+            const T temp = m_elements[index1];
+            m_elements[index1] = m_elements[index2];
+            m_elements[index2] = temp;
+        }
     }
 
+    //
+    // Function: GetSize
+    //  Gets allocated size of array.
+    //
+    // Returns:
+    //  Number of allocated items.
+    //
+    int GetSize(void) const
+    {
+        return m_itemSize;
+    }
+
+    //
+    // Function: GetElementNumber
+    //  Gets real number currently in array.
+    //
+    // Returns:
+    //  Number of elements.
+    //
+    int GetElementNumber(void) const
+    {
+        return m_itemCount;
+    }
+
+    //
+    // Function: SetEnlargeStep
+    //  Sets step, which used while resizing array data.
+    //
+    // Parameters:
+    //  resizeStep - Step that should be set.
+    //  
+    void SetEnlargeStep(const int resizeStep = 0)
+    {
+        m_resizeStep = resizeStep;
+    }
+
+    //
+    // Function: GetEnlargeStep
+    //  Gets the current enlarge step.
+    //
+    // Returns:
+    //  Current resize step.
+    //
+    int GetEnlargeStep(void)
+    {
+        return m_resizeStep;
+    }
+
+    //
+    // Function: SetAt
+    //  Sets element data, at specified index.
+    //
+    // Parameters:
+    //  index - Index where object should be assigned.
+    //  object - Object that should be assigned.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
     bool SetAt(const int index, const T object, const bool enlarge = true)
     {
-        if (index < 0 || index >= m_elements.size())
+        if (index >= m_itemSize)
         {
             if (!enlarge || !SetSize(index + 1))
                 return false;
         }
 
         m_elements[index] = object;
+
+        if (index >= m_itemCount)
+            m_itemCount = index + 1;
+
         return true;
     }
 
+    //
+    // Function: GetAt
+    //  Gets element from specified index
+    //
+    // Parameters:
+    //  index - Element index to retrieve.
+    //
+    // Returns:
+    //  Element object.
+    //
     T& GetAt(const int index)
     {
-        if (index < 0 || index >= m_elements.size())
-            return m_elements[0];
-
         return m_elements[index];
     }
 
+    //
+    // Function: GetAt
+    //  Gets element at specified index, and store it in reference object.
+    //
+    // Parameters:
+    //  index - Element index to retrieve.
+    //  object - Holder for element reference.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
     bool GetAt(const int index, T& object)
     {
-        if (index < 0 || index >= m_elements.size())
+        if (index >= m_itemCount)
             return false;
 
         object = m_elements[index];
         return true;
     }
 
-    bool RemoveAt(const int index, const int count = 1)
+    //
+    // Function: InsertAt
+    //  Inserts new element at specified index.
+    //
+    // Parameters:
+    //  index - Index where element should be inserted.
+    //  object - Object that should be inserted.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool InsertAt(const int index, T object, const bool enlarge = true)
     {
-        if (index < 0 || index >= m_elements.size() || count < 1)
+        return InsertAt(index, &object, 1, enlarge);
+    }
+
+    //
+    // Function: InsertAt
+    //  Inserts number of element at specified index.
+    //
+    // Parameters:
+    //  index - Index where element should be inserted.
+    //  objects - Pointer to object list.
+    //  count - Number of element to insert.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool InsertAt(const int index, T* objects, const int count = 1, const bool enlarge = true)
+    {
+        if (!objects || count < 1)
             return false;
 
-        m_elements.erase(m_elements.begin() + index, m_elements.begin() + index + count);
+        int newSize = 0;
+
+        if (m_itemCount > index)
+            newSize = m_itemCount + count;
+        else
+            newSize = index + count;
+
+        if (newSize >= m_itemSize)
+        {
+            if (!enlarge || !SetSize(newSize))
+                return false;
+        }
+
+        int i;
+        if (index >= m_itemCount)
+        {
+            for (i = 0; i < count; i++)
+                m_elements[i + index] = objects[i];
+
+            m_itemCount = newSize;
+        }
+        else
+        {
+            for (i = m_itemCount; i > index; i--)
+                m_elements[i + count - 1] = m_elements[i - 1];
+
+            for (i = 0; i < count; i++)
+                m_elements[i + index] = objects[i];
+
+            m_itemCount += count;
+        }
+
         return true;
     }
 
-    void Push(const T& object)
+    //
+    // Function: InsertAt
+    //  Inserts other array reference into the our array.
+    //
+    // Parameters:
+    //  index - Index where element should be inserted.
+    //  objects - Pointer to object list.
+    //  count - Number of element to insert.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool InsertAt(const int index, const Array <T>& other, const bool enlarge = true)
     {
-        m_elements.push_back(object);
+        if (&other == this)
+            return false;
+
+        return InsertAt(index, other.m_elements, other.m_itemCount, enlarge);
     }
 
+    //
+    // Function: RemoveAt
+    //  Removes elements from specified index.
+    //
+    // Parameters:
+    //  index - Index, where element should be removed.
+    //  count - Number of elements to remove.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool RemoveAt(const int index, const int count = 1)
+    {
+        if (index + count > m_itemCount)
+            return false;
+
+        if (count < 1)
+            return true;
+
+        m_itemCount -= count;
+
+        int i;
+        for (i = index; i < m_itemCount; i++)
+            m_elements[i] = m_elements[i + count];
+
+        return true;
+    }
+
+    //
+    // Function: Push
+    //  Appends element to the end of array.
+    //
+    // Parameters:
+    //  object - Object to append.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool Push(T object, const bool enlarge = true)
+    {
+        return InsertAt(m_itemCount, &object, 1, enlarge);
+    }
+
+    //
+    // Function: Push
+    //  Appends number of elements to the end of array.
+    //
+    // Parameters:
+    //  objects - Pointer to object list.
+    //  count - Number of element to insert.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool Push(T* objects, const int count = 1, const bool enlarge = true)
+    {
+        return InsertAt(m_itemCount, objects, count, enlarge);
+    }
+
+    //
+    // Function: Push
+    //  Inserts other array reference into the our array.
+    //
+    // Parameters:
+    //  objects - Pointer to object list.
+    //  count - Number of element to insert.
+    //  enlarge - Checks whether array must be resized in case, allocated size + enlarge step is exceeded.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool Push(Array <T>& other, const bool enlarge = true)
+    {
+        if (&other == this)
+            return false;
+
+        return InsertAt(m_itemCount, other.m_elements, other.m_itemCount, enlarge);
+    }
+
+    //
+    // Function: GetData
+    //  Gets the pointer to all element in array.
+    //
+    // Returns:
+    //  Pointer to object list.
+    //
     T* GetData(void)
     {
-        return m_elements.data();
+        return m_elements;
     }
 
-    bool IsEmpty(void)
+    //
+    // Function: RemoveAll
+    //  Resets array, and removes all elements out of it.
+    // 
+    void RemoveAll(void)
     {
-        return m_elements.empty();
+        m_itemCount = 0;
+        SetSize(m_itemCount);
     }
 
+    //
+    // Function: IsEmpty
+    //  Checks whether element is empty.
+    //
+    // Returns:
+    //  True if element is empty, false otherwise.
+    //
+    inline bool IsEmpty(void)
+    {
+        return m_itemCount <= 0;
+    }
+
+    //
+    // Function: FreeExtra
+    //  Frees unused space.
+    //
     void FreeSpace(const bool destroyIfEmpty = true)
     {
-        if (m_elements.empty())
+        if (m_itemCount <= 0)
         {
             if (destroyIfEmpty)
-                m_elements.clear();
+                Destroy();
 
             return;
         }
 
-        m_elements.shrink_to_fit();
+        T* buffer = new T[m_itemCount];
+
+        if (m_elements)
+        {
+            int i;
+            for (i = 0; i < m_itemCount; i++)
+                buffer[i] = m_elements[i];
+        }
+
+        m_elements.reset();
+        m_elements = buffer;
+        m_itemSize = m_itemCount;
     }
 
+    //
+    // Function: Pop
+    //  Pops element from array.
+    //
+    // Returns:
+    //  Object popped from the end of array.
+    //
     T Pop(void)
     {
-        if (m_elements.empty())
-            return m_elements[0];
-
-        const T element = m_elements.back();
-        m_elements.pop_back();
-
+        const T element = m_elements[m_itemCount - 1];
+        RemoveAt(m_itemCount - 1);
         return element;
     }
 
-    void PopNoReturn(void)
+    //
+    // Function: PopNoReturn
+    //  Pops element from array without returning last element.
+    //
+    T PopNoReturn(void)
     {
-        if (m_elements.empty())
-            return;
-
-        m_elements.pop_back();
+        RemoveAt(m_itemCount - 1);
     }
 
     T& Last(void)
     {
-        if (m_elements.empty())
-            return m_elements[0];
-
-        return m_elements.back();
-    }
-
-    T& GetRandomElement(void)
-    {
-        if (m_elements.empty())
-            return m_elements[0];
-
-        const int randomIndex = frand() % m_elements.size();
-        return m_elements[randomIndex];
+        return m_elements[m_itemCount - 1];
     }
 
     bool GetLast(T& item)
     {
-        if (m_elements.empty())
+        if (m_itemCount <= 0)
             return false;
 
-        item = m_elements.back();
+        item = m_elements[m_itemCount - 1];
+
         return true;
     }
 
-    Array<T>& operator = (const Array<T>& other)
+    //
+    // Function: AssignFrom
+    //  Reassigns current array with specified one.
+    //
+    // Parameters:
+    //  other - Other array that should be assigned.
+    //
+    // Returns:
+    //  True if operation succeeded, false otherwise.
+    //
+    bool AssignFrom(const Array <T>& other)
     {
         if (&other == this)
-            return *this;
+            return true;
 
-        m_elements = other.m_elements;
+        if (!SetSize(other.m_itemCount, false))
+            return false;
+
+        int i;
+        for (i = 0; i < other.m_itemCount; i++)
+            m_elements[i] = other.m_elements[i];
+
+        m_itemCount = other.m_itemCount;
+        m_resizeStep = other.m_resizeStep;
+
+        return true;
+    }
+
+    //
+    // Function: GetRandomElement
+    //  Gets the random element from the array.
+    //
+    // Returns:
+    //  Random element reference.
+    //
+    T& GetRandomElement(void) const
+    {
+        if (m_itemCount <= 1)
+            return m_elements[0];
+
+        return m_elements[CRandomInt(0, m_itemCount - 1)];
+    }
+
+    Array <T>& operator = (const Array <T>& other)
+    {
+        AssignFrom(other);
         return *this;
     }
 
     T& operator [] (const int index)
     {
-        if (index < 0 || index >= m_elements.size())
-            return m_elements[0];
+        if (index < m_itemSize && index >= m_itemCount)
+            m_itemCount = index + 1;
 
-        return m_elements[index];
+        return GetAt(index);
     }
 };
 
