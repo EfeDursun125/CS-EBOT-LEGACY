@@ -51,7 +51,7 @@ target_link_libraries(${PROJECT_NAME}
 
 # Set library properties
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 14
+    CXX_STANDARD 17
     CXX_STANDARD_REQUIRED ON
     POSITION_INDEPENDENT_CODE ON
     PREFIX ""
