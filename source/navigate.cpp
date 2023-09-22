@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (c) 2003-2009, by Yet Another POD-Bot Development Team.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -23,12 +23,9 @@
 //
 
 #include <core.h>
-#include <vector>
 
-ConVar ebot_aimbot("ebot_aimbot", "0");
 ConVar ebot_zombies_as_path_cost("ebot_zombie_count_as_path_cost", "1");
 ConVar ebot_ping_affects_aim("ebot_ping_affects_aim", "0");
-ConVar ebot_aim_type("ebot_aim_type", "1");
 ConVar ebot_use_old_jump_method("ebot_use_old_jump_method", "0");
 ConVar ebot_has_semiclip("ebot_has_semiclip", "0");
 
@@ -482,96 +479,101 @@ bool Bot::DoWaypointNav(void)
 	return false;
 }
 
-// Priority queue class (smallest item out first)
 class PriorityQueue
 {
 public:
 	PriorityQueue(void);
 	~PriorityQueue(void);
 
-	bool Empty(void) const;
-	size_t Size(void) const;
-	void Insert(const int value, const float priority);
-	int Remove(void);
+	inline bool IsEmpty(void) const { return !size; }
+	inline int Size(void) const { return size; }
+
+	void Insert(const int index, const float cost);
+	int RemoveLowest(void);
+	int RemoveHighest(void);
+
 private:
-	struct HeapNode
+	struct Node
 	{
-		int id;
-		float priority;
-		HeapNode(const int _id, const float _priority) : id(_id), priority(_priority) {}
+		int index;
+		float cost;
+		Node* next;
+		Node(const int index, const float cost) : index(index), cost(cost), next(nullptr) {}
 	};
 
-	vector <HeapNode> m_heap;
-	void HeapSiftUp();
-	void HeapSiftDown();
+	Node* head;
+	int size;
 };
 
-PriorityQueue::PriorityQueue(void) {}
+PriorityQueue::PriorityQueue(void) : head(nullptr), size(0) {}
 
-PriorityQueue::~PriorityQueue(void) {}
-
-bool PriorityQueue::Empty(void) const
+PriorityQueue::~PriorityQueue(void)
 {
-	return m_heap.empty();
-}
-
-size_t PriorityQueue::Size(void) const
-{
-	return m_heap.size();
-}
-
-void PriorityQueue::Insert(const int value, const float priority)
-{
-	m_heap.emplace_back(value, priority);
-	HeapSiftUp();
-}
-
-int PriorityQueue::Remove(void)
-{
-	const int retID = m_heap[0].id;
-	m_heap[0] = m_heap.back();
-	m_heap.pop_back();
-	HeapSiftDown();
-	return retID;
-}
-
-void PriorityQueue::HeapSiftUp(void)
-{
-	int child = m_heap.size() - 1;
-	while (child > 0)
+	while (head)
 	{
-		const int parent = (child - 1) / 2;
-		if (m_heap[parent].priority <= m_heap[child].priority)
-			break;
-
-		swap(m_heap[child], m_heap[parent]);
-		child = parent;
+		Node* nextNode = head->next;
+		delete head;
+		head = nextNode;
 	}
 }
 
-void PriorityQueue::HeapSiftDown(void)
+void PriorityQueue::Insert(const int index, const float cost)
 {
-	int parent = 0;
-	int child = 2 * parent + 1;
-
-	const HeapNode ref = m_heap[parent];
-	const int size = m_heap.size();
-
-	while (child < size)
+	Node* newNode = new Node(index, cost);
+	if (!head || cost < head->cost)
 	{
-		const int rightChild = 2 * parent + 2;
-		if (rightChild < size && m_heap[rightChild].priority < m_heap[child].priority)
-			child = rightChild;
+		newNode->next = head;
+		head = newNode;
+	}
+	else
+	{
+		Node* current = head;
+		while (current->next && cost >= current->next->cost)
+			current = current->next;
 
-		if (ref.priority <= m_heap[child].priority)
-			break;
-
-		m_heap[parent] = m_heap[child];
-		parent = child;
-		child = 2 * parent + 1;
+		newNode->next = current->next;
+		current->next = newNode;
 	}
 
-	m_heap[parent] = ref;
+	size++;
+}
+
+int PriorityQueue::RemoveLowest(void)
+{
+	const int itemToPop = head->index;
+	Node* temp = head;
+	head = head->next;
+	delete temp;
+	size--;
+	return itemToPop;
+}
+
+int PriorityQueue::RemoveHighest(void)
+{
+	Node* current = head;
+	Node* highest = head;
+	Node* prevHighest = nullptr;
+
+	while (current->next)
+	{
+		if (current->next->cost > highest->cost)
+		{
+			prevHighest = current;
+			highest = current->next;
+		}
+
+		current = current->next;
+	}
+
+	if (prevHighest)
+		prevHighest->next = highest->next;
+	else
+		head = highest->next;
+
+	const int itemToPop = highest->index;
+	delete highest;
+	size--;
+	return itemToPop;
 }
 
 inline const float GF_CostHuman(const int index, const int parent, const int team, const float gravity, const bool isZombie)
@@ -962,15 +964,6 @@ void Bot::FindPath(int srcIndex, int destIndex)
 		return;
 	}
 
-	AStar_t waypoints[Const_MaxWaypoints];
-	for (int i = 0; i < g_numWaypoints; i++)
-	{
-		waypoints[i].g = 0;
-		waypoints[i].f = 0;
-		waypoints[i].parent = -1;
-		waypoints[i].state = State::New;
-	}
-
 	const float (*gcalc) (const int, const int, const int, const float, const bool) = nullptr;
 	const float (*hcalc) (const int, const int) = nullptr;
 	bool useSeed = true;
@@ -1048,6 +1041,16 @@ void Bot::FindPath(int srcIndex, int destIndex)
 	if (!hcalc)
 		return;
 
+	int i;
+	AStar_t waypoints[Const_MaxWaypoints];
+	for (i = 0; i < g_numWaypoints; i++)
+	{
+		waypoints[i].g = 0.0f;
+		waypoints[i].f = 0.0f;
+		waypoints[i].parent = -1;
+		waypoints[i].state = State::New;
+	}
+
 	// put start node into open list
 	const auto srcWaypoint = &waypoints[srcIndex];
 	srcWaypoint->g = gcalc(srcIndex, -1, m_team, pev->gravity, m_isZombieBot);
@@ -1058,10 +1061,10 @@ void Bot::FindPath(int srcIndex, int destIndex)
 
 	PriorityQueue openList;
 	openList.Insert(srcIndex, srcWaypoint->f);
-	while (!openList.Empty())
+	while (!openList.IsEmpty())
 	{
 		// remove the first node from the open list
-		int currentIndex = openList.Remove();
+		int currentIndex = openList.RemoveLowest();
 
 		// is the current node the goal node?
 		if (currentIndex == destIndex || openList.Size() > limit)
@@ -1085,7 +1088,7 @@ void Bot::FindPath(int srcIndex, int destIndex)
 			m_cachedWaypointIndex = m_currentWaypointIndex;
 
 			const Path* pointer = g_waypoint->GetPath(m_currentWaypointIndex);
-			if (pointer != nullptr)
+			if (pointer)
 			{
 				if (pointer->radius > 8 && ((pev->origin + pev->velocity * m_frameInterval) - pointer->origin).GetLengthSquared2D() < SquaredI(pointer->radius))
 					m_waypointOrigin = pev->origin + pev->velocity * (m_frameInterval + m_frameInterval);
@@ -1108,10 +1111,10 @@ void Bot::FindPath(int srcIndex, int destIndex)
 		currWaypoint->state = State::Closed;
 
 		// now expand the current node
-		for (int i = 0; i < Const_MaxPathIndex; i++)
+		for (i = 0; i < Const_MaxPathIndex; i++)
 		{
 			const int self = g_waypoint->GetPath(currentIndex)->index[i];
-			if (self == -1)
+			if (!IsValidWaypoint(self))
 				continue;
 
 			const int32 flags = g_waypoint->GetPath(self)->flags;
@@ -1129,11 +1132,8 @@ void Bot::FindPath(int srcIndex, int destIndex)
 					continue;
 			}
 
-			// calculate the F value as F = G + H
 			const float g = currWaypoint->g + gcalc(currentIndex, self, m_team, pev->gravity, m_isZombieBot);
-			const float h = hcalc(self, destIndex);
-			const float f = g + h;
-
+			const float f = g + hcalc(self, destIndex);
 			const auto childWaypoint = &waypoints[self];
 			if (childWaypoint->state == State::New || childWaypoint->f > f)
 			{
@@ -1142,14 +1142,14 @@ void Bot::FindPath(int srcIndex, int destIndex)
 				childWaypoint->state = State::Open;
 				childWaypoint->g = g;
 				childWaypoint->f = f;
-				openList.Insert(self, childWaypoint->f);
+				openList.Insert(self, f);
 			}
 		}
 	}
 
 	// roam around poorly :(
 	Array <int> PossiblePath;
-	for (int i = 0; i < g_numWaypoints; i++)
+	for (i = 0; i < g_numWaypoints; i++)
 	{
 		if (waypoints[i].state == State::Closed)
 			PossiblePath.Push(i);
@@ -1192,16 +1192,19 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 		return;
 	}
 
+	int i;
 	AStar_t waypoints[Const_MaxWaypoints];
-	for (int i = 0; i < g_numWaypoints; i++)
+	for (i = 0; i < g_numWaypoints; i++)
 	{
-		waypoints[i].f = 0;
+		waypoints[i].g = 0.0f;
+		waypoints[i].f = 0.0f;
 		waypoints[i].parent = -1;
 		waypoints[i].state = State::New;
 	}
 
 	// put start node into open list
 	const auto srcWaypoint = &waypoints[srcIndex];
+	srcWaypoint->g = HF_Chebyshev2D(srcIndex, destIndex);
 	srcWaypoint->f = HF_Chebyshev2D(srcIndex, destIndex);
 	srcWaypoint->state = State::Open;
 
@@ -1209,10 +1212,10 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 
 	PriorityQueue openList;
 	openList.Insert(srcIndex, srcWaypoint->f);
-	while (!openList.Empty())
+	while (!openList.IsEmpty())
 	{
 		// remove the first node from the open list
-		int currentIndex = openList.Remove();
+		int currentIndex = openList.RemoveLowest();
 
 		// is the current node the goal node?
 		if (currentIndex == destIndex || openList.Size() > limit)
@@ -1236,7 +1239,7 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 			m_cachedWaypointIndex = m_currentWaypointIndex;
 
 			const Path* pointer = g_waypoint->GetPath(m_currentWaypointIndex);
-			if (pointer != nullptr)
+			if (pointer)
 			{
 				if (pointer->radius > 8 && ((pev->origin + pev->velocity * m_frameInterval) - pointer->origin).GetLengthSquared2D() < SquaredI(pointer->radius))
 					m_waypointOrigin = pev->origin + pev->velocity * (m_frameInterval + m_frameInterval);
@@ -1259,10 +1262,10 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 		currWaypoint->state = State::Closed;
 
 		// now expand the current node
-		for (int i = 0; i < Const_MaxPathIndex; i++)
+		for (i = 0; i < Const_MaxPathIndex; i++)
 		{
 			const int self = g_waypoint->GetPath(currentIndex)->index[i];
-			if (self == -1)
+			if (!IsValidWaypoint(self))
 				continue;
 
 			const int32 flags = g_waypoint->GetPath(self)->flags;
@@ -1280,15 +1283,17 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 					continue;
 			}
 
-			const float f = HF_Chebyshev2D(self, destIndex);
+			const float g = currWaypoint->g + HF_Chebyshev2D(currentIndex, self);
+			const float f = g + HF_Chebyshev2D(self, destIndex);
 			const auto childWaypoint = &waypoints[self];
 			if (childWaypoint->state == State::New || childWaypoint->f > f)
 			{
 				// put the current child into open list
 				childWaypoint->parent = currentIndex;
 				childWaypoint->state = State::Open;
+				childWaypoint->g = g;
 				childWaypoint->f = f;
-				openList.Insert(self, childWaypoint->f);
+				openList.Insert(self, f);
 			}
 		}
 	}
@@ -2458,7 +2463,7 @@ void Bot::CheckCloseAvoidance(const Vector& dirNormal)
 	const float nextFrameDistance = (pev->origin - (m_avoid->v.origin + m_avoid->v.velocity * interval)).GetLengthSquared();
 
 	// is player that near now or in future that we need to steer away?
-	if (movedDistance < SquaredF(64.0f) || (distance < SquaredF(72.0f) && nextFrameDistance < distance))
+	if (movedDistance < SquaredF(72.0f) || (distance < SquaredF(80.0f) && nextFrameDistance < distance))
 	{
 		const Vector dir = (pev->origin - m_avoid->v.origin).Normalize2D();
 

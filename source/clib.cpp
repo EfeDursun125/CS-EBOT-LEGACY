@@ -9,6 +9,7 @@
 #include <core.h>
 #include <immintrin.h>
 #include <rng.h>
+#include <sse_mathfun.h>
 
 #ifndef PLATFORM_WIN32
 #include <limits.h>
@@ -119,6 +120,26 @@ float crsqrtf(const float value)
 	return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_load_ss(&value)));
 }
 
+float ccosf(const float value)
+{
+	return _mm_cvtss_f32(cos_ps(_mm_load_ss(&value)));
+}
+
+float csinf(const float value)
+{
+	return _mm_cvtss_f32(sin_ps(_mm_load_ss(&value)));
+}
+
+void csincosf(const float radians, float& sine, float& cosine)
+{
+	__m128 sse_s, sse_c;
+	__m128* s = &sse_s;
+	__m128* c = &sse_c;
+	sincos_ps(_mm_load_ss(&radians), s, c);
+	sine = _mm_cvtss_f32(*s);
+	cosine = _mm_cvtss_f32(*c);
+}
+
 // http://wurstcaptures.untergrund.net/assembler_tricks.html
 float cpowf(const float a, const float b)
 {
@@ -160,9 +181,33 @@ float cceilf(const float value)
 	return result;
 }
 
+double cceil(const double value)
+{
+	const int intValue = static_cast<int>(value);
+	double result = static_cast<double>(intValue);
+
+	if (value > 0.0)
+	{
+		if (result < value)
+			result += 1.0;
+	}
+	else if (value < 0.0)
+	{
+		if (result > value)
+			result -= 1.0;
+	}
+
+	return result;
+}
+
 float cfloorf(const float value)
 {
 	return static_cast<float>(static_cast<int>(value));
+}
+
+double cfloor(const double value)
+{
+	return static_cast<double>(static_cast<int>(value));
 }
 
 float croundf(const float value)
@@ -179,6 +224,25 @@ float croundf(const float value)
 	{
 		if (result + 0.5f < value)
 			result += 1.0f;
+	}
+
+	return result;
+}
+
+double cround(const double value)
+{
+	const int intValue = static_cast<int>(value);
+	double result = static_cast<double>(intValue);
+
+	if (value < 0.0)
+	{
+		if (result - 0.5 > value)
+			result -= 1.0;
+	}
+	else
+	{
+		if (result + 0.5 < value)
+			result += 1.0;
 	}
 
 	return result;

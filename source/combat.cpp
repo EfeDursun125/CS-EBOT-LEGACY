@@ -449,7 +449,7 @@ Vector Bot::GetAimPosition(void)
 	return m_enemyOrigin = m_lastEnemyOrigin = targetOrigin;
 }
 
-float Bot::GetZOffset(float distance)
+float Bot::GetZOffset(const float distance)
 {
 	if (m_difficulty < 1)
 		return -4.0f;
@@ -464,13 +464,13 @@ float Bot::GetZOffset(float distance)
 	const bool m249 = m_currentWeapon == WEAPON_M249;
 
 	const float BurstDistance = SquaredF(300.0f);
-	const float DoubleBurstDistance = BurstDistance * 2.0f;
+	const float DoubleBurstDistance = BurstDistance * 4.0f;
 
 	float result = 4.0f;
 
-	if (distance <= SquaredF(2800.0f) && distance > DoubleBurstDistance)
+	if (distance > DoubleBurstDistance)
 	{
-		if (sniper) result = 3.5f;
+		if (sniper) result = 1.0f;
 		else if (zoomableRifle) result = 4.5f;
 		else if (pistol) result = 6.5f;
 		else if (submachine) result = 5.5f;
@@ -478,9 +478,9 @@ float Bot::GetZOffset(float distance)
 		else if (m249) result = 2.5f;
 		else if (shotgun) result = 10.5f;
 	}
-	else if (distance > BurstDistance && distance <= DoubleBurstDistance)
+	else if (distance > BurstDistance)
 	{
-		if (sniper) result = 3.5f;
+		if (sniper) result = 1.5f;
 		else if (zoomableRifle) result = 3.5f;
 		else if (pistol) result = 6.5f;
 		else if (submachine) result = 3.5f;
@@ -488,9 +488,9 @@ float Bot::GetZOffset(float distance)
 		else if (m249) result = -1.0f;
 		else if (shotgun) result = 10.0f;
 	}
-	else if (distance < BurstDistance)
+	else
 	{
-		if (sniper) result = 4.5f;
+		if (sniper) result = 2.0f;
 		else if (zoomableRifle) result = 5.0f;
 		else if (pistol) result = 4.5f;
 		else if (submachine) result = 4.5f;

@@ -1652,10 +1652,9 @@ int Bot::BuyWeaponMode(int weaponId)
 	return gunMode;
 }
 
+// this function iven some values min and max, clamp the inputs to be inside the [min, max] range
 TaskItem* ClampDesire(TaskItem* first, float min, float max)
 {
-	// this function iven some values min and max, clamp the inputs to be inside the [min, max] range.
-
 	if (first->desire < min)
 		first->desire = min;
 	else if (first->desire > max)
@@ -1664,40 +1663,37 @@ TaskItem* ClampDesire(TaskItem* first, float min, float max)
 	return first;
 }
 
+// this function returns the behavior having the higher activation level
 TaskItem* MaxDesire(TaskItem* first, TaskItem* second)
 {
-	// this function returns the behavior having the higher activation level.
-
 	if (first->desire > second->desire)
 		return first;
 
 	return second;
 }
 
+// this function returns the first behavior if its activation level is anything higher than zero
 TaskItem* SubsumeDesire(TaskItem* first, TaskItem* second)
 {
-	// this function returns the first behavior if its activation level is anything higher than zero.
-
 	if (first->desire > 0)
 		return first;
 
 	return second;
 }
 
+// this function returns the input behavior if it's activation level exceeds the threshold, or some default behavior otherwise
 TaskItem* ThresholdDesire(TaskItem* first, float threshold, float desire)
 {
-	// this function returns the input behavior if it's activation level exceeds the threshold, or some default
-	// behavior otherwise.
-
 	if (first->desire < threshold)
 		first->desire = desire;
 
 	return first;
 }
 
+// this function clamp the inputs to be the last known value outside the [min, max] range
 float HysteresisDesire(float cur, float min, float max, float old)
 {
-	// this function clamp the inputs to be the last known value outside the [min, max] range.
+	
 
 	if (cur <= min || cur >= max)
 		old = cur;
@@ -7198,8 +7194,8 @@ void Bot::ReactOnSound(void)
 		if (client.ent->v.flags & FL_DUCKING)
 			continue;
 
-		float distance = (client.soundPosition - pev->origin).GetLengthSquared();
-		float hearingDistance = client.hearingDistance;
+		const float distance = (client.soundPosition - pev->origin).GetLengthSquared();
+		const float hearingDistance = client.hearingDistance;
 
 		if (distance > SquaredF(hearingDistance) || hearingDistance >= 2048.0f || distance > SquaredF(m_maxhearrange))
 			continue;
@@ -7246,7 +7242,7 @@ void Bot::ReactOnSound(void)
 				else
 				{
 					// if bot had an enemy but the heard one is nearer, take it instead
-					float distance = (m_lastEnemyOrigin - pev->origin).GetLengthSquared();
+					const float distance = (m_lastEnemyOrigin - pev->origin).GetLengthSquared();
 					if (distance <= (GetEntityOrigin(player) - pev->origin).GetLengthSquared() && m_seeEnemyTime + 2.0f < engine->GetTime())
 						return;
 
