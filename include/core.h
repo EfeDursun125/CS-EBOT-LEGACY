@@ -743,14 +743,6 @@ struct WaypointHeader
 	char author[32];
 };
 
-// general experience & vistable header information structure
-struct ExtensionHeader
-{
-	char header[8];
-	int32 fileVersion;
-	int32 pointNumber;
-};
-
 // define general waypoint structure
 struct PathOLD
 {
@@ -881,6 +873,7 @@ private:
 	Vector m_camp; // aiming vector when camping.
 
 	bool m_wantsToFire; // bot needs consider firing
+	bool m_escaped; // for zombie escape
 
 	float m_followWaitTime; // wait to follow time
 	edict_t* m_targetEntity; // the entity that the bot is trying to reach
@@ -1183,7 +1176,6 @@ public:
 	float m_maxhearrange; // maximum range for hearing enemy
 	float m_aimStopTime; // feel like playing on a phone
 	float m_stayTime; // stay time (for simulate server)
-	float m_connectTime; // for fake query
 
 	int m_checkEnemyNum; // check enemy num idk
 	int m_numFriendsLeft; // number of friends alive

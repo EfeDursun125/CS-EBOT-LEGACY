@@ -2485,7 +2485,7 @@ public:
 
     inline int GetInt(void)
     {
-        return static_cast <int> (m_eptr->value);
+        return static_cast<int>(m_eptr->value);
     }
 
     inline int GetFlags(void)
@@ -2532,15 +2532,8 @@ class Entity
 public:
     edict_t* m_ent;
 
-    inline Entity(void) : m_ent(nullptr)
-    {
-        // nothing todo
-    }
-
-    inline Entity(edict_t* ent) : m_ent(ent)
-    {
-        // nothing todo
-    }
+    inline Entity(void) : m_ent(nullptr) {}
+    inline Entity(edict_t* ent) : m_ent(ent) {}
 
 public:
     Entity* operator -> (void)
@@ -2619,19 +2612,9 @@ public:
         return SDK_Utils::GetStringFromOffset(m_ent->v.viewmodel);
     }
 
-    inline void SetModel(const String& model) const
-    {
-        g_engfuncs.pfnSetModel(m_ent, model.GetRawData());
-    }
-
     inline String GetName(void) const
     {
         return SDK_Utils::GetStringFromOffset(m_ent->v.netname);
-    }
-
-    inline void SetName(const String& name) const
-    {
-        m_ent->v.netname = SDK_Utils::MakeStringByOffset(name.GetRawData());
     }
 
     inline Vector GetHeadOrigin(void) const

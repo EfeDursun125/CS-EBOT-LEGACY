@@ -768,14 +768,6 @@ public:
     }
 };
 
-namespace Math
-{
-    inline bool BBoxIntersects(const Vector& min1, const Vector& max1, const Vector& min2, const Vector& max2)
-    {
-        return min1.x < max2.x&& max1.x > min2.x && min1.y < max2.y&& max1.y > min2.y && min1.z < max2.z&& max1.z > min2.z;
-    }
-}
-
 //
 // Class: Array
 //  Universal template array container.
@@ -783,7 +775,7 @@ namespace Math
 template <typename T> class Array
 {
 private:
-    std::unique_ptr<T[]> m_elements;
+    T* m_elements;
     int m_resizeStep;
     int m_itemSize;
     int m_itemCount;
@@ -800,7 +792,13 @@ public:
     // Parameters:
     //  resizeStep - Array resize step, when new items added, or old deleted.
     //
-    Array(const int resizeStep = 0) : m_elements(nullptr), m_resizeStep(resizeStep), m_itemSize(0), m_itemCount(0) {}
+    Array(const int resizeStep = 0)
+    {
+        m_elements = nullptr;
+        m_itemSize = 0;
+        m_itemCount = 0;
+        m_resizeStep = resizeStep;
+    }
 
     //
     // Function: Array
@@ -809,17 +807,13 @@ public:
     // Parameters:
     //  other - Other array that should be assigned to this one.
     //
-    Array(const Array<T>& other) : m_resizeStep(other.m_resizeStep), m_itemSize(other.m_itemSize), m_itemCount(other.m_itemCount)
+    Array(const Array <T>& other)
     {
-        if (m_itemSize > 0)
-        {
-            int i;
-            m_elements = std::make_unique<T[]>(m_itemSize);
-            for (i = 0; i < m_itemCount; i++)
-                m_elements[i] = other.m_elements[i];
-        }
-        else
-            m_elements.reset();
+        m_elements = nullptr;
+        m_itemSize = 0;
+        m_itemCount = 0;
+        m_resizeStep = 0;
+        AssignFrom(other);
     }
 
     //
@@ -837,15 +831,19 @@ public:
 public:
 
     //
-    // Function: Destory
+    // Function: Destroy
     //  Destroys array object, and all elements.
     //
     void Destroy(void)
     {
+        if (m_elements != nullptr)
+        {
+            delete[] m_elements;
+            m_elements = nullptr;
+        }
+
         m_itemSize = 0;
         m_itemCount = 0;
-        m_resizeStep = 0;
-        m_elements.reset();
     }
 
     //
@@ -863,35 +861,47 @@ public:
     {
         if (newSize == 0)
         {
-            m_elements.reset();
-            m_itemSize = 0;
-            m_itemCount = 0;
+            Destroy();
             return true;
         }
 
-        std::unique_ptr<T[]> newElements = std::make_unique<T[]>(newSize);
-        if (keepData && m_elements)
+        int checkSize = 0;
+
+        if (m_resizeStep != 0)
+            checkSize = m_itemCount + m_resizeStep;
+        else
         {
+            checkSize = m_itemCount / 8;
+
+            if (checkSize < 4)
+                checkSize = 4;
+
+            if (checkSize > 1024)
+                checkSize = 1024;
+
+            checkSize += m_itemCount;
+        }
+
+        if (newSize > checkSize)
+            checkSize = newSize;
+
+        T* buffer = new T[checkSize];
+
+        if (keepData && m_elements != nullptr)
+        {
+            if (checkSize < m_itemCount)
+                m_itemCount = checkSize;
+
             int i;
-            const int copyCount = cmin(newSize, m_itemCount);
-            for (i = 0; i < copyCount; i++)
-                newElements[i] = m_elements[i];
+            for (i = 0; i < m_itemCount; i++)
+                buffer[i] = m_elements[i];
+
+            delete[] m_elements;
         }
 
-        m_elements = std::move(newElements);
-        m_itemSize = newSize;
-        m_itemCount = cmin(newSize, m_itemCount);
+        m_elements = buffer;
+        m_itemSize = checkSize;
         return true;
-    }
-
-    void Swap(const int index1, const int index2)
-    {
-        if (index1 >= 0 && index1 < m_itemCount && index2 >= 0 && index2 < m_itemCount)
-        {
-            const T temp = m_elements[index1];
-            m_elements[index1] = m_elements[index2];
-            m_elements[index2] = temp;
-        }
     }
 
     //
@@ -982,6 +992,9 @@ public:
     //
     T& GetAt(const int index)
     {
+        if (index < 0 || index >= m_itemCount)
+            return m_elements[CRandomInt(0, m_itemCount - 1)];
+
         return m_elements[index];
     }
 
@@ -998,7 +1011,7 @@ public:
     //
     bool GetAt(const int index, T& object)
     {
-        if (index >= m_itemCount)
+        if (index < 0 || index >= m_itemCount)
             return false;
 
         object = m_elements[index];
@@ -1017,7 +1030,7 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool InsertAt(const int index, T object, const bool enlarge = true)
+    bool InsertAt(const int index, const T object, const bool enlarge = true)
     {
         return InsertAt(index, &object, 1, enlarge);
     }
@@ -1035,9 +1048,9 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool InsertAt(const int index, T* objects, const int count = 1, const bool enlarge = true)
+    bool InsertAt(const int index, const T* objects, const int count = 1, const bool enlarge = true)
     {
-        if (!objects || count < 1)
+        if (objects == nullptr || count < 1)
             return false;
 
         int newSize = 0;
@@ -1053,9 +1066,9 @@ public:
                 return false;
         }
 
-        int i;
         if (index >= m_itemCount)
         {
+            int i;
             for (i = 0; i < count; i++)
                 m_elements[i + index] = objects[i];
 
@@ -1063,6 +1076,7 @@ public:
         }
         else
         {
+            int i;
             for (i = m_itemCount; i > index; i--)
                 m_elements[i + count - 1] = m_elements[i - 1];
 
@@ -1135,7 +1149,7 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool Push(T object, const bool enlarge = true)
+    bool Push(const T object, const bool enlarge = true)
     {
         return InsertAt(m_itemCount, &object, 1, enlarge);
     }
@@ -1152,7 +1166,7 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool Push(T* objects, const int count = 1, const bool enlarge = true)
+    bool Push(const T* objects, const int count = 1, const bool enlarge = true)
     {
         return InsertAt(m_itemCount, objects, count, enlarge);
     }
@@ -1169,7 +1183,7 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool Push(Array <T>& other, const bool enlarge = true)
+    bool Push(const Array <T>& other, const bool enlarge = true)
     {
         if (&other == this)
             return false;
@@ -1208,7 +1222,7 @@ public:
     //
     inline bool IsEmpty(void)
     {
-        return m_itemCount <= 0;
+        return !m_itemCount;
     }
 
     //
@@ -1217,7 +1231,7 @@ public:
     //
     void FreeSpace(const bool destroyIfEmpty = true)
     {
-        if (m_itemCount <= 0)
+        if (m_itemCount == 0)
         {
             if (destroyIfEmpty)
                 Destroy();
@@ -1225,16 +1239,17 @@ public:
             return;
         }
 
-        const T* buffer = new T[m_itemCount];
+        T* buffer = new T[m_itemCount];
 
-        if (m_elements)
+        if (m_elements != nullptr)
         {
             int i;
             for (i = 0; i < m_itemCount; i++)
                 buffer[i] = m_elements[i];
+
+            delete[] m_elements;
         }
 
-        m_elements.reset();
         m_elements = buffer;
         m_itemSize = m_itemCount;
     }
@@ -1255,7 +1270,7 @@ public:
 
     //
     // Function: PopNoReturn
-    //  Pops element from array without returning last element.
+    //  Pops element from array.
     //
     T PopNoReturn(void)
     {
@@ -1267,13 +1282,12 @@ public:
         return m_elements[m_itemCount - 1];
     }
 
-    bool GetLast(T& item)
+    bool GetLast(const T& item)
     {
         if (m_itemCount <= 0)
             return false;
 
         item = m_elements[m_itemCount - 1];
-
         return true;
     }
 
@@ -1301,7 +1315,6 @@ public:
 
         m_itemCount = other.m_itemCount;
         m_resizeStep = other.m_resizeStep;
-
         return true;
     }
 
@@ -1314,7 +1327,7 @@ public:
     //
     T& GetRandomElement(void) const
     {
-        if (m_itemCount <= 1)
+        if (m_itemCount < 2)
             return m_elements[0];
 
         return m_elements[CRandomInt(0, m_itemCount - 1)];
@@ -1349,10 +1362,14 @@ public:
     template <typename A1, typename A2> Pair(const Pair <A1, A2>& right) : first(right.first), second(right.second) {}
 };
 
+//
+// Class: String
+//  Reference counted string class.
+//
 class String
 {
 private:
-    std::unique_ptr<char[]> m_bufferPtr;
+    char* m_bufferPtr;
     int m_allocatedSize;
     int m_stringLength;
 
@@ -1374,16 +1391,16 @@ private:
             return;
 
         m_allocatedSize = size + 16;
-        std::unique_ptr<char[]> tempBuffer(new char[size + 1]);
+        char* tempBuffer = new char[size + 1];
 
         if (m_bufferPtr != nullptr)
         {
-            cstrcpy(tempBuffer.get(), m_bufferPtr.get());
+            cstrcpy(tempBuffer, m_bufferPtr);
             tempBuffer[m_stringLength] = 0;
-            m_bufferPtr.reset();
+            delete[] m_bufferPtr;
         }
 
-        m_bufferPtr = std::move(tempBuffer);
+        m_bufferPtr = tempBuffer;
         m_allocatedSize = size;
     }
 
@@ -1397,7 +1414,7 @@ private:
     //
     void MoveItems(const int destIndex, const int sourceIndex)
     {
-        cmemmove(m_bufferPtr.get() + destIndex, m_bufferPtr.get() + sourceIndex, sizeof(char) * (m_stringLength - sourceIndex + 1));
+        cmemmove(m_bufferPtr + destIndex, m_bufferPtr + sourceIndex, sizeof(char) * (m_stringLength - sourceIndex + 1));
     }
 
     //
@@ -1410,12 +1427,10 @@ private:
     void Initialize(const int length)
     {
         const int freeSize = m_allocatedSize - m_stringLength - 1;
-
         if (length <= freeSize)
             return;
 
         int delta = 4;
-
         if (m_allocatedSize > 64)
             delta = m_allocatedSize * 0.5;
         else if (m_allocatedSize > 8)
@@ -1452,7 +1467,6 @@ private:
     {
         CorrectIndex(index);
         Initialize(size);
-
         MoveItems(index + size, index);
     }
 
@@ -1466,7 +1480,7 @@ private:
     // Returns:
     //  True if it's a trim char, false otherwise.
     //
-    bool IsTrimChar(char input)
+    bool IsTrimChar(const char input)
     {
         return input == ' ' || input == '\t' || input == '\n';
     }
@@ -1477,19 +1491,28 @@ private:
 public:
     String(void)
     {
+        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
     }
 
+    ~String(void)
+    {
+        if (m_bufferPtr)
+            delete[] m_bufferPtr;
+    }
+
     String(const char* bufferPtr)
     {
+        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
         Assign(bufferPtr);
     }
 
-    String(char input)
+    String(const char input)
     {
+        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
         Assign(input);
@@ -1497,6 +1520,7 @@ public:
 
     String(const String& inputString)
     {
+        m_bufferPtr = nullptr;
         m_allocatedSize = 0;
         m_stringLength = 0;
         Assign(inputString.GetBuffer());
@@ -1507,16 +1531,6 @@ public:
     //
 public:
 
-    inline char* GetRawData(void)
-    {
-        return m_bufferPtr.get();
-    }
-
-    inline const char* GetRawData(void) const
-    {
-        return m_bufferPtr.get();
-    }
-
     //
     // Function: GetBuffer
     //  Gets the string buffer.
@@ -1526,7 +1540,7 @@ public:
     //
     const char* GetBuffer(void)
     {
-        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
+        if (m_bufferPtr == nullptr || *m_bufferPtr == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1541,7 +1555,7 @@ public:
     //
     const char* GetBuffer(void) const
     {
-        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
+        if (m_bufferPtr == nullptr || *m_bufferPtr == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1556,7 +1570,7 @@ public:
     //
     float ToFloat(void)
     {
-        return catof(m_bufferPtr.get());
+        return catof(m_bufferPtr);
     }
 
     //
@@ -1568,7 +1582,7 @@ public:
     //
     int ToInt(void) const
     {
-        return catoi(m_bufferPtr.get());
+        return catoi(m_bufferPtr);
     }
 
     //
@@ -1577,7 +1591,7 @@ public:
     //
     void ReleaseBuffer(void)
     {
-        ReleaseBuffer(cstrlen(m_bufferPtr.get()));
+        ReleaseBuffer(cstrlen(m_bufferPtr));
     }
 
     //
@@ -1608,7 +1622,7 @@ public:
         if (minLength >= m_allocatedSize)
             UpdateBufferSize(minLength + 1);
 
-        return m_bufferPtr.get();
+        return m_bufferPtr;
     }
 
     //
@@ -1641,9 +1655,8 @@ public:
     void Append(const char* bufferPtr)
     {
         UpdateBufferSize(m_stringLength + cstrlen(bufferPtr) + 1);
-        cstrcat(m_bufferPtr.get(), bufferPtr);
-
-        m_stringLength = cstrlen(m_bufferPtr.get());
+        cstrcat(m_bufferPtr, bufferPtr);
+        m_stringLength = cstrlen(m_bufferPtr);
     }
 
     //
@@ -1656,7 +1669,6 @@ public:
     void Append(const char input)
     {
         UpdateBufferSize(m_stringLength + 2);
-
         m_bufferPtr[m_stringLength] = input;
         m_bufferPtr[m_stringLength++] = 0;
     }
@@ -1672,9 +1684,8 @@ public:
     {
         const char* bufferPtr = inputString.GetBuffer();
         UpdateBufferSize(m_stringLength + cstrlen(bufferPtr));
-
-        cstrcat(m_bufferPtr.get(), bufferPtr);
-        m_stringLength = cstrlen(m_bufferPtr.get());
+        cstrcat(m_bufferPtr, bufferPtr);
+        m_stringLength = cstrlen(m_bufferPtr);
     }
 
     //
@@ -1741,8 +1752,8 @@ public:
 
         if (m_bufferPtr != nullptr)
         {
-            cstrcpy(m_bufferPtr.get(), bufferPtr);
-            m_stringLength = cstrlen(m_bufferPtr.get());
+            cstrcpy(m_bufferPtr, bufferPtr);
+            m_stringLength = cstrlen(m_bufferPtr);
         }
         else
             m_stringLength = 0;
@@ -1771,10 +1782,13 @@ public:
     // Function: Empty
     //  Empties the string.
     //
-    void SetEmpty(void)
+    void Empty(void)
     {
-        m_bufferPtr.reset();
-        m_stringLength = 0;
+        if (m_bufferPtr != nullptr)
+        {
+            m_bufferPtr[0] = 0;
+            m_stringLength = 0;
+        }
     }
 
     //
@@ -1786,7 +1800,7 @@ public:
     //
     bool IsEmpty(void) const
     {
-        if (m_bufferPtr == nullptr || m_stringLength == 0)
+        if (m_bufferPtr == nullptr || !m_stringLength)
             return true;
 
         return false;
@@ -1845,7 +1859,7 @@ public:
         return result;
     }
 
-    friend String operator + (const String& holder, char ch)
+    friend String operator + (const String& holder, const char ch)
     {
         String result(holder);
         result += ch;
@@ -1853,7 +1867,7 @@ public:
         return result;
     }
 
-    friend String operator + (char ch, const String& holder)
+    friend String operator + (const char ch, const String& holder)
     {
         String result(ch);
         result += holder;
@@ -1929,7 +1943,7 @@ public:
         return *this;
     }
 
-    String& operator = (char input)
+    String& operator = (const char input)
     {
         Assign(input);
         return *this;
@@ -1949,7 +1963,7 @@ public:
 
     char operator [] (const int index)
     {
-        if (index > m_stringLength)
+        if (index < 0 || index > m_stringLength)
             return -1;
 
         return m_bufferPtr[index];
@@ -1978,18 +1992,16 @@ public:
         else if (startIndex + count >= m_stringLength)
             count = m_stringLength - startIndex;
 
-        if (count <= 0)
-            return result;
+        int i = 0, j = 0;
+        char* holder = new char[m_stringLength + 1];
 
-        std::unique_ptr<char[]> holder(new char[count + 1], std::default_delete<char[]>());
+        for (i = startIndex; i < startIndex + count; i++)
+            holder[j++] = m_bufferPtr[i];
 
-        int i;
-        for (i = 0; i < count; i++)
-            holder[i] = m_bufferPtr[startIndex + i];
+        holder[j] = 0;
+        result.Assign(holder);
 
-        holder[count] = '\0';
-        result.Assign(holder.get());
-
+        delete[] holder;
         return result;
     }
 
@@ -2042,7 +2054,7 @@ public:
     }
 
     //
-    // Function: ctoupper
+    // Function: ToUpper
     //  Gets the string in upper case.
     //
     // Returns:
@@ -2053,7 +2065,7 @@ public:
         String result;
 
         int i;
-        const int length = GetLength();
+        int length = GetLength();
         for (i = 0; i < length; i++)
             result += ctoupper(m_bufferPtr[i]);
 
@@ -2061,7 +2073,7 @@ public:
     }
 
     //
-    // Function: ctoupper
+    // Function: ToUpper
     //  Gets the string in upper case.
     //
     // Returns:
@@ -2072,7 +2084,7 @@ public:
         String result;
 
         int i;
-        const int length = GetLength();
+        int length = GetLength();
         for (i = 0; i < length; i++)
             result += ctolower(m_bufferPtr[i]);
 
@@ -2088,8 +2100,8 @@ public:
     //
     String ToReverse(void)
     {
-        char* source = m_bufferPtr.get() + GetLength() - 1;
-        char* dest = m_bufferPtr.get();
+        char* source = m_bufferPtr + GetLength() - 1;
+        char* dest = m_bufferPtr;
 
         while (source > dest)
         {
@@ -2106,7 +2118,7 @@ public:
             }
         }
 
-        return m_bufferPtr.get();
+        return m_bufferPtr;
     }
 
     //
@@ -2148,7 +2160,22 @@ public:
     //
     int Compare(const String& string) const
     {
-        return cstrcmp(m_bufferPtr.get(), string.m_bufferPtr.get());
+        return cstrcmp(m_bufferPtr, string.m_bufferPtr);
+    }
+
+    //
+    // Function: CompareI
+    //  Compares string with other string without case check.
+    //
+    // Parameters:
+    //  string - String t compare with.
+    //
+    // Returns:
+    //  Zero if they are equal.
+    //
+    int CompareI(String& string) const
+    {
+        return cstricmp(m_bufferPtr, string.m_bufferPtr);
     }
 
     //
@@ -2163,7 +2190,22 @@ public:
     //
     int Compare(const char* str) const
     {
-        return cstrcmp(m_bufferPtr.get(), str);
+        return cstrcmp(m_bufferPtr, str);
+    }
+
+    //
+    // Function: CompareI
+    //  Compares string with other string without case check.
+    //
+    // Parameters:
+    //  str - String to compare with.
+    //
+    // Returns:
+    //  Zero if they are equal.
+    //
+    int CompareI(const char* str) const
+    {
+        return cstricmp(m_bufferPtr, str);
     }
 
     //
@@ -2178,7 +2220,7 @@ public:
     //
     int Collate(const String& string) const
     {
-        return cstrcoll(m_bufferPtr.get(), string.m_bufferPtr.get());
+        return cstrcoll(m_bufferPtr, string.m_bufferPtr);
     }
 
     //
@@ -2191,7 +2233,7 @@ public:
     // Returns:
     //  Index of character.
     //
-    int Find(char input) const
+    int Find(const char input) const
     {
         return Find(input, 0);
     }
@@ -2207,14 +2249,14 @@ public:
     // Returns:
     //  Index of character.
     //
-    int Find(char input, const int startIndex) const
+    int Find(const char input, const int startIndex) const
     {
-        char* str = m_bufferPtr.get() + startIndex;
+        char* str = m_bufferPtr + startIndex;
 
         for (;;)
         {
             if (*str == input)
-                return str - m_bufferPtr.get();
+                return str - m_bufferPtr;
 
             if (*str == 0)
                 return -1;
@@ -2280,20 +2322,20 @@ public:
     // Returns:
     //  Position of found character.
     //
-    int ReverseFind(char ch)
+    int ReverseFind(const char ch)
     {
         if (m_stringLength == 0)
             return -1;
 
-        char* str = m_bufferPtr.get() + m_stringLength - 1;
-
+        char* str = m_bufferPtr + m_stringLength - 1;
         for (;;)
         {
             if (*str == ch)
-                return str - m_bufferPtr.get();
+                return str - m_bufferPtr;
 
-            if (str == m_bufferPtr.get())
+            if (str == m_bufferPtr)
                 return -1;
+
             str--;
         }
     }
@@ -2329,7 +2371,7 @@ public:
     //
     String& TrimRight(void)
     {
-        char* str = m_bufferPtr.get();
+        char* str = m_bufferPtr;
         char* last = nullptr;
 
         while (*str != 0)
@@ -2346,7 +2388,7 @@ public:
         }
 
         if (last != nullptr)
-            Delete(last - m_bufferPtr.get());
+            Delete(last - m_bufferPtr);
 
         return *this;
     }
@@ -2360,12 +2402,12 @@ public:
     //
     String& TrimLeft(void)
     {
-        char* str = m_bufferPtr.get();
+        char* str = m_bufferPtr;
 
         while (IsTrimChar(*str))
             str++;
 
-        if (str != m_bufferPtr.get())
+        if (str != m_bufferPtr)
         {
             const int first = int(str - GetBuffer());
             char* buffer = GetBuffer(GetLength());
@@ -2399,9 +2441,9 @@ public:
     // Parameters:
     //  ch - Character to trim.
     //
-    void TrimRight(char ch)
+    void TrimRight(const char ch)
     {
-        const char* str = m_bufferPtr.get();
+        const char* str = m_bufferPtr;
         const char* last = nullptr;
 
         while (*str != 0)
@@ -2419,7 +2461,7 @@ public:
 
         if (last != nullptr)
         {
-            const int i = last - m_bufferPtr.get();
+            const int i = last - m_bufferPtr;
             Delete(i, m_stringLength - i);
         }
     }
@@ -2431,14 +2473,14 @@ public:
     // Parameters:
     //  ch - Character to trim.
     //
-    void TrimLeft(char ch)
+    void TrimLeft(const char ch)
     {
-        char* str = m_bufferPtr.get();
+        char* str = m_bufferPtr;
 
         while (ch == *str)
             str++;
 
-        Delete(0, str - m_bufferPtr.get());
+        Delete(0, str - m_bufferPtr);
     }
 
     //
@@ -2452,7 +2494,7 @@ public:
     // Returns:
     //  New string length.
     //
-    int Insert(int index, char ch)
+    int Insert(int index, const char ch)
     {
         InsertSpace(index, 1);
 
@@ -2488,7 +2530,6 @@ public:
             m_bufferPtr[index + i] = string[i];
 
         m_stringLength += numInsertChars;
-
         return m_stringLength;
     }
 
@@ -2503,7 +2544,7 @@ public:
     // Returns:
     //  Number of occurrences replaced.
     //
-    int Replace(char oldCharacter, char newCharacter)
+    int Replace(const char oldCharacter, const char newCharacter)
     {
         if (oldCharacter == newCharacter)
             return 0;
@@ -2546,8 +2587,8 @@ public:
         if (newString.m_stringLength == 0)
             return 0;
 
-        const int oldLength = oldString.m_stringLength;
-        const int newLength = newString.m_stringLength;
+        int oldLength = oldString.m_stringLength;
+        int newLength = newString.m_stringLength;
 
         int num = 0;
         int position = 0;
@@ -2624,7 +2665,7 @@ public:
     //
     bool Contains(const String& what)
     {
-        return cstrstr(m_bufferPtr.get(), what.m_bufferPtr.get()) != nullptr;
+        return cstrstr(m_bufferPtr, what.m_bufferPtr) != nullptr;
     }
 
     //
@@ -2637,7 +2678,7 @@ public:
     unsigned long Hash(void)
     {
         unsigned long hash = 0;
-        const char* ptr = m_bufferPtr.get();
+        const char* ptr = m_bufferPtr;
 
         while (*ptr)
         {
@@ -2675,7 +2716,6 @@ public:
                 holder.Push(Mid(index, tokenLength));
 
             index += tokenLength;
-
         } while (tokenLength > 0);
 
         return holder;
@@ -2694,7 +2734,7 @@ public:
     // See Also:
     //  <Array>
     //
-    Array <String> Split(char separator)
+    Array <String> Split(const char separator)
     {
         char sep[2];
 
@@ -2707,350 +2747,291 @@ public:
 
 //
 // Class: File
-// A simple wrapper to a stdio FILE.
+//  Simple STDIO file wrapper class.
 //
 class File
 {
-    //
-    // Group: Private members.
-    //
-private:
-
-    //
-    // Variable: m_handle
-    // Pointer to C file stream.
-    //
+protected:
     FILE* m_handle;
-
-    // Variable: m_size
-    // Number of bytes in file.
-    //
-    int m_size;
+    int m_fileSize;
 
     //
-    // Group: (Con/De)structors.
+    // Group: (Con/De)structors
     //
 public:
+
     //
     // Function: File
+    //  Default file class, constructor.
     //
-    // Default file class constructor.
-    //
-    inline File(void) : m_handle(nullptr), m_size(0)
+    File(void)
     {
+        m_handle = nullptr;
+        m_fileSize = 0;
     }
 
     //
     // Function: File
+    //  Default file class, constructor, with file opening.
     //
-    // Default file class, constructor, with file opening.
-    //
-    // Parameters:
-    //   filePath - String containing file name.
-    //   mode - String containing open mode for file.
-    //
-    inline File(const String& filePath, const String& mode = "rt") : m_handle(nullptr), m_size(0)
+    File(String fileName, String mode = "rt")
     {
-        Open(filePath, mode);
+        Open(fileName, mode);
     }
 
     //
     // Function: ~File
+    //  Default file class, destructor.
     //
-    // Default file class, destructor.
-    //
-    inline ~File(void)
+    ~File(void)
     {
-        if (IsValid())
-            fclose(m_handle);
+        Close();
     }
 
     //
-    // Group: Functions.
-    //
-public:
-    //
     // Function: Open
-    //
-    // Opens file and gets it's size.
+    //  Opens file and gets it's size.
     //
     // Parameters:
-    //	  filePath - String containing file name.
-    //	  mode - String containing open mode for file.
+    //  fileName - String containing file name.
+    //  mode - String containing open mode for file.
     //
     // Returns:
-    //   True if operation succeeded, false otherwise.
+    //  True if operation succeeded, false otherwise.
     //
-    inline bool Open(const String& filePath, const String& mode = "rt")
+    bool Open(const String& fileName, const String& mode)
     {
-        m_handle = fopen(filePath, mode);
-
-        if (!IsValid())
+        if ((m_handle = fopen(fileName.GetBuffer(), mode.GetBuffer())) == nullptr)
             return false;
 
-        fseek(m_handle, 0l, SEEK_END);
-        m_size = ftell(m_handle); // get the filesize.
-        fseek(m_handle, 0l, SEEK_SET);
+        fseek(m_handle, 0L, SEEK_END);
+        m_fileSize = ftell(m_handle);
+        fseek(m_handle, 0L, SEEK_SET);
 
         return true;
     }
 
     //
     // Function: Close
+    //  Closes file, and destroys STDIO file object.
     //
-    // Closes file, and destroys STDIO file object.
-    //
-    inline void Close(void)
+    void Close(void)
     {
-        if (IsValid())
+        if (m_handle != nullptr)
         {
             fclose(m_handle);
             m_handle = nullptr;
         }
 
-        m_size = 0;
+        m_fileSize = 0;
     }
 
     //
-    // Function: IsEndOfFile
-    //
-    // Checks whether we reached end of file.
+    // Function: Eof
+    //  Checks whether we reached end of file.
     //
     // Returns:
-    //   True if reached, false otherwise.
+    //  True if reached, false otherwise.
     //
-    inline bool IsEndOfFile(void) const
+    bool Eof(void)
     {
-        return feof(m_handle) != 0;
+        return feof(m_handle) ? true : false;
     }
 
     //
     // Function: Flush
-    //
-    // Flushes file stream.
+    //  Flushes file stream.
     //
     // Returns:
-    //   True if operation succeeded, false otherwise.
+    //  True if operation succeeded, false otherwise.
     //
-    inline bool Flush(void) const
+    bool Flush(void)
     {
-        return fflush(m_handle) == 0;
+        return fflush(m_handle) ? false : true;
     }
 
     //
-    // Function: GetCharacter
-    //
-    // Pops one character from the file stream.
-    //
-    // Returns:
-    //   Popped from stream character.
-    //
-    inline uint8_t GetCharacter(void) const
-    {
-        return static_cast<uint8_t>(fgetc(m_handle));
-    }
-
-    //
-    // Function: GetBuffer
-    //
-    // Gets the line from file stream, and stores it inside string class.
-    //
-    // Parameters:
-    //	  buffer - String buffer, that should receive line.
-    //	  count - Maximum size of buffer.
+    // Function: GetChar
+    //  Pops one character from the file stream.
     //
     // Returns:
-    //   True if operation succeeded, false otherwise.
+    //  Popped from stream character
     //
-    inline bool GetBuffer(String& buffer, const int count = 256) const
+    int GetCharacter(void)
     {
-        std::unique_ptr<char[]> tempBuffer(new char[count]);
-        if (!tempBuffer)
-            return false;
-
-        buffer.SetEmpty();
-
-        if (fgets(tempBuffer.get(), count, m_handle) != nullptr)
-        {
-            buffer = tempBuffer.get();
-            return true;
-        }
-
-        return false;
+        return fgetc(m_handle);
     }
 
     //
     // Function: GetBuffer
-    //
-    // Gets the line from file stream, and stores it inside string class.
+    //  Gets the single line, from the non-binary stream.
     //
     // Parameters:
-    //	  buffer - String buffer, that should receive line.
-    //	  count - Maximum size of buffer.
+    //  buffer - Pointer to buffer, that should receive string.
+    //  count - Max. size of buffer.
     //
     // Returns:
-    //   True if operation succeeded, false otherwise.
+    //  Pointer to string containing popped line.
     //
-    inline bool GetBuffer(char* buffer, int count = 256) const
+    char* GetBuffer(char* buffer, const int count)
     {
-        return fgets(buffer, count, m_handle) != nullptr;
+        return fgets(buffer, count, m_handle);
     }
 
     //
-    // Function: Print
-    //
-    // Puts formatted buffer, into stream.
+    // Function: GetBuffer
+    //  Gets the line from file stream, and stores it inside string class.
     //
     // Parameters:
-    //	  format - String to write.
+    //  buffer - String buffer, that should receive line.
+    //  count - Max. size of buffer.
     //
     // Returns:
-    //   Number of bytes, that was written.
+    //  True if operation succeeded, false otherwise.
     //
-    inline int Print(const char* format, ...) const
+    bool GetBuffer(String& buffer, const int count)
+    {
+        return !String(fgets(buffer, count, m_handle)).IsEmpty();
+    }
+
+    //
+    // Function: Printf
+    //  Puts formatted buffer, into stream.
+    //
+    // Parameters:
+    //  format - 
+    //
+    // Returns:
+    //  Number of bytes, that was written.
+    //
+    int Printf(const char* format, ...)
     {
         va_list ap;
-
         va_start(ap, format);
-        int written = vfprintf(m_handle, format, ap);
+        const int written = vfprintf(m_handle, format, ap);
         va_end(ap);
+
+        if (written < 0)
+            return 0;
 
         return written;
     }
 
     //
-    // Function: Print
-    //
-    // Puts formatted buffer, into stream.
-    //
-    // Parameters:
-    //	  format - String to write.
-    //
-    // Returns
-    //   Number of bytes, that was written.
-    //
-    inline int Print(const String& message) const
-    {
-        return fprintf(m_handle, message);
-    }
-
-    //
     // Function: PutCharacter
-    //
-    // Puts character into file stream.
+    //  Puts character into file stream.
     //
     // Parameters:
-    //	  character - Character that should be put into stream.
+    //  ch - Character that should be put into stream.
     //
     // Returns:
-    //   Character that was putted into the stream.
+    //  Character that was putted into the stream.
     //
-    inline bool PutCharacter(uint8_t character) const
+    char PutCharacter(const char ch)
     {
-        return fputc(static_cast <int> (character), m_handle) != EOF;
+        return static_cast<char>(fputc(ch, m_handle));
     }
 
     //
     // Function: PutString
-    //
-    // Puts buffer into the file stream.
+    //  Puts buffer into the file stream.
     //
     // Parameters:
-    //	  string - Buffer that should be put, into stream.
+    //  buffer - Buffer that should be put, into stream.
     //
     // Returns:
-    //   True if operation succeeded, false otherwise.
+    //  True, if operation succeeded, false otherwise.
     //
-    inline bool PutString(const String& string) const
+    bool PutString(const String buffer)
     {
-        return fputs(string, m_handle) != EOF;
+        if (fputs(buffer.GetBuffer(), m_handle) < 0)
+            return false;
+
+        return true;
     }
 
     //
     // Function: Read
-    //
-    // Reads buffer from file stream in binary format.
+    //  Reads buffer from file stream in binary format.
     //
     // Parameters:
-    //	  buffer - Holder for read buffer.
-    //	  size - Size of the buffer to read.
-    //	  count - Number of buffer chunks to read.
+    //  buffer - Holder for read buffer.
+    //  size - Size of the buffer to read.
+    //  count - Number of buffer chunks to read.
     //
     // Returns:
-    //   Number of bytes red from file.
+    //  Number of bytes red from file.
     //
-    inline bool Read(void* buffer, uint32_t size, uint32_t count = 1) const
+    int Read(void* buffer, const int size, const int count = 1)
     {
-        return fread(buffer, size, count, m_handle) == count;
+        return fread(buffer, size, count, m_handle);
     }
 
     //
     // Function: Write
-    //
-    // Writes binary buffer into file stream.
+    //  Writes binary buffer into file stream.
     //
     // Parameters:
-    //	  buffer - Buffer holder, that should be written into file stream.
-    //	  size - Size of the buffer that should be written.
-    //	  count - Number of buffer chunks to write.
+    //  buffer - Buffer holder, that should be written into file stream.
+    //  size - Size of the buffer that should be written.
+    //  count - Number of buffer chunks to write.
     //
     // Returns:
-    //   Numbers of bytes written to file.
+    //  Numbers of bytes written to file.
     //
-    inline bool Write(void* buffer, uint32_t size, uint32_t count = 1) const
+    int Write(void* buffer, const int size, const int count = 1)
     {
-        return fwrite(buffer, size, count, m_handle) == count;
+        return fwrite(buffer, size, count, m_handle);
     }
 
     //
     // Function: Seek
-    //
-    // Seeks file stream with specified parameters.
+    //  Seeks file stream with specified parameters.
     //
     // Parameters:
-    //	  offset - Offset where cursor should be set.
-    //	  origin - Type of offset set.
+    //  offset - Offset where cursor should be set.
+    //  origin - Type of offset set.
     //
     // Returns:
-    //   True if operation success, false otherwise.
+    //  True if operation success, false otherwise.
     //
-    inline bool Seek(long offset, int origin) const
+    bool Seek(const long offset, const int origin)
     {
-        return fseek(m_handle, offset, origin) == 0;
+        if (fseek(m_handle, offset, origin) != 0)
+            return false;
+
+        return true;
     }
 
     //
     // Function: Rewind
+    //  Rewinds the file stream.
     //
-    // Rewinds the file stream.
-    //
-    inline void Rewind(void) const
+    void Rewind(void)
     {
         rewind(m_handle);
     }
 
     //
     // Function: GetSize
-    //
-    // Gets the file size of opened file stream.
+    //  Gets the file size of opened file stream.
     //
     // Returns:
-    //   Number of bytes in file.
+    //  Number of bytes in file.
     //
-    inline int GetSize(void) const
+    int GetSize(void)
     {
-        return m_size;
+        return m_fileSize;
     }
 
     //
     // Function: IsValid
-    //
-    // Checks whether file stream is valid.
+    //  Checks whether file stream is valid.
     //
     // Returns:
-    //   True if file stream valid, false otherwise.
+    //  True if file stream valid, false otherwise.
     //
-    inline bool IsValid(void) const
+    bool IsValid(void)
     {
         return m_handle != nullptr;
     }
@@ -3199,7 +3180,6 @@ public:
     {
         m_logger = logger;
 
-
         if (m_logger && m_logFile.IsValid())
         {
             m_logFile.Close();
@@ -3230,7 +3210,7 @@ public:
       if (flags & LM_CONSOLE) \
          m_logger->EchoWithTag ("(%s): %s", logStr, buffer); \
       \
-      m_logFile.Print ("[%s] (%s): %s\n", GetTimeFormatString (), logStr, buffer); \
+      m_logFile.Printf ("[%s] (%s): %s\n", GetTimeFormatString (), logStr, buffer); \
       \
    }
 
