@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (c) 2003-2009, by Yet Another POD-Bot Development Team.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -190,7 +190,8 @@ void AnalyzeThread(void)
             Vector WayVec = g_waypoint->GetPath(i)->origin;
             float range = ebot_analyze_distance.GetFloat();
 
-            for (int dir = 1; dir < 8; dir++)
+            int dir;
+            for (dir = 1; dir < 8; dir++)
             {
                 switch (dir)
                 {
@@ -341,7 +342,8 @@ void Waypoint::AnalyzeDeleteUselessWaypoints(void)
                 DeleteByIndex(i);
         }
 
-        for (int k = 0; k < Const_MaxPathIndex; k++)
+        int k;
+        for (k = 0; k < Const_MaxPathIndex; k++)
         {
             if (m_paths[i]->index[k] != -1)
             {
@@ -1626,6 +1628,9 @@ void Waypoint::InitTypes()
     int i;
     for (i = 0; i < g_numWaypoints; i++)
     {
+        if (m_paths[i] == nullptr)
+            continue;
+
         if (m_paths[i]->flags & WAYPOINT_GOAL)
             m_goalPoints.Push(i);
         else if (m_paths[i]->flags & WAYPOINT_CAMP)
@@ -1736,15 +1741,15 @@ bool Waypoint::Load(void)
         else if (header.fileVersion == 125)
         {
             g_numWaypoints = header.pointNumber;
-            unique_ptr <PathOLD2> paths[g_numWaypoints];
+            PathOLD2* paths[g_numWaypoints];
 
             for (i = 0; i < g_numWaypoints; i++)
             {
-                paths[i] = make_unique<PathOLD2>();
-                if (paths == nullptr)
+                paths[i] = new PathOLD2;
+                if (paths[i] == nullptr)
                     continue;
 
-                fp.Read(paths[i].get(), sizeof(PathOLD2));
+                fp.Read(paths[i], sizeof(PathOLD2));
 
                 m_paths[i] = new Path;
                 if (m_paths[i] == nullptr)
@@ -1767,15 +1772,15 @@ bool Waypoint::Load(void)
         else
         {
             g_numWaypoints = header.pointNumber;
-            unique_ptr <PathOLD> paths[g_numWaypoints];
+            PathOLD* paths[g_numWaypoints];
 
             for (i = 0; i < g_numWaypoints; i++)
             {
-                paths[i] = make_unique<PathOLD>();
-                if (paths == nullptr)
+                paths[i] = new PathOLD;
+                if (paths[i] == nullptr)
                     continue;
 
-                fp.Read(paths[i].get(), sizeof(PathOLD));
+                fp.Read(paths[i], sizeof(PathOLD));
 
                 m_paths[i] = new Path;
                 if (m_paths[i] == nullptr)
@@ -1797,7 +1802,7 @@ bool Waypoint::Load(void)
 
             Save();
         }
-
+        
         m_waypointPaths = true;
 
         if (cstrncmp(header.author, "EfeDursun125", 12) == 0)
@@ -1944,10 +1949,10 @@ void Waypoint::SaveOLD(void)
         // write the waypoint header to the file...
         fp.Write(&header, sizeof(header), 1);
 
-        unique_ptr <PathOLD> paths[header.pointNumber];
+        PathOLD* paths[header.pointNumber];
         for (i = 0; i < header.pointNumber; i++)
         {
-            paths[i] = make_unique<PathOLD>();
+            paths[i] = new PathOLD;
             if (paths[i] == nullptr)
                 continue;
 
@@ -2012,7 +2017,7 @@ void Waypoint::SaveOLD(void)
 
         // save the waypoint paths...
         for (i = 0; i < header.pointNumber; i++)
-            fp.Write(paths[i].get(), sizeof(PathOLD));
+            fp.Write(paths[i], sizeof(PathOLD));
 
         fp.Close();
     }

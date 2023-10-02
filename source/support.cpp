@@ -1590,10 +1590,10 @@ void MOD_AddLogEntry(int mod, char* format)
 
 	if (!checkLogFP.IsValid())
 	{
-		fp.Print("---------- %s Log \n", modName);
-		fp.Print("---------- %s Version: %u.%u  \n", modName, mod_bV16[0], mod_bV16[1]);
-		fp.Print("---------- %s Build: %u.%u.%u.%u  \n", modName, mod_bV16[0], mod_bV16[1], mod_bV16[2], mod_bV16[3]);
-		fp.Print("----------------------------- \n\n");
+		fp.Printf("---------- %s Log \n", modName);
+		fp.Printf("---------- %s Version: %u.%u  \n", modName, mod_bV16[0], mod_bV16[1]);
+		fp.Printf("---------- %s Build: %u.%u.%u.%u  \n", modName, mod_bV16[0], mod_bV16[1], mod_bV16[2], mod_bV16[3]);
+		fp.Printf("----------------------------- \n\n");
 	}
 
 	checkLogFP.Close();
@@ -1605,12 +1605,12 @@ void MOD_AddLogEntry(int mod, char* format)
 	tm* time = localtime(&tickTime);
 
 	sprintf(logLine, "[%02d:%02d:%02d] %s", time->tm_hour, time->tm_min, time->tm_sec, format);
-	fp.Print("%s\n", logLine);
+	fp.Printf("%s\n", logLine);
 
 	if (mod != -1)
-		fp.Print("E-BOT Build: %d \n", PRODUCT_VERSION);
+		fp.Printf("E-BOT Build: %d \n", PRODUCT_VERSION);
 
-	fp.Print("----------------------------- \n");
+	fp.Printf("----------------------------- \n");
 	fp.Close();
 }
 

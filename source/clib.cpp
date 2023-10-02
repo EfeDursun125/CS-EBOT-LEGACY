@@ -25,12 +25,18 @@
 
 int CRandomInt(const int min, const int max)
 {
+	if (min > max)
+		return frand() % (min - max + 1) + max;
+
 	return frand() % (max - min + 1) + min;
 }
 
 float CRandomFloat(const float min, const float max)
 {
-	return next() * (max - min) / UINT64_MAX + min;
+	if (min > max)
+		return fnext() * (min - max) / UINT64_MAX + max;
+
+	return fnext() * (max - min) / UINT64_MAX + min;
 }
 
 bool ChanceOf(const int number)

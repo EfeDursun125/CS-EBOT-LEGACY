@@ -155,7 +155,7 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 		sprintf(outputName, "%s", (char*)m_savedBotNames.Pop());
 		addTag = false;
 	}
-	else if (name.GetLength() <= 0)
+	else if (name.GetLength() <= 1)
 	{
 		bool getName = false;
 		if (!g_botNames.IsEmpty())
@@ -173,7 +173,6 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 		if (getName)
 		{
 			bool nameUse = true;
-
 			while (nameUse)
 			{
 				NameItem& botName = g_botNames.GetRandomElement();
@@ -397,7 +396,7 @@ void BotControl::CheckBotNum(void)
 					line[11] == '\n' || line[12] == '\n')
 				{
 					changeed = false;
-					fp.Print("//////////");
+					fp.Printf("//////////");
 					break;
 				}
 
@@ -418,8 +417,9 @@ void BotControl::CheckBotNum(void)
 			if (!changeed)
 			{
 				fp.Seek(0, SEEK_END);
-				fp.Print(FormatBuffer("\nebot_quota \"%s%d\"\n",
+				fp.Printf(FormatBuffer("\nebot_quota \"%s%d\"\n",
 					needBotNumber > 10 ? "" : "0", needBotNumber));
+
 				ServerPrint("ebot_quota save to '%d' - A", needBotNumber);
 			}
 
@@ -430,8 +430,9 @@ void BotControl::CheckBotNum(void)
 			File fp2(FormatBuffer("%s/addons/ebot/ebot.cfg", GetModName()), "at");
 			if (fp2.IsValid())
 			{
-				fp2.Print(FormatBuffer("\nebot_quota \"%s%d\"\n",
+				fp2.Printf(FormatBuffer("\nebot_quota \"%s%d\"\n",
 					needBotNumber > 10 ? "" : "0", needBotNumber));
+
 				ServerPrint("ebot_quota save to '%d' - A", needBotNumber);
 				fp2.Close();
 			}
@@ -463,7 +464,7 @@ int BotControl::AddBotAPI(const String& name, int skill, int team)
 	if (g_botManager->GetBotsNum() + 1 > ebot_quota.GetInt())
 		ebot_quota.SetInt(g_botManager->GetBotsNum() + 1);
 
-	int resultOfCall = CreateBot(name, skill, -1, team, -1);
+	const int resultOfCall = CreateBot(name, skill, -1, team, -1);
 
 	// check the result of creation
 	if (resultOfCall == -1)
@@ -1062,7 +1063,8 @@ Bot::~Bot(void)
 	{
 		sprintf(botName, "[E-BOT] %s", (char*)g_botNames[j].name);
 
-		if (cstrcmp(g_botNames[j].name, GetEntityName(GetEntity())) == 0 || cstrcmp(botName, GetEntityName(GetEntity())) == 0)
+		edict_t* me = GetEntity();
+		if (cstrcmp(g_botNames[j].name, GetEntityName(me)) == 0 || cstrcmp(botName, GetEntityName(me)) == 0)
 		{
 			g_botNames[j].isUsed = false;
 			break;
@@ -1073,6 +1075,8 @@ Bot::~Bot(void)
 // this function initializes a bot after creation & at the start of each round
 void Bot::NewRound(void)
 {
+	m_escaped = false;
+
 	if (ebot_random_join_quit.GetBool() && m_stayTime > 1.0f && m_stayTime < engine->GetTime())
 	{
 		Kick();
@@ -1084,7 +1088,7 @@ void Bot::NewRound(void)
 	else
 		m_2dH = static_cast<bool>(CRandomInt(0, 1));
 
-	if (ebot_heuristic_type.GetInt() >= 1 && ebot_heuristic_type.GetInt() <= 4)
+	if (ebot_heuristic_type.GetInt() > 0 && ebot_heuristic_type.GetInt() < 5)
 		m_heuristic = ebot_heuristic_type.GetInt();
 	else
 		m_heuristic = CRandomInt(1, 4);
@@ -1265,18 +1269,19 @@ void Bot::NewRound(void)
 void Bot::Kill(void)
 {
 	edict_t* hurtEntity = (*g_engfuncs.pfnCreateNamedEntity) (MAKE_STRING("trigger_hurt"));
-
 	if (FNullEnt(hurtEntity))
 		return;
 
+	edict_t* me = GetEntity();
+
 	hurtEntity->v.classname = MAKE_STRING(g_weaponDefs[m_currentWeapon].className);
-	hurtEntity->v.dmg_inflictor = GetEntity();
+	hurtEntity->v.dmg_inflictor = me;
 	hurtEntity->v.dmg = 999999.0f;
 	hurtEntity->v.dmg_take = 1.0f;
 	hurtEntity->v.dmgtime = 2.0f;
 	hurtEntity->v.effects |= EF_NODRAW;
 
-	(*g_engfuncs.pfnSetOrigin) (hurtEntity, Vector(-4000, -4000, -4000));
+	(*g_engfuncs.pfnSetOrigin) (hurtEntity, Vector(-4000.0f, -4000.0f, -4000.0f));
 
 	KeyValueData kv;
 	kv.szClassName = const_cast <char*> (g_weaponDefs[m_currentWeapon].className);
@@ -1287,19 +1292,25 @@ void Bot::Kill(void)
 	MDLL_KeyValue(hurtEntity, &kv);
 
 	MDLL_Spawn(hurtEntity);
-	MDLL_Touch(hurtEntity, GetEntity());
+	MDLL_Touch(hurtEntity, me);
 
 	(*g_engfuncs.pfnRemoveEntity) (hurtEntity);
 }
 
 void Bot::Kick(void)
 {
-	auto myName = GetEntityName(GetEntity());
+	edict_t* me = GetEntity();
+	const char* myName = GetEntityName(me);
 	if (IsNullString(myName))
 		return;
 
-	ServerCommand("kick \"%s\"", GetEntityName(GetEntity()));
-	CenterPrint("E-Bot '%s' kicked from the server", GetEntityName(GetEntity()));
+	pev->flags |= FL_DORMANT;
+	const char* name = GetEntityName(me);
+	ServerCommand("kick \"%s\"", name);
+	pev->flags |= FL_KILLME;
+
+	if (!IsDedicatedServer())
+		CenterPrint("E-Bot '%s' kicked from the server", name);
 
 	if (g_botManager->GetBotsNum() - 1 < ebot_quota.GetInt())
 		ebot_quota.SetInt(g_botManager->GetBotsNum() - 1);

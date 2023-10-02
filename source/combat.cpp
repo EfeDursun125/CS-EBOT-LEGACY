@@ -450,53 +450,36 @@ Vector Bot::GetAimPosition(void)
 
 float Bot::GetZOffset(const float distance)
 {
-	if (m_difficulty < 1)
-		return -4.0f;
+	bool sniper = UsesSniper();
+	bool pistol = UsesPistol();
+	bool rifle = UsesRifle();
 
-	const bool sniper = UsesSniper();
-	const bool pistol = UsesPistol();
-	const bool rifle = UsesRifle();
+	bool zoomableRifle = UsesZoomableRifle();
+	bool submachine = UsesSubmachineGun();
+	bool shotgun = (m_currentWeapon == WEAPON_XM1014 || m_currentWeapon == WEAPON_M3);
+	bool m249 = m_currentWeapon == WEAPON_M249;
 
-	const bool zoomableRifle = UsesZoomableRifle();
-	const bool submachine = UsesSubmachineGun();
-	const bool shotgun = (m_currentWeapon == WEAPON_XM1014 || m_currentWeapon == WEAPON_M3);
-	const bool m249 = m_currentWeapon == WEAPON_M249;
+	float result = -2.0f;
 
-	const float BurstDistance = SquaredF(300.0f);
-	const float DoubleBurstDistance = BurstDistance * 4.0f;
-
-	float result = 4.0f;
-
-	if (distance > DoubleBurstDistance)
+	if (distance > SquaredF(512.0f))
 	{
-		if (sniper) result = 1.0f;
-		else if (zoomableRifle) result = 4.5f;
-		else if (pistol) result = 6.5f;
-		else if (submachine) result = 5.5f;
-		else if (rifle) result = 5.5f;
-		else if (m249) result = 2.5f;
-		else if (shotgun) result = 10.5f;
-	}
-	else if (distance > BurstDistance)
-	{
-		if (sniper) result = 1.5f;
-		else if (zoomableRifle) result = 3.5f;
-		else if (pistol) result = 6.5f;
-		else if (submachine) result = 3.5f;
-		else if (rifle) result = 1.6f;
-		else if (m249) result = -1.0f;
-		else if (shotgun) result = 10.0f;
+		if (sniper)
+			result = 0.18f;
+		else if (zoomableRifle)
+			result = 1.5f;
+		else if (pistol)
+			result = 2.5f;
+		else if (submachine)
+			result = 1.5f;
+		else if (rifle)
+			result = 1.0f;
+		else if (m249)
+			result = -5.5f;
+		else if (shotgun)
+			result = -4.5f;
 	}
 	else
-	{
-		if (sniper) result = 2.0f;
-		else if (zoomableRifle) result = 5.0f;
-		else if (pistol) result = 4.5f;
-		else if (submachine) result = 4.5f;
-		else if (rifle) result = 4.5f;
-		else if (m249) result = 6.0f;
-		else if (shotgun) result = 5.0f;
-	}
+		return -9.0f;
 
 	return result;
 }

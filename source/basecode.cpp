@@ -342,7 +342,7 @@ void Bot::ZombieModeAi(void)
 	}
 }
 
-void Bot::ZmCampPointAction(int mode)
+void Bot::ZmCampPointAction(const int mode)
 {
 	if (!IsZombieMode())
 		return;
@@ -1696,8 +1696,6 @@ TaskItem* ThresholdDesire(TaskItem* first, float threshold, float desire)
 // this function clamp the inputs to be the last known value outside the [min, max] range
 float HysteresisDesire(float cur, float min, float max, float old)
 {
-	
-
 	if (cur <= min || cur >= max)
 		old = cur;
 
@@ -2300,6 +2298,10 @@ bool Bot::IsOnAttackDistance(edict_t* targetEntity, float distance)
 bool Bot::ReactOnEnemy(void)
 {
 	// NO!
+	extern ConVar ebot_escape;
+	if (ebot_escape.GetBool() && !m_escaped)
+		return m_isEnemyReachable = false;
+
 	if (IsOnLadder())
 		return m_isEnemyReachable = false;
 
@@ -2568,7 +2570,7 @@ void Bot::CheckRadioCommands(void)
 			if (GetCurrentTaskID() == TASK_CAMP || GetCurrentTaskID() == TASK_PAUSE)
 				return;
 
-			int campindex = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
+			const int campindex = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
 
 			if (!IsValidWaypoint(campindex))
 				return;
@@ -2584,7 +2586,7 @@ void Bot::CheckRadioCommands(void)
 	case Radio_HoldPosition:
 		if (m_numEnemiesLeft > 0 && !g_waypoint->m_campPoints.IsEmpty())
 		{
-			int index = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
+			const int index = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
 
 			if (IsValidWaypoint(index))
 			{
@@ -2644,7 +2646,7 @@ void Bot::CheckRadioCommands(void)
 			}
 			else
 			{
-				int index = FindDefendWaypoint(m_position);
+				const int index = FindDefendWaypoint(m_position);
 
 				if (IsValidWaypoint(index) && !IsWaypointOccupied(index))
 				{
@@ -3090,10 +3092,13 @@ void Bot::CheckRadioCommands(void)
 
 				DeleteSearchNodes();
 
-				int index = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
-				m_campposition = g_waypoint->GetPath(index)->origin;
-				PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + 9999.0f, true);
-				m_campButtons |= IN_DUCK;
+				const int index = FindDefendWaypoint(GetTopOrigin(m_radioEntity));
+				if (IsValidWaypoint(index))
+				{
+					m_campposition = g_waypoint->GetPath(index)->origin;
+					PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + 9999.0f, true);
+					m_campButtons |= IN_DUCK;
+				}
 			}
 		}
 
@@ -3168,7 +3173,7 @@ bool Bot::IsNotAttackLab(edict_t* entity)
 		if ((entity->v.weapons & WeaponBits_Primary) || (entity->v.weapons & WeaponBits_Secondary) && (entity->v.button & IN_ATTACK) || (entity->v.oldbuttons & IN_ATTACK))
 			return false;
 
-		float renderamt = entity->v.renderamt;
+		const float renderamt = entity->v.renderamt;
 
 		if (renderamt <= 30.0f)
 			return true;
@@ -3342,7 +3347,7 @@ void Bot::ChooseAimDirection(void)
 					m_camp = m_lastDamageOrigin;
 				else
 				{
-					int aimIndex = GetCampAimingWaypoint();
+					const int aimIndex = GetCampAimingWaypoint();
 					if (IsValidWaypoint(aimIndex))
 						m_camp = g_waypoint->GetPath(aimIndex)->origin;
 				}
@@ -3356,7 +3361,7 @@ void Bot::ChooseAimDirection(void)
 				m_camp = m_lastDamageOrigin;
 			else
 			{
-				int aimIndex = GetCampAimingWaypoint();
+				const int aimIndex = GetCampAimingWaypoint();
 				if (IsValidWaypoint(aimIndex))
 					m_camp = g_waypoint->GetPath(aimIndex)->origin;
 			}
@@ -3522,7 +3527,7 @@ void Bot::Think(void)
 		if (g_gameVersion == HALFLIFE)
 		{
 			// idk why ???
-			if (pev->maxspeed <= 10.0f)
+			if (pev->maxspeed < 11.0f)
 			{
 				const auto maxSpeed = g_engfuncs.pfnCVarGetPointer("sv_maxspeed");
 				if (maxSpeed != nullptr)
@@ -4023,7 +4028,7 @@ void Bot::RunTask(void)
 		m_aimStopTime = 0.0f;
 
 		// bot didn't spray this round?
-		if (m_timeLogoSpray <= engine->GetTime() && GetCurrentTaskTime() > engine->GetTime())
+		if (m_timeLogoSpray < engine->GetTime() && GetCurrentTaskTime() > engine->GetTime())
 		{
 			MakeVectors(pev->v_angle);
 			Vector sprayOrigin = EyePosition() + (g_pGlobals->v_forward * 128);
@@ -4391,7 +4396,7 @@ void Bot::RunTask(void)
 
 				if (crouch)
 				{
-					const Vector& src = pev->origin - Vector(0.0f, 0.0f, 18.0f);
+					const Vector src = pev->origin - Vector(0.0f, 0.0f, 18.0f);
 					if (IsVisible(src, m_enemy))
 						m_duckTime = engine->GetTime() + m_frameInterval;
 				}
@@ -4439,12 +4444,16 @@ void Bot::RunTask(void)
 				if (GetCurrentTaskTime() > engine->GetTime() + 60.0f)
 				{
 					int i;
-					for (i = 0; i <= g_waypoint->m_hmMeshPoints.GetElementNumber(); i++)
+					for (i = 0; i < g_waypoint->m_hmMeshPoints.GetElementNumber(); i++)
 					{
 						int index;
-						g_waypoint->m_hmMeshPoints.GetAt(i, index);
+						if (!g_waypoint->m_hmMeshPoints.GetAt(i, index))
+							continue;
 
 						const Path* pointer = g_waypoint->GetPath(index);
+						if (pointer == nullptr)
+							continue;
+
 						if (pointer->mesh == 0)
 							continue;
 
@@ -4472,11 +4481,12 @@ void Bot::RunTask(void)
 						}
 
 						GetCurrentTask()->time = engine->GetTime() + CRandomFloat(4.0f, max);
-
 						FindPath(m_currentWaypointIndex, m_myMeshWaypoint);
 					}
 				}
 			}
+
+			m_escaped = true;
 		}
 
 		// half the reaction time if camping because you're more aware of enemies if camping
