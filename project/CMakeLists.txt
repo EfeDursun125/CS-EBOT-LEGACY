@@ -26,11 +26,9 @@ set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
 
 # Set compiler flags
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -O2")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -m32 -msse3 -mssse3 -mfpmath=sse -O2 -fvisibility=hidden -fno-exceptions -fno-rtti -Wno-parentheses -pipe -mtune=generic -fomit-frame-pointer -fvisibility-inlines-hidden")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32 -Ofast")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -w -m32 -msse2 -mfpmath=sse -pthread -Ofast -fvisibility=hidden -fno-exceptions -fno-rtti -Wno-parentheses -pipe -mtune=generic -funroll-loops -fomit-frame-pointer -fno-stack-protector -fvisibility-inlines-hidden -fcf-protection=none")
 set(CMAKE_CXX_LINK_FLAGS "${CMAKE_CXX_LINK_FLAGS} -m32")
-
-message(STATUS "Using C++ Standard: ${CMAKE_CXX_STANDARD}")
 
 # Set output directory for the library
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ebot)
@@ -39,7 +37,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/ebot)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
 # Source files
-file(GLOB_RECURSE EBOT_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../source/*.cpp)
+file(GLOB_RECURSE EBOT_SRC
+    ${CMAKE_CURRENT_SOURCE_DIR}/../source/*.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../source/ssm/*.cpp
+)
 
 # Create the library
 add_library(${PROJECT_NAME} SHARED ${EBOT_SRC})
@@ -51,7 +52,7 @@ target_link_libraries(${PROJECT_NAME}
 
 # Set library properties
 set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 17
+    CXX_STANDARD 11
     CXX_STANDARD_REQUIRED ON
     POSITION_INDEPENDENT_CODE ON
     PREFIX ""
