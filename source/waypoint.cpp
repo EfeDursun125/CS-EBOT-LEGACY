@@ -45,9 +45,10 @@ void Waypoint::Initialize(void)
     // have any waypoint path nodes been allocated yet?
     if (m_waypointPaths)
     {
-        for (int i = 0; i < g_numWaypoints; i++)
+        int i;
+        for (i = 0; i < g_numWaypoints; i++)
         {
-            if (!m_paths[i])
+            if (m_paths[i] == nullptr)
                 continue;
 
             delete m_paths[i];
@@ -174,7 +175,8 @@ void AnalyzeThread(void)
             return;
 
         static float magicTimer;
-        for (int i = 0; i < g_numWaypoints; i++)
+        int i;
+        for (i = 0; i < g_numWaypoints; i++)
         {
             if (g_expanded[i])
                 continue;
@@ -283,7 +285,8 @@ void AnalyzeThread(void)
         return;
     }
 
-    for (int i = 0; i < g_numWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
     {
         if (IsValidWaypoint(i))
         {
@@ -315,7 +318,7 @@ void Waypoint::AnalyzeDeleteUselessWaypoints(void)
 
     for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!m_paths[i])
+        if (m_paths[i] == nullptr)
             continue;
 
         connections = 0;
@@ -359,18 +362,19 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
         return;
 
     Path* path = m_paths[addIndex];
-    if (!path)
+    if (path == nullptr)
         return;
 
     // don't allow paths get connected twice
-    for (int i = 0; i < Const_MaxPathIndex; i++)
+    int i;
+    for (i = 0; i < Const_MaxPathIndex; i++)
     {
         if (path->index[i] == pathIndex)
             return;
     }
 
     // check for free space in the connection indices
-    for (int i = 0; i < Const_MaxPathIndex; i++)
+    for (i = 0; i < Const_MaxPathIndex; i++)
     {
         if (path->index[i] == -1)
         {
@@ -395,7 +399,7 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
     float maxDistance = FLT_MAX;
     int slotID = -1;
 
-    for (int i = 0; i < Const_MaxPathIndex; i++)
+    for (i = 0; i < Const_MaxPathIndex; i++)
     {
         const float distance = (path->origin - m_paths[path->index[i]]->origin).GetLengthSquared();
         if (distance > maxDistance)
@@ -425,15 +429,17 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
 // find the farest node to that origin, and return the index to this node
 int Waypoint::FindFarest(const Vector& origin, float maxDistance)
 {
+    int i;
+    int index = -1;
+    float distance;
     float squaredDistance = SquaredF(maxDistance);
 
-    int index = -1;
-    for (int i = 0; i < g_numWaypoints; i++)
+    for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!m_paths[i])
+        if (m_paths[i] == nullptr)
             continue;
 
-        const float distance = (m_paths[i]->origin - origin).GetLengthSquared();
+        distance = (m_paths[i]->origin - origin).GetLengthSquared();
         if (distance > squaredDistance)
         {
             index = i;
@@ -447,19 +453,21 @@ int Waypoint::FindFarest(const Vector& origin, float maxDistance)
 // find the farest node to that origin, and return the index to this node
 int Waypoint::FindNearestInCircle(const Vector& origin, float maxDistance)
 {
-    float maxDist = SquaredF(maxDistance);
-
+    int i;
     int index = -1;
-    for (int i = 0; i < g_numWaypoints; i++)
+    float distance;
+    float squaredDistance = SquaredF(maxDistance);
+
+    for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!m_paths[i])
+        if (m_paths[i] == nullptr)
             continue;
 
-        const float distance = (m_paths[i]->origin - origin).GetLengthSquared();
-        if (distance < maxDist)
+        distance = (m_paths[i]->origin - origin).GetLengthSquared();
+        if (distance < squaredDistance)
         {
             index = i;
-            maxDist = distance;
+            squaredDistance = distance;
         }
     }
 
@@ -474,7 +482,8 @@ void Waypoint::ChangeZBCampPoint(Vector origin)
     int point[2] = { -1, -1 };
     if (!m_zmHmPoints.IsEmpty())
     {
-        for (int i = m_zmHmPoints.GetElementNumber(); i >= 0; i--)
+        int i;
+        for (i = m_zmHmPoints.GetElementNumber(); i >= 0; i--)
         {
             int wpIndex;
             m_zmHmPoints.GetAt(i, wpIndex);
@@ -499,7 +508,7 @@ void Waypoint::ChangeZBCampPoint(Vector origin)
     if (point[0] != -1)
         m_zmHmPoints.Push(point[0]);
 
-    int newPoint = FindNearest(origin);
+    const int newPoint = FindNearest(origin);
     if (newPoint != -1 && newPoint != point[0] && newPoint != point[1])
         m_zmHmPoints.Push(newPoint);
 }
@@ -509,7 +518,8 @@ bool Waypoint::IsZBCampPoint(const int pointID, const bool checkMesh)
     if (g_waypoint->m_zmHmPoints.IsEmpty())
         return false;
 
-    for (int i = 0; i <= m_zmHmPoints.GetElementNumber(); i++)
+    int i;
+    for (i = 0; i <= m_zmHmPoints.GetElementNumber(); i++)
     {
         int wpIndex;
         m_zmHmPoints.GetAt(i, wpIndex);
@@ -520,7 +530,7 @@ bool Waypoint::IsZBCampPoint(const int pointID, const bool checkMesh)
 
     if (checkMesh && !g_waypoint->m_hmMeshPoints.IsEmpty())
     {
-        for (int i = 0; i <= m_hmMeshPoints.GetElementNumber(); i++)
+        for (i = 0; i <= m_hmMeshPoints.GetElementNumber(); i++)
         {
             int wpIndex;
             m_hmMeshPoints.GetAt(i, wpIndex);
@@ -540,15 +550,16 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
     float wpDistance[checkPoint];
     int wpIndex[checkPoint];
 
-    for (int i = 0; i < checkPoint; i++)
+    int i;
+    for (i = 0; i < checkPoint; i++)
     {
         wpIndex[i] = -1;
         wpDistance[i] = FLT_MAX;
     }
 
-    for (int i = 0; i < g_numWaypoints; i++)
+    for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!IsValidWaypoint(i) || !m_paths[i])
+        if (!IsValidWaypoint(i) || m_paths[i] == nullptr)
             continue;
 
         if (flags != -1 && !(m_paths[i]->flags & flags))
@@ -563,12 +574,14 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
         if (((dest.z > origin.z + 62.0f || dest.z < origin.z - 100.0f) && !(m_paths[i]->flags & WAYPOINT_LADDER)) && distance2D < SquaredF(30.0f))
             continue;
 
-        for (int y = 0; y < checkPoint; y++)
+        int y;
+        for (y = 0; y < checkPoint; y++)
         {
             if (distance > wpDistance[y])
                 continue;
 
-            for (int z = checkPoint - 1; z > y; z--)
+            int z;
+            for (z = checkPoint - 1; z > y; z--)
             {
                 if (z == checkPoint - 1 || wpIndex[z] == -1)
                     continue;
@@ -588,24 +601,26 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
     {
         int cdWPIndex[checkPoint];
         float cdWPDistance[checkPoint];
-        for (int i = 0; i < checkPoint; i++)
+        for (i = 0; i < checkPoint; i++)
         {
             cdWPIndex[i] = -1;
             cdWPDistance[i] = FLT_MAX;
         }
 
-        for (int i = 0; i < checkPoint; i++)
+        for (i = 0; i < checkPoint; i++)
         {
             if (!IsValidWaypoint(wpIndex[i]))
                 continue;
 
             const float distance = g_waypoint->GetPathDistance(wpIndex[i], mode);
-            for (int y = 0; y < checkPoint; y++)
+            int y;
+            for (y = 0; y < checkPoint; y++)
             {
                 if (distance > cdWPDistance[y])
                     continue;
 
-                for (int z = checkPoint - 1; z >= y; z--)
+                int z;
+                for (z = checkPoint - 1; z >= y; z--)
                 {
                     if (z == checkPoint - 1 || cdWPIndex[z] == -1)
                         continue;
@@ -620,7 +635,7 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
             }
         }
 
-        for (int i = 0; i < checkPoint; i++)
+        for (i = 0; i < checkPoint; i++)
         {
             wpIndex[i] = cdWPIndex[i];
             wpDistance[i] = cdWPDistance[i];
@@ -630,13 +645,13 @@ int Waypoint::FindNearest(Vector origin, float minDistance, int flags, edict_t* 
     int firsIndex = -1;
     if (!FNullEnt(entity))
     {
-        for (int i = 0; i < checkPoint; i++)
+        for (i = 0; i < checkPoint; i++)
         {
             if (!IsValidWaypoint(wpIndex[i]))
                 continue;
 
             const Path* path = g_waypoint->GetPath(wpIndex[i]);
-            if (!path)
+            if (path == nullptr)
                 continue;
 
             // Use the path variable in the condition     
@@ -672,9 +687,10 @@ void Waypoint::FindInRadius(Vector origin, float radius, int* holdTab, int* coun
     const float rad = SquaredF(radius);
     *count = 0;
 
-    for (int i = 0; i < g_numWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!m_paths[i])
+        if (m_paths[i] == nullptr)
             continue;
 
         if ((m_paths[i]->origin - origin).GetLengthSquared() < rad)
@@ -693,9 +709,10 @@ void Waypoint::FindInRadius(Vector origin, float radius, int* holdTab, int* coun
 void Waypoint::FindInRadius(Array <int>& queueID, float radius, Vector origin)
 {
     const float rad = SquaredF(radius);
-    for (int i = 0; i < g_numWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!m_paths[i])
+        if (m_paths[i] == nullptr)
             continue;
 
         if ((m_paths[i]->origin - origin).GetLengthSquared() < rad)
@@ -810,7 +827,7 @@ void Waypoint::Add(int flags, Vector waypointOrigin)
             {
                 placeNew = false;
                 path = m_paths[index];
-                if (!path)
+                if (path == nullptr)
                     break;
 
                 int accumFlags = 0;
@@ -834,11 +851,11 @@ void Waypoint::Add(int flags, Vector waypointOrigin)
         index = g_numWaypoints;
 
         m_paths[index] = new Path;
-        if (!m_paths[index])
+        if (m_paths[index] == nullptr)
             return;
 
         path = m_paths[index];
-        if (!path)
+        if (path == nullptr)
             return;
 
         // increment total number of waypoints
@@ -955,7 +972,7 @@ void Waypoint::Add(int flags, Vector waypointOrigin)
             if (i == index)
                 continue; // skip the waypoint that was just added
 
-            if (!m_paths[i])
+            if (m_paths[i] == nullptr)
                 continue;
 
              // Other ladder waypoints should connect to this
@@ -1014,7 +1031,7 @@ void Waypoint::Add(int flags, Vector waypointOrigin)
             if (i == index)
                 continue; // skip the waypoint that was just added
 
-            if (!m_paths[i])
+            if (m_paths[i] == nullptr)
                 continue;
 
             if (g_analyzewaypoints == true) // if we're analyzing, be careful (we dont want path errors)
@@ -1080,7 +1097,7 @@ void Waypoint::Delete(void)
     if (!IsValidWaypoint(index))
         return;
 
-    if (!m_paths[index])
+    if (m_paths[index] == nullptr)
         return;
 
     Path* path = nullptr;
@@ -1089,7 +1106,7 @@ void Waypoint::Delete(void)
     for (i = 0; i < g_numWaypoints; i++) // delete all references to Node
     {
         path = m_paths[i];
-        if (!path)
+        if (path == nullptr)
             continue;
 
         for (j = 0; j < Const_MaxPathIndex; j++)
@@ -1105,7 +1122,7 @@ void Waypoint::Delete(void)
     for (i = 0; i < g_numWaypoints; i++)
     {
         path = m_paths[i];
-        if (!path)
+        if (path == nullptr)
             continue;
 
         for (j = 0; j < Const_MaxPathIndex; j++)
@@ -1148,7 +1165,7 @@ void Waypoint::DeleteByIndex(const int index)
     for (i = 0; i < g_numWaypoints; i++) // delete all references to Node
     {
         path = m_paths[i];
-        if (!path)
+        if (path == nullptr)
             continue;
 
         for (j = 0; j < Const_MaxPathIndex; j++)
@@ -1164,7 +1181,7 @@ void Waypoint::DeleteByIndex(const int index)
     for (i = 0; i < g_numWaypoints; i++)
     {
         path = m_paths[i];
-        if (!path)
+        if (path == nullptr)
             continue;
 
         for (j = 0; j < Const_MaxPathIndex; j++)
@@ -1194,7 +1211,7 @@ void Waypoint::DeleteFlags(void)
     if (!IsValidWaypoint(index))
         return;
     
-    if (!m_paths[index])
+    if (m_paths[index] == nullptr)
         return;
 
     m_paths[index]->flags = 0;
@@ -1208,7 +1225,7 @@ void Waypoint::ToggleFlags(const int toggleFlag)
     if (!IsValidWaypoint(index))
         return;
 
-    if (!m_paths[index])
+    if (m_paths[index] == nullptr)
         return;
 
     if (m_paths[index]->flags & toggleFlag)
@@ -1231,11 +1248,14 @@ void Waypoint::ToggleFlags(const int toggleFlag)
 // this function allow manually setting the zone radius
 void Waypoint::SetRadius(const int radius)
 {
+    if (radius < 0 || radius > 255)
+        return;
+
     const int index = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
     if (!IsValidWaypoint(index))
         return;
 
-    if (!m_paths[index])
+    if (m_paths[index] == nullptr)
         return;
 
     if (g_sautoWaypoint)
@@ -1247,7 +1267,7 @@ void Waypoint::SetRadius(const int radius)
     if (g_sautoWaypoint && m_paths[index]->radius > 0)
         return;
 
-    m_paths[index]->radius = static_cast<int16>(radius);
+    m_paths[index]->radius = static_cast<uint8_t>(radius);
     PlaySound(g_hostEntity, "common/wpn_hudon.wav");
 }
 
@@ -1257,7 +1277,7 @@ bool Waypoint::IsConnected(const int pointA, const int16 pointB)
     if (pointA == -1 || pointB == -1)
         return false;
 
-    if (!m_paths[pointA])
+    if (m_paths[pointA] == nullptr)
         return false;
 
     for (const auto& connection : m_paths[pointA]->index)
@@ -1282,10 +1302,11 @@ int Waypoint::GetFacingIndex(void)
     // check bounds from eyes of editor
     const Vector eyePosition = g_hostEntity->v.origin + g_hostEntity->v.view_ofs;
 
-    for (int i = 0; i < g_numWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
     {
         const Path* path = m_paths[i];
-        if (!path)
+        if (path == nullptr)
             continue;
 
         // skip nearest waypoint to editor, since this used mostly for adding / removing paths
@@ -1378,7 +1399,7 @@ void Waypoint::TeleportWaypoint(void)
     if (!IsValidWaypoint(m_facingAtIndex))
         return;
 
-    if (!m_paths[m_facingAtIndex])
+    if (m_paths[m_facingAtIndex] == nullptr)
         return;
 
     (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[m_facingAtIndex]->origin);
@@ -1410,7 +1431,7 @@ void Waypoint::DeletePath(void)
 
     for (index = 0; index < Const_MaxPathIndex; index++)
     {
-        if (!m_paths[nodeFrom])
+        if (m_paths[nodeFrom] == nullptr)
             continue;
 
         if (m_paths[nodeFrom]->index[index] == nodeTo)
@@ -1432,7 +1453,7 @@ void Waypoint::DeletePath(void)
 
     for (index = 0; index < Const_MaxPathIndex; index++)
     {
-        if (!m_paths[nodeFrom])
+        if (m_paths[nodeFrom] == nullptr)
             continue;
 
         if (m_paths[nodeFrom]->index[index] == nodeTo)
@@ -1468,7 +1489,7 @@ void Waypoint::CacheWaypoint(void)
 void Waypoint::CalculateWayzone(const int index)
 {
     Path* path = m_paths[index];
-    if (!path)
+    if (path == nullptr)
         return;
 
     Vector start, direction;
@@ -1482,7 +1503,8 @@ void Waypoint::CalculateWayzone(const int index)
         return;
     }
 
-    for (int i = 0; i < Const_MaxPathIndex; i++)
+    int i;
+    for (i = 0; i < Const_MaxPathIndex; i++)
     {
         if (path->index[i] != -1 && m_paths[path->index[i]] && (m_paths[path->index[i]]->flags & WAYPOINT_LADDER))
         {
@@ -1491,7 +1513,9 @@ void Waypoint::CalculateWayzone(const int index)
         }
     }
 
-    for (float scanDistance = 16.0f; scanDistance < 160.0f; scanDistance += 16.0f)
+    float scanDistance;
+    float circleRadius;
+    for (scanDistance = 16.0f; scanDistance < 160.0f; scanDistance += 16.0f)
     {
         start = path->origin;
         MakeVectors(nullvec);
@@ -1501,11 +1525,11 @@ void Waypoint::CalculateWayzone(const int index)
 
         path->radius = scanDistance;
 
-        for (float circleRadius = 0.0f; circleRadius < 180.0f; circleRadius += 5.0f)
+        for (circleRadius = 0.0f; circleRadius < 180.0f; circleRadius += 5.0f)
         {
             MakeVectors(direction);
 
-            Vector radiusStart = start - g_pGlobals->v_forward * scanDistance;
+            const Vector radiusStart = start - g_pGlobals->v_forward * scanDistance;
             Vector radiusEnd = start + g_pGlobals->v_forward * scanDistance;
 
             TraceHull(radiusStart, radiusEnd, true, head_hull, nullptr, &tr);
@@ -1599,7 +1623,8 @@ void Waypoint::InitTypes()
     m_hmMeshPoints.Destroy();
     m_otherPoints.Destroy();
 
-    for (int i = 0; i < g_numWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
     {
         if (m_paths[i]->flags & WAYPOINT_GOAL)
             m_goalPoints.Push(i);
@@ -1685,6 +1710,8 @@ bool Waypoint::Download(void)
 
 bool Waypoint::Load(void)
 {
+    int i;
+
     File fp(CheckSubfolderFile(), "rb");
     if (fp.IsValid())
     {
@@ -1697,13 +1724,44 @@ bool Waypoint::Load(void)
         {
             g_numWaypoints = header.pointNumber;
 
-            for (int i = 0; i < g_numWaypoints; i++)
+            for (i = 0; i < g_numWaypoints; i++)
             {
                 m_paths[i] = new Path;
-                if (!m_paths[i])
+                if (m_paths[i] == nullptr)
                     continue;
 
                 fp.Read(m_paths[i], sizeof(Path));
+            }
+        }
+        else if (header.fileVersion == 125)
+        {
+            g_numWaypoints = header.pointNumber;
+            unique_ptr <PathOLD2> paths[g_numWaypoints];
+
+            for (i = 0; i < g_numWaypoints; i++)
+            {
+                paths[i] = make_unique<PathOLD2>();
+                if (paths == nullptr)
+                    continue;
+
+                fp.Read(paths[i].get(), sizeof(PathOLD2));
+
+                m_paths[i] = new Path;
+                if (m_paths[i] == nullptr)
+                    continue;
+
+                m_paths[i]->origin = paths[i]->origin;
+                m_paths[i]->radius = static_cast<uint8_t>(paths[i]->radius);
+                m_paths[i]->flags = static_cast<uint32>(paths[i]->flags);
+                m_paths[i]->mesh = static_cast<uint8_t>(paths[i]->mesh);
+                m_paths[i]->gravity = paths[i]->gravity;
+
+                int C;
+                for (C = 0; C < 8; C++)
+                {
+                    m_paths[i]->index[C] = paths[i]->index[C];
+                    m_paths[i]->connectionFlags[C] = paths[i]->connectionFlags[C];
+                }
             }
         }
         else
@@ -1711,25 +1769,26 @@ bool Waypoint::Load(void)
             g_numWaypoints = header.pointNumber;
             unique_ptr <PathOLD> paths[g_numWaypoints];
 
-            for (int i = 0; i < g_numWaypoints; i++)
+            for (i = 0; i < g_numWaypoints; i++)
             {
                 paths[i] = make_unique<PathOLD>();
-                if (!paths)
+                if (paths == nullptr)
                     continue;
 
                 fp.Read(paths[i].get(), sizeof(PathOLD));
 
                 m_paths[i] = new Path;
-                if (!m_paths[i])
+                if (m_paths[i] == nullptr)
                     continue;
 
                 m_paths[i]->origin = paths[i]->origin;
-                m_paths[i]->radius = paths[i]->radius;
-                m_paths[i]->flags = paths[i]->flags;
-                m_paths[i]->mesh = static_cast<int16>(paths[i]->campStartX);
+                m_paths[i]->radius = static_cast<uint8_t>(paths[i]->radius);
+                m_paths[i]->flags = static_cast<uint32>(paths[i]->flags);
+                m_paths[i]->mesh = static_cast<uint8_t>(paths[i]->campStartX);
                 m_paths[i]->gravity = paths[i]->campStartY;
 
-                for (int C = 0; C < 8; C++)
+                int C;
+                for (C = 0; C < 8; C++)
                 {
                     m_paths[i]->index[C] = paths[i]->index[C];
                     m_paths[i]->connectionFlags[C] = paths[i]->connectionFlags[C];
@@ -1760,7 +1819,7 @@ bool Waypoint::Load(void)
             g_waypoint->CreateBasic();
 
             // no expand
-            for (int i = 0; i < (Const_MaxWaypoints - 1); i++)
+            for (i = 0; i < (Const_MaxWaypoints - 1); i++)
                 g_expanded[i] = false;
 
             g_analyzewaypoints = true;
@@ -1774,7 +1833,7 @@ bool Waypoint::Load(void)
         return false;
     }
 
-    for (int i = 0; i < g_numWaypoints; i++)
+    for (i = 0; i < g_numWaypoints; i++)
         m_waypointDisplayTime[i] = 0.0f;
 
     InitTypes();
@@ -1833,7 +1892,8 @@ void Waypoint::Save(void)
         fp.Write(&header, sizeof(header), 1);
 
         // save the waypoint paths...
-        for (int i = 0; i < g_numWaypoints; i++)
+        int i;
+        for (i = 0; i < g_numWaypoints; i++)
             fp.Write(m_paths[i], sizeof(Path));
 
         fp.Close();
@@ -1879,28 +1939,31 @@ void Waypoint::SaveOLD(void)
     // file was opened
     if (fp.IsValid())
     {
+        int i;
+
         // write the waypoint header to the file...
         fp.Write(&header, sizeof(header), 1);
 
         unique_ptr <PathOLD> paths[header.pointNumber];
-        for (int i = 0; i < header.pointNumber; i++)
+        for (i = 0; i < header.pointNumber; i++)
         {
             paths[i] = make_unique<PathOLD>();
-            if (!paths[i])
+            if (paths[i] == nullptr)
                 continue;
 
             paths[i]->pathNumber = i;
             paths[i]->origin = m_paths[i]->origin;
-            paths[i]->flags = m_paths[i]->flags;
-            paths[i]->radius = m_paths[i]->radius;
+            paths[i]->flags = static_cast<int32>(m_paths[i]->flags);
+            paths[i]->radius = static_cast<float>(m_paths[i]->radius);
 
             // sorry :(
-            paths[i]->campStartX = 0;
-            paths[i]->campStartY = 0;
-            paths[i]->campEndX = 0;
-            paths[i]->campEndY = 0;
+            paths[i]->campStartX = 0.0f;
+            paths[i]->campStartY = 0.0f;
+            paths[i]->campEndX = 0.0f;
+            paths[i]->campEndY = 0.0f;
 
-            for (int C = 0; C < 8; C++)
+            int C;
+            for (C = 0; C < 8; C++)
             {
                 paths[i]->index[C] = m_paths[i]->index[C];
                 paths[i]->connectionFlags[C] = m_paths[i]->connectionFlags[C];
@@ -1909,10 +1972,11 @@ void Waypoint::SaveOLD(void)
             }
         }
 
-        for (int i = 0; i < header.pointNumber; i++)
+        for (i = 0; i < header.pointNumber; i++)
         {
             // iterate through connections and find, if it's a jump path
-            for (int x = 0; x < Const_MaxPathIndex; x++)
+            int x;
+            for (x = 0; x < Const_MaxPathIndex; x++)
             {
                 // check if we got a valid connection
                 if (paths[i]->index[x] != -1)
@@ -1947,7 +2011,7 @@ void Waypoint::SaveOLD(void)
         }
 
         // save the waypoint paths...
-        for (int i = 0; i < header.pointNumber; i++)
+        for (i = 0; i < header.pointNumber; i++)
             fp.Write(paths[i].get(), sizeof(PathOLD));
 
         fp.Close();
@@ -2002,7 +2066,7 @@ bool Waypoint::Reachable(edict_t* entity, const int index)
     if (!IsValidWaypoint(index))
         return false;
 
-    if (!m_paths[index])
+    if (m_paths[index] == nullptr)
         return false;
 
     const Vector src = GetEntityOrigin(entity);
@@ -2205,13 +2269,14 @@ bool Waypoint::IsNodeReachableWithJump(const Vector src, const Vector destinatio
 char* Waypoint::GetWaypointInfo(int id)
 {
     Path* path = GetPath(id);
-    if (!path)
+    if (path == nullptr)
         return "\0";
 
     bool jumpPoint = false;
 
     // iterate through connections and find, if it's a jump path
-    for (int i = 0; i < Const_MaxPathIndex; i++)
+    int i;
+    for (i = 0; i < Const_MaxPathIndex; i++)
     {
         // check if we got a valid connection
         if (path->index[i] != -1 && (path->connectionFlags[i] & PATHFLAG_JUMP))
@@ -2379,9 +2444,10 @@ void Waypoint::Think(void)
 
                 if (distance > newWaypointDistance)
                 {
-                    for (int i = 0; i < g_numWaypoints; i++)
+                    int i;
+                    for (i = 0; i < g_numWaypoints; i++)
                     {
-                        if (!m_paths[i])
+                        if (m_paths[i] == nullptr)
                             continue;
 
                         if (IsNodeReachable(GetEntityOrigin(g_hostEntity), m_paths[i]->origin))
@@ -2419,9 +2485,10 @@ void Waypoint::Think(void)
         if (distance > 16384)
         {
             // check that no other reachable waypoints are nearby...
-            for (int i = 0; i < g_numWaypoints; i++)
+            int i;
+            for (i = 0; i < g_numWaypoints; i++)
             {
-                if (!m_paths[i])
+                if (m_paths[i] == nullptr)
                     continue;
 
                 if (IsNodeReachable(GetEntityOrigin(g_hostEntity), m_paths[i]->origin))
@@ -2450,7 +2517,7 @@ void Waypoint::ShowWaypointMsg(void)
 
     auto update = [&](const int i)
         {
-            if (!m_paths[i])
+            if (m_paths[i] == nullptr)
                 return;
 
             const float distance = (m_paths[i]->origin - GetEntityOrigin(g_hostEntity)).GetLengthSquared();
@@ -2468,7 +2535,8 @@ void Waypoint::ShowWaypointMsg(void)
                 // draw mesh links
                 if (m_paths[nearestIndex]->mesh != 0 && IsInViewCone(m_paths[nearestIndex]->origin, g_hostEntity) && (m_paths[nearestIndex]->flags & WAYPOINT_HMCAMPMESH || m_paths[nearestIndex]->flags & WAYPOINT_ZMHMCAMP))
                 {
-                    for (int x = 0; x < g_numWaypoints; x++)
+                    int x;
+                    for (x = 0; x < g_numWaypoints; x++)
                     {
                         if (!(m_paths[nearestIndex]->flags & WAYPOINT_HMCAMPMESH) && !(m_paths[nearestIndex]->flags & WAYPOINT_ZMHMCAMP))
                             continue;
@@ -2590,12 +2658,14 @@ void Waypoint::ShowWaypointMsg(void)
     const int random = CRandomInt(1, 2);
     if (random == 1)
     {
-        for (int i = 0; i < g_numWaypoints; i++)
+        int i;
+        for (i = 0; i < g_numWaypoints; i++)
             update(i);
     }
     else
     {
-        for (int i = (g_numWaypoints - 1); i > 0; i--)
+        int i;
+        for (i = (g_numWaypoints - 1); i > 0; i--)
             update(i);
     }
 
@@ -2628,21 +2698,22 @@ void Waypoint::ShowWaypointMsg(void)
 
     // create path pointer for faster access
     Path* path = m_paths[nearestIndex];
-    if (!path)
+    if (path == nullptr)
         return;
 
     // draw a paths, camplines and danger directions for nearest waypoint
     if (nearestDistance < SquaredF(2048) && m_pathDisplayTime < engine->GetTime())
     {
-        m_pathDisplayTime = AddTime(1.0f);
+        m_pathDisplayTime = engine->GetTime() + 1.0f;
 
         // draw the connections
-        for (int i = 0; i < Const_MaxPathIndex; i++)
+        int i;
+        for (i = 0; i < Const_MaxPathIndex; i++)
         {
             if (path->index[i] == -1)
                 continue;
 
-            if (!m_paths[path->index[i]])
+            if (m_paths[path->index[i]] == nullptr)
                 continue;
 
             // jump connection
@@ -2658,7 +2729,7 @@ void Waypoint::ShowWaypointMsg(void)
         }
 
         // now look for oneway incoming connections
-        for (int i = 0; i < g_numWaypoints; i++)
+        for (i = 0; i < g_numWaypoints; i++)
         {
             if (IsConnected(i, nearestIndex) && !IsConnected(nearestIndex, i))
                 engine->DrawLine(g_hostEntity, path->origin, m_paths[i]->origin, Color(0, 192, 96, 255), 5, 0, 0, 10);
@@ -2702,7 +2773,7 @@ void Waypoint::ShowWaypointMsg(void)
         {
             length = sprintf(tempMessage, "\n\n\n\n\n\n\n    Waypoint Information:\n\n"
                 "      Waypoint %d of %d, Radius: %d\n"
-                "      Flags: %s\n\n      %s %d\n", nearestIndex, g_numWaypoints, path->radius, GetWaypointInfo(nearestIndex), "Human Camp Mesh ID:", static_cast<int> (path->mesh));
+                "      Flags: %s\n\n      %s %d\n", nearestIndex, g_numWaypoints, path->radius, GetWaypointInfo(nearestIndex), "Human Camp Mesh ID:", static_cast<uint8_t>(path->mesh));
         }
         else
         {
@@ -2757,9 +2828,10 @@ void Waypoint::ShowWaypointMsg(void)
 
 bool Waypoint::IsConnected(const int index)
 {
-    for (int i = 0; i < g_numWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
     {
-        if (!m_paths[i])
+        if (m_paths[i] == nullptr)
             continue;
 
         if (i != index)
@@ -2782,28 +2854,28 @@ bool Waypoint::NodesValid(void)
     int goalPoints = 0;
     int rescuePoints = 0;
     int connections;
-    int i, j;
+    int b, j, k;
 
     bool haveError = false;
 
-    for (i = 0; i < g_numWaypoints; i++)
+    for (b = 0; b < g_numWaypoints; b++)
     {
-        if (!m_paths[i])
+        if (m_paths[b] == nullptr)
             continue;
 
         connections = 0;
 
         for (j = 0; j < Const_MaxPathIndex; j++)
         {
-            if (m_paths[i]->index[j] != -1)
+            if (m_paths[b]->index[j] != -1)
             {
-                if (m_paths[i]->index[j] > g_numWaypoints)
+                if (m_paths[b]->index[j] > g_numWaypoints)
                 {
-                    AddLogEntry(LOG_WARNING, "Waypoint %d connected with invalid Waypoint #%d!", i, m_paths[i]->index[j]);
-                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i]->origin);
+                    AddLogEntry(LOG_WARNING, "Waypoint %d connected with invalid Waypoint #%d!", b, m_paths[b]->index[j]);
+                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[b]->origin);
                     haveError = true;
                     if (g_sgdWaypoint)
-                        ChartPrint("[SgdWP] Waypoint %d connected with invalid Waypoint #%d!", i, m_paths[i]->index[j]);
+                        ChartPrint("[SgdWP] Waypoint %d connected with invalid Waypoint #%d!", b, m_paths[b]->index[j]);
                 }
 
                 connections++;
@@ -2813,55 +2885,55 @@ bool Waypoint::NodesValid(void)
 
         if (connections == 0)
         {
-            if (!IsConnected(i))
+            if (!IsConnected(b))
             {
-                AddLogEntry(LOG_WARNING, "Waypoint %d isn't connected with any other Waypoint!", i);
-                (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i]->origin);
+                AddLogEntry(LOG_WARNING, "Waypoint %d isn't connected with any other Waypoint!", b);
+                (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[b]->origin);
                 haveError = true;
                 if (g_sgdWaypoint)
-                    ChartPrint("[SgdWP] Waypoint %d isn't connected with any other Waypoint!", i);
+                    ChartPrint("[SgdWP] Waypoint %d isn't connected with any other Waypoint!", b);
             }
         }
 
         if (GetGameMode() != MODE_BASE)
         {
-            if (m_paths[i]->flags & WAYPOINT_TERRORIST)
+            if (m_paths[b]->flags & WAYPOINT_TERRORIST)
                 terrPoints++;
-            else if (m_paths[i]->flags & WAYPOINT_COUNTER)
+            else if (m_paths[b]->flags & WAYPOINT_COUNTER)
                 ctPoints++;
-            else if (m_paths[i]->flags & WAYPOINT_GOAL)
+            else if (m_paths[b]->flags & WAYPOINT_GOAL)
                 goalPoints++;
-            else if (m_paths[i]->flags & WAYPOINT_RESCUE)
+            else if (m_paths[b]->flags & WAYPOINT_RESCUE)
                 rescuePoints++;
         }
 
-        for (int k = 0; k < Const_MaxPathIndex; k++)
+        for (k = 0; k < Const_MaxPathIndex; k++)
         {
-            if (m_paths[i]->index[k] != -1)
+            if (m_paths[b]->index[k] != -1)
             {
-                if (m_paths[i]->index[k] >= g_numWaypoints || m_paths[i]->index[k] < -1)
+                if (m_paths[b]->index[k] >= g_numWaypoints || m_paths[b]->index[k] < -1)
                 {
-                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d out of Range!", i, k);
-                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i]->origin);
+                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d out of Range!", b, k);
+                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[b]->origin);
 
                     g_waypointOn = true;
                     g_editNoclip = true;
 
                     haveError = true;
                     if (g_sgdWaypoint)
-                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d out of Range!", i, k);
+                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d out of Range!", b, k);
                 }
-                else if (m_paths[i]->index[k] == i)
+                else if (m_paths[b]->index[k] == b)
                 {
-                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d points to itself!", i, k);
-                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i]->origin);
+                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d points to itself!", b, k);
+                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[b]->origin);
 
                     g_waypointOn = true;
                     g_editNoclip = true;
 
                     haveError = true;
                     if (g_sgdWaypoint)
-                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d points to itself!", i, k);
+                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d points to itself!", b, k);
                 }
             }
         }
@@ -2913,10 +2985,10 @@ float Waypoint::GetPathDistance(const int srcIndex, const int destIndex)
     if (srcIndex == destIndex)
         return 1.0f;
 
-    if (!m_paths[srcIndex])
+    if (m_paths[srcIndex] == nullptr)
         return FLT_MAX;
 
-    if (!m_paths[destIndex])
+    if (m_paths[destIndex] == nullptr)
         return FLT_MAX;
 
     return (m_paths[srcIndex]->origin - m_paths[destIndex]->origin).GetLengthSquared2D();
@@ -2927,7 +2999,7 @@ void Waypoint::SetGoalVisited(const int index)
     if (!IsValidWaypoint(index))
         return;
 
-    if (!m_paths[index])
+    if (m_paths[index] == nullptr)
         return;
 
     if (!IsGoalVisited(index) && (m_paths[index]->flags & WAYPOINT_GOAL))
@@ -3162,7 +3234,8 @@ int Waypoint::AddGoalScore(int index, int other[4])
     if (m_goalsScore[index] < 1024.0f)
         left.Push(index);
 
-    for (int i = 0; i < 3; i++)
+    int i;
+    for (i = 0; i < 3; i++)
     {
         if (m_goalsScore[other[i]] < 1024.0f)
             left.Push(other[i]);
@@ -3186,7 +3259,8 @@ int Waypoint::AddGoalScore(int index, int other[4])
 void Waypoint::ClearGoalScore(void)
 {
     // iterate though all waypoints
-    for (int i = 0; i < Const_MaxWaypoints; i++)
+    int i;
+    for (i = 0; i < g_numWaypoints; i++)
         m_goalsScore[i] = 0.0f;
 }
 

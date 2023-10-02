@@ -54,7 +54,8 @@ void Engine::RegisterVariable(const char* variable, const char* value, VarType v
 
 void Engine::PushRegisteredConVarsToEngine(void)
 {
-    for (int i = 0; i < m_regCount; i++)
+    int i;
+    for (i = 0; i < m_regCount; i++)
     {
         VarPair* ptr = &m_regVars[i];
 
@@ -196,7 +197,8 @@ void Engine::PrintAllClients(PrintType printType, const char* format, ...)
 
     if (printType == PRINT_CONSOLE)
     {
-        for (int i = 0; i < GetMaxClients(); i++)
+        int i;
+        for (i = 0; i < GetMaxClients(); i++)
         {
             const Client& client = GetClientByIndex(i);
 

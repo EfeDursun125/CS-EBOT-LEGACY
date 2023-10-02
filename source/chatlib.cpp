@@ -38,12 +38,13 @@ void StripTags(char* buffer)
     // first three tags for Enhanced POD-Bot (e[POD], 3[POD], E[POD])
     char* tagOpen[] = {"e[P", "3[P", "E[P", "-=", "-[", "-]", "-}", "-{", "<[", "<]", "[-", "]-", "{-", "}-", "[[", "[", "{", "]", "}", "<", ">", "-", "|", "=", "+", "("};
     char* tagClose[] = {"]", "]", "]", "=-", "]-", "[-", "{-", "}-", "]>", "[>", "-]", "-[", "-}", "-{", "]]", "]", "}", "[", "{", ">", "<", "-", "|", "=", "+", ")"};
+    const auto tagSize = ARRAYSIZE_HLSDK(tagOpen);
 
     int index, fieldStart, fieldStop, i;
     int length = cstrlen(buffer); // get length of string
 
     // foreach known tag...
-    for (index = 0; index < ARRAYSIZE_HLSDK(tagOpen); index++)
+    for (index = 0; index < tagSize; index++)
     {
         fieldStart = cstrstr(buffer, tagOpen[index]) - buffer; // look for a tag start
 
@@ -69,7 +70,7 @@ void StripTags(char* buffer)
         cstrtrim(buffer); // if so, string is just a tag
 
         // strip just the tag part..
-        for (index = 0; index < ARRAYSIZE_HLSDK(tagOpen); index++)
+        for (index = 0; index < tagSize; index++)
         {
             fieldStart = cstrstr(buffer, tagOpen[index]) - buffer; // look for a tag start
 
@@ -78,7 +79,7 @@ void StripTags(char* buffer)
             {
                 fieldStop = fieldStart + cstrlen(tagOpen[index]); // set the tag stop
 
-                for (i = fieldStart; i < length - static_cast <int> (cstrlen(tagOpen[index])); i++)
+                for (i = fieldStart; i < length - static_cast<int>(cstrlen(tagOpen[index])); i++)
                     buffer[i] = buffer[i + cstrlen(tagOpen[index])]; // overwrite the buffer with the stripped string
 
                 buffer[i] = 0x0; // terminate the string
@@ -90,8 +91,8 @@ void StripTags(char* buffer)
                 {
                     fieldStop = fieldStart + cstrlen(tagClose[index]); // set the tag stop
 
-                    for (i = fieldStart; i < length - static_cast <int> (cstrlen(tagClose[index])); i++)
-                        buffer[i] = buffer[i + static_cast <int> (cstrlen(tagClose[index]))]; // overwrite the buffer with the stripped string
+                    for (i = fieldStart; i < length - static_cast<int>(cstrlen(tagClose[index])); i++)
+                        buffer[i] = buffer[i + static_cast<int>(cstrlen(tagClose[index]))]; // overwrite the buffer with the stripped string
 
                     buffer[i] = 0; // terminate the string
                 }
@@ -102,24 +103,23 @@ void StripTags(char* buffer)
     cstrtrim(buffer); // to finish, strip eventual blanks after and before the tag marks
 }
 
+// this function humanize player name (i.e. trim clan and switch to lower case (sometimes))
 char* HumanizeName(char* name)
 {
-    // this function humanize player name (i.e. trim clan and switch to lower case (sometimes))
-
     static char outputName[256]; // create return name buffer
     cstrcpy(outputName, name); // copy name to new buffer
 
-    // drop tag marks, 80 percent of time
-    if (CRandomInt(1, 100) < 80)
+    // drop tag marks, 75 percent of time
+    if (ChanceOf(75))
         StripTags(outputName);
     else
         cstrtrim(outputName);
 
     // sometimes switch name to lower characters
-    // note: since we're using russian names written in english, we reduce this shit to 6 percent
-    if (CRandomInt(1, 100) <= 6)
+    if (ChanceOf(50))
     {
-        for (int i = 0; i < static_cast <int> (cstrlen(outputName)); i++)
+        int i;
+        for (i = 0; i < static_cast <int> (cstrlen(outputName)); i++)
             outputName[i] = static_cast <char> (ctolower(outputName[i])); // to lower case
     }
 
@@ -189,7 +189,7 @@ void Bot::PrepareChatMessage(char* text)
             // roundtime?
             else if (*pattern == 'r')
             {
-                int time = static_cast <int> (g_timeRoundEnd - engine->GetTime());
+                const int time = static_cast<int>(g_timeRoundEnd - engine->GetTime());
                 cstrcat(m_tempStrings, FormatBuffer("%02d:%02d", time / 60, time % 60));
             }
             // chat reply?
@@ -364,8 +364,8 @@ bool Bot::CheckKeywords(char* tempMessage, char* reply)
         }
     }
 
-    // didn't find a keyword? 80% of the time use some universal reply
-    if (ChanceOf(80) && !g_chatFactory[CHAT_NOKW].IsEmpty())
+    // didn't find a keyword? 50% of the time use some universal reply
+    if (ChanceOf(50) && !g_chatFactory[CHAT_NOKW].IsEmpty())
     {
         cstrcpy(reply, g_chatFactory[CHAT_NOKW].GetRandomElement().GetBuffer());
         return true;
@@ -381,7 +381,8 @@ bool Bot::ParseChat(char* reply)
     cstrcpy(tempMessage, m_sayTextBuffer.sayText); // copy to safe place
 
     // text to uppercase for keyword parsing
-    for (int i = 0; i < static_cast <int> (cstrlen(tempMessage)); i++)
+    int i;
+    for (i = 0; i < static_cast<int>(cstrlen(tempMessage)); i++)
         tempMessage[i] = ctoupper(tempMessage[i]);
 
     return CheckKeywords(tempMessage, reply);
@@ -427,7 +428,7 @@ void Bot::ChatSay(bool teamSay, const char* text, ...)
     if (m_lastChatEnt == me)
         return;
 
-    FakeClientCommand(GetEntity(), "%s \"%s\"", teamSay ? "say_team" : "say", text);
+    FakeClientCommand(me, "%s \"%s\"", teamSay ? "say_team" : "say", text);
     m_lastStrings[160] = *text;
     m_lastChatEnt = me;
 }

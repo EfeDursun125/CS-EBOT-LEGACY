@@ -88,7 +88,7 @@ Vector g_entityGetWpOrigin[entityNum];
 float g_entityGetWpTime[entityNum];
 //******
 
-Array <Array <String> > g_chatFactory;
+Array <Array<String>> g_chatFactory;
 Array <NameItem> g_botNames;
 Array <KwChat> g_replyFactory;
 

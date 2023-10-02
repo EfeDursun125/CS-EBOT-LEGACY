@@ -30,7 +30,8 @@ NetworkMsg::NetworkMsg(void)
     m_state = 0;
     m_bot = nullptr;
 
-    for (int i = 0; i < NETMSG_NUM; i++)
+    int i;
+    for (i = 0; i < NETMSG_NUM; i++)
         m_registerdMessages[i] = NETMSG_UNDEFINED;
 }
 
@@ -62,7 +63,7 @@ void NetworkMsg::Execute(void* p)
     {
     case NETMSG_VGUI:
         // this message is sent when a VGUI menu is displayed.
-        if (m_state == 0)
+        if (m_state == 0 && m_bot != nullptr)
         {
             switch (PTR_TO_INT(p))
             {
@@ -84,6 +85,7 @@ void NetworkMsg::Execute(void* p)
         if (m_state < 3) // ignore first 3 fields of message
             break;
 
+        if (m_bot != nullptr)
         {
             const char* x = PTR_TO_STR(p);
             if (cstrcmp(x, "#Team_Select") == 0) // team select menu?
@@ -136,7 +138,7 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 8:
-            weaponProp.flags = PTR_TO_INT(p); // flags for weapon (WTF???)
+            weaponProp.flags = PTR_TO_INT(p); // flags for weapon
             g_weaponDefs[weaponProp.id] = weaponProp; // store away this weapon with it's ammo information...
             break;
         }
@@ -148,7 +150,7 @@ void NetworkMsg::Execute(void* p)
         switch (m_state)
         {
         case 0:
-            state = PTR_TO_INT(p); // state of the current weapon (WTF???)
+            state = PTR_TO_INT(p); // state of the current weapon
             break;
 
         case 1:
@@ -158,14 +160,17 @@ void NetworkMsg::Execute(void* p)
         case 2:
             clip = PTR_TO_INT(p); // ammo currently in the clip for this weapon
 
-            if (id <= 31)
+            if (m_bot != nullptr && id <= 31)
             {
                 if (state != 0)
                     m_bot->m_currentWeapon = id;
+
                 m_bot->m_ammoInClip[id] = clip;
             }
+
             break;
         }
+
         break;
 
     case NETMSG_AMMOX:
@@ -178,7 +183,8 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 1:
-            m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
+            if (m_bot != nullptr)
+                m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
             break;
         }
         break;
@@ -195,7 +201,8 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 1:
-            m_bot->m_ammo[index] = PTR_TO_INT(p);
+            if (m_bot != nullptr)
+                m_bot->m_ammo[index] = PTR_TO_INT(p);
             break;
         }
         break;
@@ -214,9 +221,9 @@ void NetworkMsg::Execute(void* p)
 
         case 2:
             damageBits = PTR_TO_INT(p);
-
             if (m_bot != nullptr && (damageArmor > 0 || damageTaken > 0))
                 m_bot->TakeDamage(m_bot->pev->dmg_inflictor, damageTaken, damageArmor, damageBits);
+
             break;
         }
 
@@ -224,8 +231,7 @@ void NetworkMsg::Execute(void* p)
 
     case NETMSG_MONEY:
         // this message gets sent when the bots money amount changes
-
-        if (m_state == 0)
+        if (m_state == 0 && m_bot != nullptr)
             m_bot->m_moneyAmount = PTR_TO_INT(p); // amount of money
         break;
 
@@ -237,7 +243,7 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 1:
-            if (g_gameVersion != HALFLIFE)
+            if (g_gameVersion != HALFLIFE && m_bot != nullptr)
             {
                 const char* x = PTR_TO_STR(p);
                 if (cstrcmp(x, "defuser") == 0)
@@ -269,12 +275,12 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 2:
-            edict_t * victim = INDEXENT(victimIndex);
+            edict_t* victim = INDEXENT(victimIndex);
             if (FNullEnt(victim) || !IsValidPlayer(victim))
                 break;
 
             Bot* victimer = g_botManager->GetBot(victim);
-            if (victimer != nullptr)
+            if (victimer)
             {
                 victimer->m_isAlive = false;
                 victimer->DeleteSearchNodes();
@@ -300,9 +306,12 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 6:
-            m_bot->TakeBlinded(Vector(r, g, b), PTR_TO_BYTE(p));
+            if (m_bot != nullptr)
+                m_bot->TakeBlinded(Vector(r, g, b), PTR_TO_BYTE(p));
+
             break;
         }
+
         break;
 
     case NETMSG_HLTV: // round restart in steam cs
@@ -315,6 +324,7 @@ void NetworkMsg::Execute(void* p)
         case 1:
             if (numPlayers == 0 && PTR_TO_INT(p) == 0)
                 RoundInit();
+
             break;
         }
         break;
@@ -363,22 +373,29 @@ void NetworkMsg::Execute(void* p)
 
                 for (const auto& bot : g_botManager->m_bots)
                 {
-                    if (bot != nullptr && bot->m_isAlive)
+                    if (bot == nullptr)
+                        continue;
+
+                    if (bot->m_isAlive)
                     {
                         bot->DeleteSearchNodes();
                         bot->ResetTasks();
                     }
                 }
             }
-            else if (m_bot != nullptr && FStrEq(x, "#Switch_To_BurstFire"))
-                m_bot->m_weaponBurstMode = BURST_ENABLED;
-            else if (m_bot != nullptr && FStrEq(x, "#Switch_To_SemiAuto"))
-                m_bot->m_weaponBurstMode = BURST_DISABLED;
+            else if (m_bot != nullptr)
+            {
+                if (FStrEq(x, "#Switch_To_BurstFire"))
+                    m_bot->m_weaponBurstMode = BURST_ENABLED;
+                else if (FStrEq(x, "#Switch_To_SemiAuto"))
+                    m_bot->m_weaponBurstMode = BURST_DISABLED;
+            }
         }
+
         break;
 
     case NETMSG_BARTIME:
-        if (m_state == 0)
+        if (m_state == 0 && m_bot != nullptr)
         {
             if (GetGameMode() == MODE_BASE)
             {

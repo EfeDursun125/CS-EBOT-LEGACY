@@ -62,7 +62,8 @@ BotControl::BotControl(void)
 // this is a bot manager class destructor, do not use engine->GetMaxClients () here !!
 BotControl::~BotControl(void)
 {
-	for (int i = 0; i < 32; i++)
+	int i;
+	for (i = 0; i < 32; i++)
 	{
 		if (m_bots[i])
 		{
@@ -303,7 +304,7 @@ void BotControl::DoJoinQuitStuff(void)
 	if (min > max)
 		max = min * 1.5f;
 
-	m_randomJoinTime = AddTime(CRandomFloat(min, max));
+	m_randomJoinTime = engine->GetTime() + CRandomFloat(min, max);
 }
 
 void BotControl::Think(void)
@@ -315,14 +316,17 @@ void BotControl::Think(void)
 		if (bot == nullptr)
 			continue;
 
+
 		if (bot->m_thinkDelay < engine->GetTime())
 		{
 			bot->Think();
 			bot->m_thinkDelay = engine->GetTime() + 0.1f;
 		}
-		
-		bot->FacePosition();
-		bot->RunPlayer();
+
+		if (bot->m_isAlive)
+			bot->FacePosition();
+
+		bot->RunPlayerMovement();
 	}
 }
 
@@ -474,7 +478,7 @@ int BotControl::AddBotAPI(const String& name, int skill, int team)
 		ebot_quota.SetInt(GetBotsNum());
 	}
 
-	m_maintainTime = AddTime(0.2f);
+	m_maintainTime = engine->GetTime() + 0.2f;
 
 	return resultOfCall;
 }
@@ -503,7 +507,7 @@ void BotControl::MaintainBotQuota(void)
 			ebot_quota.SetInt(GetBotsNum());
 		}
 
-		m_maintainTime = AddTime(0.25f);
+		m_maintainTime = engine->GetTime() + 0.25f;
 	}
 
 	if (ebot_random_join_quit.GetBool())
@@ -522,16 +526,16 @@ void BotControl::MaintainBotQuota(void)
 		if (botNumber > desiredBotCount)
 		{
 			RemoveRandom();
-			m_maintainTime = AddTime(0.25f);
+			m_maintainTime = engine->GetTime() + 0.25f;
 		}
 		else if (botNumber < desiredBotCount && botNumber < maxClients)
 		{
 			AddRandom();
-			m_maintainTime = AddTime(0.25f);
+			m_maintainTime = engine->GetTime() + 0.25f;
 		}
 		else
 		{
-			m_maintainTime = AddTime(1.0f);
+			m_maintainTime = engine->GetTime() + 1.0f;
 
 			if (ebot_save_bot_names.GetBool() && !m_savedBotNames.IsEmpty()) // clear the saved names when quota balancing ended
 				m_savedBotNames.Destroy();
@@ -546,9 +550,10 @@ void BotControl::MaintainBotQuota(void)
 
 void BotControl::InitQuota(void)
 {
-	m_maintainTime = AddTime(2.0f);
+	m_maintainTime = engine->GetTime() + 2.0f;
 	m_creationTab.Destroy();
-	for (int i = 0; i < entityNum; i++)
+	int i;
+	for (i = 0; i < entityNum; i++)
 		SetEntityActionData(i);
 }
 
@@ -556,8 +561,7 @@ void BotControl::InitQuota(void)
 void BotControl::FillServer(int selection, int personality, int skill, int numToAdd)
 {
 	// always keep one slot
-	int maxClients = ebot_autovacate.GetBool() ? engine->GetMaxClients() - 1 - (IsDedicatedServer() ? 0 : GetHumansNum()) : engine->GetMaxClients();
-
+	const int maxClients = ebot_autovacate.GetBool() ? engine->GetMaxClients() - 1 - (IsDedicatedServer() ? 0 : GetHumansNum()) : engine->GetMaxClients();
 	if (GetBotsNum() >= maxClients - GetHumansNum())
 		return;
 
@@ -581,7 +585,8 @@ void BotControl::FillServer(int selection, int personality, int skill, int numTo
 
 	int toAdd = numToAdd == -1 ? maxClients - (GetHumansNum() + GetBotsNum()) : numToAdd;
 
-	for (int i = 0; i <= toAdd; i++)
+	int i;
+	for (i = 0; i <= toAdd; i++)
 	{
 		// since we got constant skill from menu (since creation process call automatic), we need to manually
 		// randomize skill here, on given skill there.
@@ -654,7 +659,8 @@ void BotControl::RemoveMenu(edict_t* ent, int selection)
 	cmemset(buffer, 0, sizeof(buffer));
 
 	int validSlots = (selection == 4) ? (1 << 9) : ((1 << 8) | (1 << 9));
-	for (int i = ((selection - 1) * 8); i < selection * 8; ++i)
+	int i;
+	for (i = ((selection - 1) * 8); i < selection * 8; ++i)
 	{
 		if ((m_bots[i] != nullptr) && !FNullEnt(m_bots[i]->GetEntity()))
 		{
@@ -706,13 +712,13 @@ void BotControl::KillAll(int team)
 {
 	for (const auto& bot : m_bots)
 	{
-		if (bot != nullptr)
-		{
-			if (team != -1 && team != bot->m_team)
-				continue;
+		if (bot == nullptr)
+			continue;
 
-			bot->Kill();
-		}
+		if (team != -1 && team != bot->m_team)
+			continue;
+
+		bot->Kill();
 	}
 
 	CenterPrint("All bots are killed.");
@@ -768,7 +774,8 @@ void BotControl::SetWeaponMode(int selection)
 	};
 	selection--;
 
-	for (int i = 0; i < Const_NumWeapons; i++)
+	int i;
+	for (i = 0; i < Const_NumWeapons; i++)
 	{
 		g_weaponSelect[i].teamStandard = tabMapStandart[selection][i];
 		g_weaponSelect[i].teamAS = tabMapAS[selection][i];
@@ -896,7 +903,8 @@ void BotControl::CheckTeamEconomics(int team)
 // this function free all bots slots (used on server shutdown)
 void BotControl::Free(void)
 {
-	for (int i = 0; i < 32; i++)
+	int i;
+	for (i = 0; i < 32; i++)
 	{
 		if (m_bots[i] != nullptr)
 		{
@@ -921,7 +929,7 @@ void BotControl::Free(int index)
 // this function controls the bot entity
 Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 {
-	if (!bot)
+	if (bot == nullptr)
 		return;
 
 	char rejectReason[128];
@@ -946,16 +954,14 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 
 	if (g_gameVersion == HALFLIFE)
 	{
-		char c_topcolor[4], c_bottomcolor[4];
+		char c_topcolor[4], c_bottomcolor[4], c_model[32];
 		sprintf(c_topcolor, "%d", CRandomInt(1, 254));
 		sprintf(c_bottomcolor, "%d", CRandomInt(1, 254));
+		Array <String> models = String("barney,gina,gman,gordon,helmet,hgrunt,recon,robo,scientist,zombie").Split(",");
+		sprintf(c_model, "%s", (char*)models[CRandomInt(0, models.GetElementNumber() - 1)]);
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "topcolor", c_topcolor);
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "bottomcolor", c_bottomcolor);
-	}
-	else // we hate this, let bot pick weapon by itself... when you buy/pickup weapon it will select the slot but we dont want this.
-	{
-		SET_CLIENT_KEYVALUE(clientIndex, buffer, "cl_autowepswitch", "0");
-		SET_CLIENT_KEYVALUE(clientIndex, buffer, "_cl_autowepswitch", "0");
+		SET_CLIENT_KEYVALUE(clientIndex, buffer, "model", c_model);
 	}
 
 	if (g_gameVersion != CSVER_VERYOLD && !ebot_ping.GetBool())
@@ -976,7 +982,6 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 	}
 
 	MDLL_ClientPutInServer(bot);
-	bot->v.flags |= FL_FAKECLIENT;
 
 	// initialize all the variables for this bot...
 	m_notStarted = true;  // hasn't joined game yet
@@ -989,7 +994,6 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 
 	// initialize msec value
 	m_msecInterval = engine->GetTime();
-	m_msecVal = g_pGlobals->frametime * 1000.0f;
 
 	// assign how talkative this bot will be
 	m_sayTextBuffer.chatDelay = CRandomFloat(3.8f, 10.0f);
@@ -1038,7 +1042,7 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 	m_pushMessageIndex = 0;
 
 	// init path
-	m_navNode.Init(g_numWaypoints / 2);
+	m_navNode.Init(g_numWaypoints + 32);
 
 	// assign team and class
 	m_wantedTeam = team;
@@ -1124,9 +1128,6 @@ void Bot::NewRound(void)
 	m_prevTime = engine->GetTime();
 	m_blindRecognizeTime = engine->GetTime();
 
-	m_viewDistance = 4096.0f;
-	m_maxViewDistance = 4096.0f;
-
 	m_pickupItem = nullptr;
 	m_itemIgnore = nullptr;
 	m_itemCheckTime = 0.0f;
@@ -1197,7 +1198,7 @@ void Bot::NewRound(void)
 		m_currentWeapon = 0;
 	}
 
-	m_nextBuyTime = AddTime(CRandomFloat(0.6f, 1.2f));
+	m_nextBuyTime = engine->GetTime() + CRandomFloat(0.6f, 1.2f);
 	m_inBombZone = false;
 
 	m_shieldCheckTime = 0.0f;
@@ -1214,7 +1215,7 @@ void Bot::NewRound(void)
 	m_radioOrder = 0;
 	m_defendedBomb = false;
 
-	m_timeLogoSpray = AddTime(CRandomFloat(0.5f, 2.0f));
+	m_timeLogoSpray = engine->GetTime() + CRandomFloat(0.5f, 2.0f);
 	m_spawnTime = engine->GetTime();
 	m_lastChatTime = engine->GetTime();
 	pev->button = 0;
@@ -1330,16 +1331,20 @@ void Bot::StartGame(void)
 		m_startAction = CMENU_IDLE;
 		return;
 	}
-	else if (m_team == TEAM_UNASSINGED && m_retryJoin > 5)
-		m_startAction = CMENU_TEAM;
+	else
+	{
+		if (m_retryJoin > 20)
+			m_startAction = CMENU_CLASS;
+		else if (m_retryJoin > 10)
+			m_startAction = CMENU_TEAM;
+	}
 
 	// if bot was unable to join team, and no menus popups, check for stacked team
 	if (m_startAction == CMENU_IDLE)
 	{
-		if (++m_retryJoin > 10)
+		if (++m_retryJoin > 30)
 		{
 			m_retryJoin = 0;
-			Kick();
 			return;
 		}
 	}
@@ -1347,8 +1352,6 @@ void Bot::StartGame(void)
 	// handle counter-strike stuff here...
 	if (m_startAction == CMENU_TEAM)
 	{
-		m_startAction = CMENU_IDLE; // switch back to idle
-
 		if (ebot_forceteam.GetString()[0] == 'C' || ebot_forceteam.GetString()[0] == 'c' || ebot_forceteam.GetString()[0] == '2')
 			m_wantedTeam = 2;
 		else if (ebot_forceteam.GetString()[0] == 'T' || ebot_forceteam.GetString()[0] == 't' || ebot_forceteam.GetString()[0] == '1') // 1 = T, 2 = CT
@@ -1359,11 +1362,11 @@ void Bot::StartGame(void)
 
 		// select the team the bot wishes to join...
 		FakeClientCommand(GetEntity(), "menuselect %d", m_wantedTeam);
+
+		m_startAction = CMENU_IDLE; // switch back to idle
 	}
 	else if (m_startAction == CMENU_CLASS)
 	{
-		m_startAction = CMENU_IDLE; // switch back to idle
-
 		const int maxChoice = g_gameVersion == CSVER_CZERO ? 5 : 4;
 		m_wantedClass = CRandomInt(1, maxChoice);
 
@@ -1376,5 +1379,7 @@ void Bot::StartGame(void)
 		// check for greeting other players, since we connected
 		if (CRandomInt(1, 5) == 1)
 			ChatMessage(CHAT_HELLO);
+
+		m_startAction = CMENU_IDLE; // switch back to idle
 	}
 }

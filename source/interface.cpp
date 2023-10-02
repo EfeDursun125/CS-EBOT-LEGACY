@@ -309,7 +309,8 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		// test random number generator
 		if (cstricmp(arg0, "randgen") == 0)
 		{
-			for (int i = 0; i < 500; i++)
+			int i;
+			for (i = 0; i < 500; i++)
 				ServerPrintNoTag("Result Range[0 - 100]: %d", CRandomInt(0, 100));
 		}
 	}
@@ -330,7 +331,8 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 				g_waypoint->CreateBasic();
 
 			// no expand
-			for (int i = 0; i < (Const_MaxWaypoints - 1); i++)
+			int i;
+			for (i = 0; i < (Const_MaxWaypoints - 1); i++)
 				g_expanded[i] = false;
 		}
 
@@ -430,14 +432,14 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		else if (cstricmp(arg1, "setmesh") == 0)
 		{
 			if (IsNullString(arg2))
-				ClientPrint(ent, print_withtag, "Please set mesh <number>");
+				ClientPrint(ent, print_withtag, "Please set mesh <number>, min 0, max 255");
 			else
 			{
 				const int index = g_waypoint->FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
 				if (IsValidWaypoint(index))
 				{
 					g_waypoint->GetPath(index)->mesh = catoi(arg2);
-					ClientPrint(ent, print_withtag, "Waypoint mesh set to %d", static_cast <int> (g_waypoint->GetPath(index)->mesh));
+					ClientPrint(ent, print_withtag, "Waypoint mesh set to %d", static_cast<uint8_t>(g_waypoint->GetPath(index)->mesh));
 				}
 				else
 					ClientPrint(ent, print_withtag, "Waypoint is not valid");
@@ -680,8 +682,9 @@ void CheckEntityAction(void)
 void LoadEntityData(void)
 {
 	edict_t* entity;
+	int i;
 
-	for (int i = engine->GetMaxClients() + 1; i < entityNum; i++)
+	for (i = engine->GetMaxClients() + 1; i < entityNum; i++)
 	{
 		if (g_entityId[i] == -1)
 			continue;
@@ -697,7 +700,7 @@ void LoadEntityData(void)
 			SetEntityWaypoint(entity);
 	}
 
-	for (int i = 0; i < engine->GetMaxClients(); i++)
+	for (i = 0; i < engine->GetMaxClients(); i++)
 	{
 		entity = INDEXENT(i);
 
@@ -924,6 +927,7 @@ void InitConfig(void)
 	// GENERAL DATA INITIALIZATION
 	if (OpenConfig("general.cfg", "General configuration file not found. Loading defaults", &fp))
 	{
+		int i;
 		while (fp.GetBuffer(line, 255))
 		{
 			SKIP_COMMENTS();
@@ -943,7 +947,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (int i = 0; i < Const_NumWeapons; i++)
+				for (i = 0; i < Const_NumWeapons; i++)
 					g_weaponSelect[i].teamStandard = splitted[i];
 			}
 			else if (pair[0] == "MapAS")
@@ -951,7 +955,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (int i = 0; i < Const_NumWeapons; i++)
+				for (i = 0; i < Const_NumWeapons; i++)
 					g_weaponSelect[i].teamAS = splitted[i];
 			}
 			else if (pair[0] == "PersonalityNormal")
@@ -959,7 +963,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (int i = 0; i < Const_NumWeapons; i++)
+				for (i = 0; i < Const_NumWeapons; i++)
 					g_normalWeaponPrefs[i] = splitted[i];
 			}
 			else if (pair[0] == "PersonalityRusher")
@@ -967,7 +971,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (int i = 0; i < Const_NumWeapons; i++)
+				for (i = 0; i < Const_NumWeapons; i++)
 					g_rusherWeaponPrefs[i] = splitted[i];
 			}
 			else if (pair[0] == "PersonalityCareful")
@@ -975,7 +979,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (int i = 0; i < Const_NumWeapons; i++)
+				for (i = 0; i < Const_NumWeapons; i++)
 					g_carefulWeaponPrefs[i] = splitted[i];
 			}
 			else if (pair[0].Contains("Skill"))
@@ -998,7 +1002,7 @@ void InitConfig(void)
 				else if (pair[0].Contains("Elite"))
 					parserState = 5;
 
-				for (int i = 0; i < 8; i++)
+				for (i = 0; i < 8; i++)
 				{
 					switch (i)
 					{
@@ -1669,7 +1673,8 @@ void ClientCommand(edict_t* ent)
 					int meshPoints = 0;
 					int usePoints = 0;
 
-					for (int i = 0; i < g_numWaypoints; i++)
+					int i;
+					for (i = 0; i < g_numWaypoints; i++)
 					{
 						if (g_waypoint->GetPath(i)->flags & WAYPOINT_TERRORIST)
 							terrPoints++;
@@ -2780,11 +2785,11 @@ void JustAStuff(void)
 		{
 			for (const auto& bot : g_botManager->m_bots)
 			{
-				if (bot != nullptr)
-				{
-					g_botManager->RemoveAll();
-					break;
-				}
+				if (bot == nullptr)
+					continue;
+
+				g_botManager->RemoveAll();
+				break;
 			}
 
 			g_waypoint->Think();
@@ -2807,7 +2812,7 @@ void FrameThread(void)
 	if (g_bombPlanted)
 		g_waypoint->SetBombPosition();
 
-	secondTimer = AddTime(1.0f);
+	secondTimer = engine->GetTime() + 1.0f;
 }
 
 void StartFrame(void)
@@ -2849,7 +2854,7 @@ void StartFrame_Post(void)
 	if (updateTimer < engine->GetTime())
 	{
 		g_botManager->Think();
-		updateTimer = AddTime(0.03333333333f);
+		updateTimer = engine->GetTime() + 0.03333333333f;
 	}
 	// **** AI EXECUTION FINISH ****
 
@@ -3301,11 +3306,17 @@ void pfnClientPrintf(edict_t* ent, PRINT_TYPE printType, const char* message)
 
 void pfnSetClientMaxspeed(const edict_t* ent, float newMaxspeed)
 {
-	Bot* bot = g_botManager->GetBot(const_cast <edict_t*> (ent));
+	Bot* bot = g_botManager->GetBot(const_cast<edict_t*>(ent));
 
 	// check wether it's not a bot
 	if (bot != nullptr)
-		bot->pev->maxspeed = newMaxspeed;
+	{
+		const float newSpeed = newMaxspeed + 10.0f;
+		bot->pev->maxspeed = newSpeed;
+		(*g_engfuncs.pfnSetClientMaxspeed) (ent, newSpeed);
+		if (g_isMetamod)
+			RETURN_META(MRES_SUPERCEDE);
+	}
 
 	if (g_isMetamod)
 		RETURN_META(MRES_IGNORED);
@@ -3701,7 +3712,8 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 	ModSupport_t* knownMod = nullptr;
 	char gameDLLName[256];
 
-	for (int i = 0; s_supportedMods[i].name; i++)
+	int i;
+	for (i = 0; s_supportedMods[i].name; i++)
 	{
 		ModSupport_t* mod = &s_supportedMods[i];
 
