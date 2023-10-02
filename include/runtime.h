@@ -687,7 +687,7 @@ public:
         if (Math::FltZero(x) && Math::FltZero(y))
             return 0.0f;
 
-        return Math::RadianToDegree(atan2f(z, GetLength2D()));
+        return Math::RadianToDegree(catan2f(z, GetLength2D()));
     }
 
     //
@@ -703,7 +703,7 @@ public:
         if (Math::FltZero(x) && Math::FltZero(y))
             return 0.0f;
 
-        return Math::RadianToDegree(atan2f(y, x));
+        return Math::RadianToDegree(catan2f(y, x));
     }
 
     //
@@ -721,7 +721,7 @@ public:
             return Vector(z > 0.0f ? 90.0f : 270.0f, 0.0, 0.0f);
 
         // else it's another sort of vector compute individually the pitch and yaw corresponding to this vector.
-        return Vector(Math::RadianToDegree(atan2f(z, GetLength2D())), Math::RadianToDegree(atan2f(y, x)), 0.0f);
+        return Vector(Math::RadianToDegree(catan2f(z, GetLength2D())), Math::RadianToDegree(catan2f(y, x)), 0.0f);
     }
 
     //
@@ -1225,7 +1225,7 @@ public:
             return;
         }
 
-        T* buffer = new T[m_itemCount];
+        const T* buffer = new T[m_itemCount];
 
         if (m_elements)
         {
@@ -1526,7 +1526,7 @@ public:
     //
     const char* GetBuffer(void)
     {
-        if (!m_bufferPtr || *m_bufferPtr.get() == 0x0)
+        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1541,7 +1541,7 @@ public:
     //
     const char* GetBuffer(void) const
     {
-        if (!m_bufferPtr || *m_bufferPtr.get() == 0x0)
+        if (m_bufferPtr == nullptr || *m_bufferPtr.get() == 0x0)
             return "";
 
         return &m_bufferPtr[0];
@@ -1773,13 +1773,8 @@ public:
     //
     void SetEmpty(void)
     {
-        if (m_bufferPtr != nullptr)
-        {
-            m_bufferPtr[0] = 0;
-            m_stringLength = 0;
-        }
-
         m_bufferPtr.reset();
+        m_stringLength = 0;
     }
 
     //
@@ -1791,7 +1786,7 @@ public:
     //
     bool IsEmpty(void) const
     {
-        if (!m_bufferPtr || m_stringLength == 0)
+        if (m_bufferPtr == nullptr || m_stringLength == 0)
             return true;
 
         return false;
@@ -1806,7 +1801,7 @@ public:
     //
     int GetLength(void)
     {
-        if (!m_bufferPtr)
+        if (m_bufferPtr == nullptr)
             return 0;
 
         return m_stringLength;
@@ -1819,7 +1814,7 @@ public:
 
     operator char* (void)
     {
-        return const_cast <char*> (GetBuffer());
+        return const_cast<char*>(GetBuffer());
     }
 
     operator int(void)
@@ -1829,7 +1824,7 @@ public:
 
     operator long(void)
     {
-        return static_cast <long> (ToInt());
+        return static_cast<long>(ToInt());
     }
 
     operator float(void)
@@ -1839,7 +1834,7 @@ public:
 
     operator double(void)
     {
-        return static_cast <double> (ToFloat());
+        return static_cast<double>(ToFloat());
     }
 
     friend String operator + (const String& s1, const String& s2)
@@ -1988,7 +1983,8 @@ public:
 
         std::unique_ptr<char[]> holder(new char[count + 1], std::default_delete<char[]>());
 
-        for (int i = 0; i < count; i++)
+        int i;
+        for (i = 0; i < count; i++)
             holder[i] = m_bufferPtr[startIndex + i];
 
         holder[count] = '\0';
@@ -2056,8 +2052,9 @@ public:
     {
         String result;
 
+        int i;
         const int length = GetLength();
-        for (int i = 0; i < length; i++)
+        for (i = 0; i < length; i++)
             result += ctoupper(m_bufferPtr[i]);
 
         return result;
@@ -2074,8 +2071,9 @@ public:
     {
         String result;
 
+        int i;
         const int length = GetLength();
-        for (int i = 0; i < length; i++)
+        for (i = 0; i < length; i++)
             result += ctolower(m_bufferPtr[i]);
 
         return result;
@@ -2259,7 +2257,6 @@ public:
         for (; startIndex < m_stringLength; startIndex++)
         {
             int j;
-
             for (j = 0; j < string.m_stringLength && startIndex + j < m_stringLength; j++)
             {
                 if (m_bufferPtr[startIndex + j] != string.m_bufferPtr[j])
@@ -2313,7 +2310,8 @@ public:
     //
     int FindOneOf(const String& string)
     {
-        for (int i = 0; i < m_stringLength; i++)
+        int i;
+        for (i = 0; i < m_stringLength; i++)
         {
             if (string.Find(m_bufferPtr[i]) >= 0)
                 return i;
@@ -2485,7 +2483,8 @@ public:
         const int numInsertChars = string.m_stringLength;
         InsertSpace(index, numInsertChars);
 
-        for (int i = 0; i < numInsertChars; i++)
+        int i;
+        for (i = 0; i < numInsertChars; i++)
             m_bufferPtr[index + i] = string[i];
 
         m_stringLength += numInsertChars;
@@ -2509,7 +2508,7 @@ public:
         if (oldCharacter == newCharacter)
             return 0;
 
-        static int num = 0;
+        int num = 0;
         int position = 0;
 
         while (position < GetLength())
@@ -3216,7 +3215,7 @@ public:
 #define DEFINE_PRINT_FUNCTION(funcName, logMask, logStr) \
    void funcName (const char *format, ...) \
    { \
-      int flags = m_logger->GetFlags (); \
+      const int flags = m_logger->GetFlags (); \
       \
       if ((flags & logMask) != logMask) \
          return; \
@@ -3311,6 +3310,8 @@ template <typename T1, typename T2> inline Pair <T1, T2> MakePair(T1 first, T2 s
 
 // @DEPRECATEME@
 #define ITERATE_ARRAY(arrayName, iteratorName) \
-   for (int iteratorName = 0; iteratorName != arrayName.GetElementNumber (); iteratorName++)
+const int size = arrayName.GetElementNumber(); \
+int iteratorName; \
+for (iteratorName = 0; iteratorName != size; iteratorName++)
 
 #endif // RUNTIME_INCLUDED

@@ -33,13 +33,6 @@
   (this is the zlib license)
 */
 
-// windows users might have worse cpu
-#ifdef WIN32
-#define USE_SSE2
-#else
-#define USE_SSE3
-#endif
-
 #define SSE_MATHFUN_WITH_CODE
 
 #ifndef _SSE_MATHFUN_H

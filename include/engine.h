@@ -1514,6 +1514,7 @@ inline void MESSAGE_BEGIN(int msg_dest, int msg_type, const float* pOrigin = nul
 #define IS_MAP_VALID         (*g_engfuncs.pfnIsMapValid)
 #define NUMBER_OF_ENTITIES   (*g_engfuncs.pfnNumberOfEntities)
 #define IS_DEDICATED_SERVER  (*g_engfuncs.pfnIsDedicatedServer)
+#define PLAYER_RUN_MOVE		 (*g_engfuncs.pfnRunPlayerMove)
 #define PRECACHE_EVENT       (*g_engfuncs.pfnPrecacheEvent)
 #define PLAYBACK_EVENT_FULL  (*g_engfuncs.pfnPlaybackEvent)
 #define ENGINE_SET_PVS       (*g_engfuncs.pfnSetFatPVS)
@@ -2202,9 +2203,6 @@ extern inline bool IsNullString(const char*);
 // Misc useful
 inline BOOL FStrEq(const char* sz1, const char* sz2)
 {
-    if (!sz1 || !sz2)
-        return 0;             // safety check
-
     return (cstrcmp(sz1, sz2) == 0);
 }
 inline BOOL FClassnameIs(edict_t* pent, const char* szClassname)

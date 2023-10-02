@@ -469,7 +469,7 @@ enum GameMode
 const char FH_WAYPOINT_NEW[] = "EBOTWP";
 const char FH_WAYPOINT[] = "PODWAY!";
 
-const int FV_WAYPOINT = 125;
+const int FV_WAYPOINT = 126;
 
 // some hardcoded desire defines used to override calculated ones
 const float TASKPRI_NORMAL = 35.0f;
@@ -772,12 +772,23 @@ struct PathOLD
 	struct Vis_t { uint16 stand, crouch; } vis;
 };
 
-struct Path
+struct PathOLD2
 {
 	Vector origin;
 	int32 flags;
 	int16 radius;
 	int16 mesh;
+	int16 index[Const_MaxPathIndex];
+	uint16 connectionFlags[Const_MaxPathIndex];
+	float gravity;
+};
+
+struct Path
+{
+	Vector origin;
+	uint32 flags;
+	uint8_t radius;
+	uint8_t mesh;
 	int16 index[Const_MaxPathIndex];
 	uint16 connectionFlags[Const_MaxPathIndex];
 	float gravity;
@@ -848,6 +859,7 @@ private:
 	int m_currentWaypointIndex; // current waypoint index
 	int m_travelStartIndex; // travel start index to double jump action
 	int m_prevWptIndex; // previous waypoint indices from waypoint find
+	Path m_waypoint; // current waypoint pointer
 	int m_waypointFlags; // current waypoint flags
 	int m_loosedBombWptIndex; // nearest to loosed bomb waypoint
 
@@ -887,7 +899,7 @@ private:
 	bool m_duckDefuse; // should or not bot duck to defuse bomb
 	float m_duckDefuseCheckTime; // time to check for ducking for defuse
 
-	float m_msecVal; // same
+	float m_msecVal;
 	float m_msecInterval; // used for leon hartwig's method for msec calculation
 	float m_impulse;
 
@@ -944,7 +956,8 @@ private:
 	void CheckMessageQueue(void);
 	void CheckRadioCommands(void);
 	void CheckReload(void);
-	void CheckBurstMode(float distance);
+	void RunPlayerMovement(void);
+	void CheckBurstMode(const float distance);
 
 	int CheckMaxClip(int weaponId, int* weaponIndex);
 
@@ -1000,11 +1013,10 @@ private:
 	bool ItemIsVisible(Vector dest, char* itemName);
 	bool LastEnemyShootable(void);
 	bool IsBehindSmokeClouds(edict_t* ent);
-	void TaskNormal(int i, int destIndex, Vector src);
+	void TaskNormal(void);
 	void RunTask(void);
 	void ApplyTaskFilters(void);
 
-	bool IsShootableBreakable(edict_t* ent);
 	bool RateGroundWeapon(edict_t* ent);
 	bool ReactOnEnemy(void);
 	void ResetCollideState(void);
@@ -1016,7 +1028,8 @@ private:
 	int GetBestSecondaryWeaponCarried(void);
 
 	void GetValidWaypoint(void);
-	void ChangeWptIndex(int waypointIndex);
+	void GetWaypoint(void);
+	void ChangeWptIndex(const int waypointIndex);
 	bool IsDeadlyDrop(Vector targetOriginPos);
 	bool CampingAllowed(void);
 	bool OutOfBombTimer(void);
@@ -1045,8 +1058,6 @@ private:
 	void SelectPistol(void);
 	void SelectKnife(void);
 	bool IsFriendInLineOfFire(float distance);
-	bool IsGroupOfEnemies(Vector location, int numEnemies = 2, float radius = 640.0f);
-	bool IsShootableThruObstacle(edict_t* entity);
 	int GetNearbyEnemiesNearPosition(Vector origin, float radius);
 	int GetNearbyFriendsNearPosition(Vector origin, float radius);
 	void SelectWeaponByName(const char* name);
@@ -1093,7 +1104,7 @@ public:
 	int m_retryJoin;
 	int m_team; // bot's team
 	int m_index; // bot's index
-	bool m_isAlive; // has the player been killed or has he just respawned
+	bool m_isAlive{}; // has the player been killed or has he just respawned
 	bool m_notStarted; // team/class not chosen yet
 
 	int m_voteMap; // number of map to vote for
@@ -1144,8 +1155,6 @@ public:
 	Vector m_goalaimposition; // goal aim position for tracking
 	Vector m_campposition; // camping position
 
-	float m_viewDistance; // current view distance
-	float m_maxViewDistance; // maximum view distance
 	Vector m_lastEnemyOrigin; // vector to last enemy origin
 	SayText m_sayTextBuffer; // holds the index & the actual message of the last unprocessed text message of a player
 	BurstMode m_weaponBurstMode; // bot using burst mode? (famas/glock18, but also silencer mode)
@@ -1216,9 +1225,7 @@ public:
 
 	inline Vector Center(void) { return (pev->absmax + pev->absmin) * 0.5f; };
 	inline Vector EyePosition(void) { return pev->origin + pev->view_ofs; };
-	inline Vector EarPosition(void) { return pev->origin + pev->view_ofs; };
 
-	void RunPlayer(void);
 	void Think(void);
 	void FacePosition(void);
 	void NewRound(void);
