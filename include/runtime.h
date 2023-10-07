@@ -546,7 +546,7 @@ public:
     // Gets squared length (magnitude) of 3D vector.
     //
     // Returns:
-    //   Squared length (magnitude) of the 3D vector.
+    //   squared length (magnitude) of the 3D vector.
     //
     // See Also:
     //   <GetLength>
@@ -859,7 +859,7 @@ public:
     //
     bool SetSize(const int newSize, const bool keepData = true)
     {
-        if (newSize == 0)
+        if (!newSize)
         {
             Destroy();
             return true;
@@ -993,7 +993,7 @@ public:
     T& GetAt(const int index)
     {
         if (index < 0 || index >= m_itemCount)
-            return m_elements[CRandomInt(0, m_itemCount - 1)];
+            return m_elements[crandomint(0, m_itemCount - 1)];
 
         return m_elements[index];
     }
@@ -1231,7 +1231,7 @@ public:
     //
     void FreeSpace(const bool destroyIfEmpty = true)
     {
-        if (m_itemCount == 0)
+        if (!m_itemCount)
         {
             if (destroyIfEmpty)
                 Destroy();
@@ -1330,7 +1330,7 @@ public:
         if (m_itemCount < 2)
             return m_elements[0];
 
-        return m_elements[CRandomInt(0, m_itemCount - 1)];
+        return m_elements[crandomint(0, m_itemCount - 1)];
     }
 
     Array <T>& operator = (const Array <T>& other)
@@ -1893,7 +1893,7 @@ public:
 
     friend bool operator == (const String& s1, const String& s2)
     {
-        return s1.Compare(s2) == 0;
+        return !s1.Compare(s2);
     }
 
     friend bool operator < (const String& s1, const String& s2)
@@ -1908,12 +1908,12 @@ public:
 
     friend bool operator == (const char* s1, const String& s2)
     {
-        return s2.Compare(s1) == 0;
+        return !s2.Compare(s1);
     }
 
     friend bool operator == (const String& s1, const char* s2)
     {
-        return s1.Compare(s2) == 0;
+        return !s1.Compare(s2);
     }
 
     friend bool operator != (const String& s1, const String& s2)
@@ -2065,7 +2065,7 @@ public:
         String result;
 
         int i;
-        int length = GetLength();
+        const int length = GetLength();
         for (i = 0; i < length; i++)
             result += ctoupper(m_bufferPtr[i]);
 
@@ -2084,7 +2084,7 @@ public:
         String result;
 
         int i;
-        int length = GetLength();
+        const int length = GetLength();
         for (i = 0; i < length; i++)
             result += ctolower(m_bufferPtr[i]);
 
@@ -2258,7 +2258,7 @@ public:
             if (*str == input)
                 return str - m_bufferPtr;
 
-            if (*str == 0)
+            if (!*str)
                 return -1;
 
             str++;
@@ -2293,7 +2293,7 @@ public:
     //
     int Find(const String& string, int startIndex) const
     {
-        if (string.m_stringLength == 0)
+        if (!string.m_stringLength)
             return startIndex;
 
         for (; startIndex < m_stringLength; startIndex++)
@@ -2324,7 +2324,7 @@ public:
     //
     int ReverseFind(const char ch)
     {
-        if (m_stringLength == 0)
+        if (!m_stringLength)
             return -1;
 
         char* str = m_bufferPtr + m_stringLength - 1;
@@ -2519,7 +2519,7 @@ public:
     {
         CorrectIndex(index);
 
-        if (string.m_stringLength == 0)
+        if (!string.m_stringLength)
             return m_stringLength;
 
         const int numInsertChars = string.m_stringLength;
@@ -2581,14 +2581,14 @@ public:
     //
     int Replace(const String& oldString, const String& newString)
     {
-        if (oldString.m_stringLength == 0)
+        if (!oldString.m_stringLength)
             return 0;
 
-        if (newString.m_stringLength == 0)
+        if (!newString.m_stringLength)
             return 0;
 
-        int oldLength = oldString.m_stringLength;
-        int newLength = newString.m_stringLength;
+        const int oldLength = oldString.m_stringLength;
+        const int newLength = newString.m_stringLength;
 
         int num = 0;
         int position = 0;
@@ -2736,11 +2736,7 @@ public:
     //
     Array <String> Split(const char separator)
     {
-        char sep[2];
-
-        sep[0] = separator;
-        sep[1] = 0x0;
-
+        const char sep[2] = {separator, 0x0};
         return Split(sep);
     }
 };

@@ -2001,13 +2001,11 @@ C_DLLEXPORT int GetEngineFunctions(enginefuncs_t* pengfuncsFromEngine, int* inte
 
 void inline UTIL_TraceLine(const Vector& start, const Vector& end, bool ignoreMonsters, bool ignoreGlass, edict_t* ignoreEntity, TraceResult* ptr)
 {
-
     (*g_engfuncs.pfnTraceLine) (start, end, (ignoreMonsters ? 1 : 0) | (ignoreGlass ? 0x100 : 0), ignoreEntity, ptr);
 }
 
 void inline UTIL_TraceLine(const Vector& start, const Vector& end, bool ignoreMonsters, edict_t* ignoreEntity, TraceResult* ptr)
 {
-
     (*g_engfuncs.pfnTraceLine) (start, end, ignoreMonsters ? 1 : 0, ignoreEntity, ptr);
 }
 
@@ -2891,39 +2889,6 @@ public:
     void Maintain(const Entity& ent);
 };
 
-// netmessage functions
-enum NetMsg
-{
-    NETMSG_UNDEFINED = -1,
-    NETMSG_VGUI = 1,
-    NETMSG_SHOWMENU = 2,
-    NETMSG_WLIST = 3,
-    NETMSG_CURWEAPON = 4,
-    NETMSG_AMMOX = 5,
-    NETMSG_AMMOPICK = 6,
-    NETMSG_DAMAGE = 7,
-    NETMSG_MONEY = 8,
-    NETMSG_STATUSICON = 9,
-    NETMSG_DEATH = 10,
-    NETMSG_SCREENFADE = 11,
-    NETMSG_HLTV = 12,
-    NETMSG_TEXTMSG = 13,
-    NETMSG_SCOREINFO = 14,
-    NETMSG_BARTIME = 15,
-    NETMSG_SENDAUDIO = 17,
-    NETMSG_SAYTEXT = 18,
-    NETMSG_BOTVOICE = 19,
-    NETMSG_NUM = 21
-};
-
-struct MessageBlock
-{
-    int bot;
-    int state;
-    int msg;
-    int regMsgs[NETMSG_NUM];
-};
-
 class Engine : public Singleton <Engine>
 {
     friend class Client;
@@ -3017,128 +2982,5 @@ public:
     void DrawLine(const Client& client, const Vector& start, const Vector& end, const Color& color, int width, int noise, int speed, int life, int lineType = LINE_SIMPLE);
 };
 
-#define engine Engine::GetReference ()
-
-class Tracer
-{
-private:
-    Vector m_hitEndPos;
-    Vector m_planeNormal;
-
-    float m_fraction;
-    Entity m_hit;
-
-    Vector m_start;
-    Vector m_end;
-
-    bool m_monsters;
-    bool m_glass;
-    bool m_solid;
-    bool m_allSolid;
-
-    Entity m_ignore;
-    int m_hullNumber;
-
-public:
-    Tracer(const Vector& start, const Vector& end, int ignoreFlags, const Entity& ignore, int hull = -1, bool run = false)
-    {
-        // @DEPRECATEME@
-        SetParameters(start, end, ignoreFlags, ignore, hull);
-
-        if (run)
-            Fire();
-    }
-
-    Tracer(void)
-    {
-    }
-
-    inline float Fire(void)
-    {
-        TraceResult tr{};
-
-        if (m_hullNumber != -1)
-            g_engfuncs.pfnTraceHull(m_start, m_end, m_monsters ? 1 : 0, m_hullNumber, m_ignore ? m_ignore : nullptr, &tr);
-        else
-            g_engfuncs.pfnTraceLine(m_start, m_end, m_monsters ? 1 : 0 || m_glass ? 0x100 : 0, m_ignore ? m_ignore : nullptr, &tr);
-
-        m_fraction = tr.flFraction;
-        m_planeNormal = tr.vecPlaneNormal;
-        m_end = tr.vecEndPos;
-        m_hit = tr.pHit;
-        m_solid = tr.fStartSolid > 0;
-        m_allSolid = tr.fAllSolid > 0;
-
-        return m_fraction;
-    }
-
-    inline Tracer* SetParameters(const Vector& start, const Vector& end, int ignoreFlags, const Entity& ignore, int hull = -1)
-    {
-        m_start = start;
-        m_end = end;
-        m_ignore = ignore;
-        m_hullNumber = hull;
-        m_glass = false;
-        m_monsters = false;
-        m_solid = false;
-        m_allSolid = false;
-
-        if (ignoreFlags & NO_GLASS)
-            m_glass = true;
-
-        if (ignoreFlags & NO_MONSTERS)
-            m_monsters = true;
-
-        return this;
-    }
-
-    inline bool IsStartSolid(void)
-    {
-        return m_solid;
-    }
-
-    inline bool IsAllSolid(void)
-    {
-        return m_allSolid;
-    }
-
-    inline const Vector& GetHitEndPos(void)
-    {
-        return m_hitEndPos;
-    }
-
-    inline const Vector& GetPlaneNormal(void)
-    {
-        return m_planeNormal;
-    }
-
-    inline const Entity& GetHit(void)
-    {
-        return m_hit;
-    }
-
-    inline bool HasHitEntity(void)
-    {
-        return m_hit.IsValid();
-    }
-
-    inline bool CheckHitClassname(const String& other)
-    {
-        if (m_hit.GetClassname().Find(other) != -1)
-            return true;
-
-        return false;
-    }
-
-    inline String GetClassname(void)
-    {
-        return m_hit.GetClassname();
-    }
-
-    inline float GetFraction(void)
-    {
-        return m_fraction;
-    }
-};
-
+#define engine Engine::GetReference()
 #endif
