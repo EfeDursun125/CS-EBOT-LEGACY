@@ -82,7 +82,7 @@
       <AdditionalIncludeDirectories>.\;SDK Path\Include;..\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;_XKEYCHECK_H;WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <RuntimeTypeInfo>
       </RuntimeTypeInfo>
@@ -99,7 +99,8 @@
       <CompileAs>CompileAsCpp</CompileAs>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerOutput>
+      </AssemblerOutput>
       <EnablePREfast>false</EnablePREfast>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <OmitFramePointers>true</OmitFramePointers>
@@ -173,7 +174,7 @@
       <AdditionalIncludeDirectories>.\;..\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <FunctionLevelLinking>
       </FunctionLevelLinking>
       <RuntimeTypeInfo>
@@ -282,9 +283,11 @@
     <ClInclude Include="..\include\callbacks.h" />
     <ClInclude Include="..\include\clib.h" />
     <ClInclude Include="..\include\core.h" />
+    <ClInclude Include="..\include\cthread.h" />
     <ClInclude Include="..\include\engine.h" />
     <ClInclude Include="..\include\glibc.h" />
     <ClInclude Include="..\include\globals.h" />
+    <ClInclude Include="..\include\netmsg.h" />
     <ClInclude Include="..\include\platform.h" />
     <ClInclude Include="..\include\resource.h" />
     <ClInclude Include="..\include\rng.h" />
