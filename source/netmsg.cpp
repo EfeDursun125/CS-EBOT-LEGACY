@@ -29,10 +29,8 @@ NetworkMsg::NetworkMsg(void)
     m_message = NETMSG_UNDEFINED;
     m_state = 0;
     m_bot = nullptr;
-
-    int i;
-    for (i = 0; i < NETMSG_NUM; i++)
-        m_registerdMessages[i] = NETMSG_UNDEFINED;
+    for (auto& reg : m_registerdMessages)
+        reg = NETMSG_UNDEFINED;
 }
 
 void NetworkMsg::HandleMessageIfRequired(const int messageType, const int requiredType)
@@ -46,7 +44,7 @@ void NetworkMsg::Execute(void* p)
     if (m_message == NETMSG_UNDEFINED)
         return; // no message or not for bot, return
 
-   // some needed variables
+    // some needed variables
     static uint8_t r, g, b;
     static uint8_t enabled;
 
@@ -88,21 +86,21 @@ void NetworkMsg::Execute(void* p)
         if (m_bot != nullptr)
         {
             const char* x = PTR_TO_STR(p);
-            if (cstrcmp(x, "#Team_Select") == 0) // team select menu?
+            if (cstrncmp(x, "#Team_Select", 13) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#Team_Select_Spect") == 0) // team select menu?
+            else if (cstrncmp(x, "#Team_Select_Spect", 19) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_Team_Select_Spect") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_Team_Select_Spect", 22) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_Team_Select") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_Team_Select", 16) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_VIP_Team_Select") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_VIP_Team_Select", 20) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_VIP_Team_Select_Spect") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_VIP_Team_Select_Spect", 26) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#Terrorist_Select") == 0) // T model select?
+            else if (cstrncmp(x, "#Terrorist_Select", 18) == 0) // T model select?
                 m_bot->m_startAction = CMENU_CLASS;
-            else if (cstrcmp(x, "#CT_Select") == 0) // CT model select menu?
+            else if (cstrncmp(x, "#CT_Select",  11) == 0) // CT model select menu?
                 m_bot->m_startAction = CMENU_CLASS;
         }
 
@@ -114,7 +112,7 @@ void NetworkMsg::Execute(void* p)
         switch (m_state)
         {
         case 0:
-            cstrcpy(weaponProp.className, PTR_TO_STR(p));
+            cstrncpy(weaponProp.className, PTR_TO_STR(p), sizeof(weaponProp.className));
             break;
 
         case 1:
@@ -160,7 +158,7 @@ void NetworkMsg::Execute(void* p)
         case 2:
             clip = PTR_TO_INT(p); // ammo currently in the clip for this weapon
 
-            if (m_bot != nullptr && id <= 31)
+            if (m_bot != nullptr && id < Const_MaxWeapons)
             {
                 if (state != 0)
                     m_bot->m_currentWeapon = id;
@@ -246,16 +244,16 @@ void NetworkMsg::Execute(void* p)
             if (g_gameVersion != HALFLIFE && m_bot != nullptr)
             {
                 const char* x = PTR_TO_STR(p);
-                if (cstrcmp(x, "defuser") == 0)
+                if (cstrncmp(x, "defuser", 8) == 0)
                     m_bot->m_hasDefuser = (enabled != 0);
-                else if (cstrcmp(x, "buyzone") == 0)
+                else if (cstrncmp(x, "buyzone", 8) == 0)
                 {
                     m_bot->m_inBuyZone = (enabled != 0);
                     m_bot->EquipInBuyzone(0);
                 }
-                else if (cstrcmp(x, "vipsafety") == 0)
+                else if (cstrncmp(x, "vipsafety", 10) == 0)
                     m_bot->m_inVIPZone = (enabled != 0);
-                else if (cstrcmp(x, "c4") == 0)
+                else if (cstrncmp(x, "c4", 3) == 0)
                     m_bot->m_inBombZone = (enabled == 2);
             }
 
@@ -263,7 +261,7 @@ void NetworkMsg::Execute(void* p)
         }
         break;
 
-    case NETMSG_DEATH: // this message sends on death
+    /*case NETMSG_DEATH: // this message sends on death
         switch (m_state)
         {
         case 0:
@@ -289,7 +287,7 @@ void NetworkMsg::Execute(void* p)
             break;
         }
         break;
-
+        */
     case NETMSG_SCREENFADE: // this message gets sent when the Screen fades (Flashbang)
         switch (m_state)
         {
@@ -307,8 +305,11 @@ void NetworkMsg::Execute(void* p)
 
         case 6:
             if (m_bot != nullptr)
-                m_bot->TakeBlinded(Vector(r, g, b), PTR_TO_BYTE(p));
-
+            {
+                const int alpha = PTR_TO_BYTE(p);
+                if (r == 255 && g == 255 && b == 255 && alpha > 170)
+                    m_bot->TakeBlinded(alpha);
+            }
             break;
         }
 

@@ -176,7 +176,7 @@ Vector GetNearestWalkablePosition(const Vector& origin, edict_t* ent, bool retur
 		FirstOrigin = nullvec;
 
 	if (g_numWaypoints > 0)
-		SecondOrigin = g_waypoint->GetPath(g_waypoint->FindNearest(origin))->origin; // get nearest waypoint for walk
+		SecondOrigin = g_waypoint->GetPath(g_waypoint->FindNearestInCircle(origin))->origin; // get nearest waypoint for walk
 	else
 		SecondOrigin = nullvec;
 
@@ -657,8 +657,9 @@ void RoundInit(void)
 
 	for (const auto& client : g_clients)
 	{
-		if (g_botManager->GetBot(client.index) != nullptr)
-			g_botManager->GetBot(client.index)->NewRound();
+		Bot* bot = g_botManager->GetBot(client.index);
+		if (bot != nullptr)
+			bot->NewRound();
 
 		g_radioSelect[client.index] = 0;
 	}
@@ -674,7 +675,6 @@ void RoundInit(void)
 	g_lastRadioTime[1] = 0.0f;
 	g_botsCanPause = false;
 
-	g_waypoint->ClearGoalScore();
 	g_waypoint->SetBombPosition(true);
 
 	if (g_gameVersion != HALFLIFE)
@@ -947,7 +947,7 @@ bool IsWeaponShootingThroughWall(int id)
 	return false;
 }
 
-void SetGameMode(int gamemode)
+void SetGameMode(const int gamemode)
 {
 	ebot_gamemod.SetInt(gamemode);
 }
@@ -962,7 +962,7 @@ bool IsDeathmatchMode(void)
 	return (ebot_gamemod.GetInt() == MODE_DM || ebot_gamemod.GetInt() == MODE_TDM);
 }
 
-bool IsValidWaypoint(int index)
+bool IsValidWaypoint(const int index)
 {
 	if (index < 0 || index >= g_numWaypoints)
 		return false;
@@ -1094,14 +1094,14 @@ int SetEntityWaypoint(edict_t* ent, int mode)
 		if (getWpOrigin != nullvec && wpIndex >= 0 && wpIndex < g_numWaypoints)
 		{
 			float distance = (getWpOrigin - origin).GetLengthSquared();
-			if (distance >= SquaredF(300.0f))
+			if (distance >= squaredf(300.0f))
 				needCheckNewWaypoint = true;
-			else if (distance >= SquaredF(32.0f))
+			else if (distance >= squaredf(32.0f))
 			{
 				Vector wpOrigin = g_waypoint->GetPath(wpIndex)->origin;
 				distance = (wpOrigin - origin).GetLengthSquared();
 
-				if (distance > SquaredF(g_waypoint->GetPath(wpIndex)->radius + 32.0f))
+				if (distance > squaredf(g_waypoint->GetPath(wpIndex)->radius + 32.0f))
 					needCheckNewWaypoint = true;
 				else
 				{
@@ -1263,9 +1263,9 @@ void HudMessage(edict_t* ent, bool toCenter, const Color& rgb, char* format, ...
 	WRITE_BYTE(static_cast <int> (rgb.green));
 	WRITE_BYTE(static_cast <int> (rgb.blue));
 	WRITE_BYTE(0);
-	WRITE_BYTE(CRandomInt(230, 255));
-	WRITE_BYTE(CRandomInt(230, 255));
-	WRITE_BYTE(CRandomInt(230, 255));
+	WRITE_BYTE(crandomint(230, 255));
+	WRITE_BYTE(crandomint(230, 255));
+	WRITE_BYTE(crandomint(230, 255));
 	WRITE_BYTE(200);
 	WRITE_SHORT(FixedUnsigned16(0.0078125, 1 << 8));
 	WRITE_SHORT(FixedUnsigned16(2, 1 << 8));
@@ -1884,7 +1884,7 @@ void GetVoiceAndDur(ChatterMessage message, char** voice, float* dur)
 {
 	if (message == ChatterMessage::Yes)
 	{
-		int rV = CRandomInt(1, 12);
+		int rV = crandomint(1, 12);
 		if (rV == 1)
 		{
 			*voice = "affirmative";
@@ -1948,7 +1948,7 @@ void GetVoiceAndDur(ChatterMessage message, char** voice, float* dur)
 	}
 	else if (message == ChatterMessage::No)
 	{
-		int rV = CRandomInt(1, 13);
+		int rV = crandomint(1, 13);
 		if (rV == 1)
 		{
 			*voice = "ahh_negative";
@@ -2017,7 +2017,7 @@ void GetVoiceAndDur(ChatterMessage message, char** voice, float* dur)
 	}
 	else if (message == ChatterMessage::SeeksEnemy)
 	{
-		int rV = CRandomInt(1, 15);
+		int rV = crandomint(1, 15);
 		if (rV == 1)
 		{
 			*voice = "help";
@@ -2096,7 +2096,7 @@ void GetVoiceAndDur(ChatterMessage message, char** voice, float* dur)
 	}
 	else if (message == ChatterMessage::Clear)
 	{
-		int rV = CRandomInt(1, 17);
+		int rV = crandomint(1, 17);
 		if (rV == 1)
 		{
 			*voice = "clear";
@@ -2209,7 +2209,7 @@ void GetVoiceAndDur(ChatterMessage message, char** voice, float* dur)
 	}
 	else if (message == ChatterMessage::CoverMe)
 	{
-		int rV = CRandomInt(1, 2);
+		int rV = crandomint(1, 2);
 		if (rV == 1)
 		{
 			*voice = "cover_me";
@@ -2223,7 +2223,7 @@ void GetVoiceAndDur(ChatterMessage message, char** voice, float* dur)
 	}
 	else if (message == ChatterMessage::Happy)
 	{
-		int rV = CRandomInt(1, 10);
+		int rV = crandomint(1, 10);
 		if (rV == 1)
 		{
 			*voice = "yea_baby";

@@ -110,13 +110,13 @@ char* HumanizeName(char* name)
     cstrcpy(outputName, name); // copy name to new buffer
 
     // drop tag marks, 75 percent of time
-    if (ChanceOf(75))
+    if (chanceof(75))
         StripTags(outputName);
     else
         cstrtrim(outputName);
 
     // sometimes switch name to lower characters
-    if (ChanceOf(50))
+    if (chanceof(50))
     {
         int i;
         for (i = 0; i < static_cast <int> (cstrlen(outputName)); i++)
@@ -312,14 +312,14 @@ void Bot::PrepareChatMessage(char* text)
             {
                 if (g_gameVersion == CSVER_CZERO)
                 {
-                    if (CRandomInt(1, 100) < 30)
+                    if (crandomint(1, 100) < 30)
                         cstrcat(m_tempStrings, "CZ");
                     else
                         cstrcat(m_tempStrings, "Condition Zero");
                 }
                 else if ((g_gameVersion == CSVER_CSTRIKE) || (g_gameVersion == CSVER_VERYOLD))
                 {
-                    if (CRandomInt(1, 100) < 30)
+                    if (crandomint(1, 100) < 30)
                         cstrcat(m_tempStrings, "CS");
                     else
                         cstrcat(m_tempStrings, "Counter-Strike");
@@ -365,7 +365,7 @@ bool Bot::CheckKeywords(char* tempMessage, char* reply)
     }
 
     // didn't find a keyword? 50% of the time use some universal reply
-    if (ChanceOf(50) && !g_chatFactory[CHAT_NOKW].IsEmpty())
+    if (chanceof(50) && !g_chatFactory[CHAT_NOKW].IsEmpty())
     {
         cstrcpy(reply, g_chatFactory[CHAT_NOKW].GetRandomElement().GetBuffer());
         return true;

@@ -310,9 +310,13 @@ bool Client::IsInViewCone(const Vector& pos) const
 
 bool Client::IsVisible(const Vector& pos) const
 {
-    Tracer trace(GetHeadOrigin(), pos, NO_BOTH, m_ent);
+    TraceResult tr{};
+    TraceLine(GetHeadOrigin(), pos, true, true, m_ent, &tr);
 
-    return !(trace.Fire() != 1.0);
+    if (tr.flFraction == 1.0f)
+        return true;
+
+    return false;
 }
 
 bool Client::HasFlag(int clientFlags)
@@ -335,7 +339,6 @@ void Client::Maintain(const Entity& ent)
     if (ent.IsPlayer())
     {
         m_ent = ent;
-
         m_safeOrigin = ent.GetOrigin();
         m_flags |= ent.IsAlive() ? CLIENT_VALID | CLIENT_ALIVE : CLIENT_VALID;
     }

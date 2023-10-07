@@ -23,7 +23,9 @@
 #endif
 #endif
 
-int CRandomInt(const int min, const int max)
+static size_t cache;
+
+int crandomint(const int min, const int max)
 {
 	if (min > max)
 		return frand() % (min - max + 1) + max;
@@ -31,7 +33,7 @@ int CRandomInt(const int min, const int max)
 	return frand() % (max - min + 1) + min;
 }
 
-float CRandomFloat(const float min, const float max)
+float crandomfloat(const float min, const float max)
 {
 	if (min > max)
 		return fnext() * (min - max) / UINT64_MAX + max;
@@ -39,22 +41,22 @@ float CRandomFloat(const float min, const float max)
 	return fnext() * (max - min) / UINT64_MAX + min;
 }
 
-bool ChanceOf(const int number)
+bool chanceof(const int number)
 {
-	return CRandomInt(1, 100) <= number;
+	return crandomint(1, 101) < number;
 }
 
-float SquaredF(const float value)
+float squaredf(const float value)
 {
 	return value * value;
 }
 
-float SquaredI(const int value)
+float squaredi(const int value)
 {
 	return static_cast<float>(value * value);
 }
 
-int Squared(const int value)
+int squared(const int value)
 {
 	return value * value;
 }
@@ -266,11 +268,11 @@ size_t cstrlen(const char* str)
 	if (str == nullptr)
 		return 0;
 
-	size_t length = 0;
-	while (length < SIZE_MAX && str[length] != '\0')
-		length++;
+	cache = 0;
+	while (cache < SIZE_MAX && str[cache] != '\0')
+		cache++;
 
-	return length;
+	return cache;
 }
 
 // this fixes bot spectator bug in linux builds
@@ -315,12 +317,11 @@ int cstrncmp(const char* str1, const char* str2, const size_t num)
 	if (str2 == nullptr)
 		return 0;
 
-	size_t i;
-	for (i = 0; i < num; ++i)
+	for (cache = 0; cache < num; ++cache)
 	{
-		if (str1[i] != str2[i])
-			return (str1[i] < str2[i]) ? -1 : 1;
-		else if (str1[i] == '\0')
+		if (str1[cache] != str2[cache])
+			return (str1[cache] < str2[cache]) ? -1 : 1;
+		else if (str1[cache] == '\0')
 			return 0;
 	}
 
@@ -344,9 +345,8 @@ void cmemcpy(void* dest, const void* src, const size_t size)
 	char* dest2 = static_cast<char*>(dest);
 	const char* src2 = static_cast<const char*>(src);
 
-	size_t i;
-	for (i = 0; i < size; ++i)
-		dest2[i] = src2[i];
+	for (cache = 0; cache < size; ++cache)
+		dest2[cache] = src2[cache];
 }
 
 void cmemset(void* dest, const int value, const size_t count)
@@ -354,8 +354,7 @@ void cmemset(void* dest, const int value, const size_t count)
 	unsigned char* ptr = static_cast<unsigned char*>(dest);
 	const unsigned char byteValue = static_cast<unsigned char>(value);
 
-	size_t i;
-	for (i = 0; i < count; ++i)
+	for (cache = 0; cache < count; ++cache)
 	{
 		*ptr = byteValue;
 		ptr++;
@@ -391,14 +390,14 @@ int cctz(unsigned int value)
 	if (value == 0)
 		return sizeof(unsigned int) * 8;
 
-	int count = 0;
+	cache = 0;
 	while ((value & 1) == 0)
 	{
 		value >>= 1;
-		count++;
+		cache++;
 	}
 
-	return count;
+	return cache;
 }
 
 int ctolower(const int value)
@@ -443,32 +442,29 @@ void cstrtrim(char* string)
 		return;
 
 	char* ptr = string;
-
 	int length = 0, toggleFlag = 0, increment = 0;
-	int i = 0;
-
 	while (*ptr++)
 		length++;
 
-	for (i = length - 1; i >= 0; i--)
+	for (cache = length - 1; cache >= 0; cache--)
 	{
-		if (!cspace(string[i]))
+		if (!cspace(string[cache]))
 			break;
 		else
 		{
-			string[i] = 0;
+			string[cache] = 0;
 			length--;
 		}
 	}
 
-	for (i = 0; i < length; i++)
+	for (cache = 0; cache < length; cache++)
 	{
-		if (cspace(string[i]) && !toggleFlag)
+		if (cspace(string[cache]) && !toggleFlag)
 		{
 			increment++;
 
-			if (increment + i < length)
-				string[i] = string[increment + i];
+			if (increment + cache < length)
+				string[cache] = string[increment + cache];
 		}
 		else
 		{
@@ -476,7 +472,7 @@ void cstrtrim(char* string)
 				toggleFlag = 1;
 
 			if (increment)
-				string[i] = string[increment + i];
+				string[cache] = string[increment + cache];
 		}
 	}
 
@@ -513,11 +509,11 @@ char* cstrncpy(char* dest, const char* src, const size_t count)
 	char* destPtr = dest;
 	const char* srcPtr = src;
 
-	size_t i = 0;
-	for (; i < count && *srcPtr != '\0'; i++, destPtr++, srcPtr++)
+	cache = 0;
+	for (; cache < count && *srcPtr != '\0'; cache++, destPtr++, srcPtr++)
 		*destPtr = *srcPtr;
 
-	for (; i < count; i++, destPtr++)
+	for (; cache < count; cache++, destPtr++)
 		*destPtr = '\0';
 
 	return dest;
@@ -568,7 +564,7 @@ size_t cstrspn(const char* str, const char* charset)
 	if (str == nullptr || charset == nullptr)
 		return 0;
 
-	size_t count = 0;
+	cache = 0;
 	while (*str != '\0')
 	{
 		const char* charset_ptr = charset;
@@ -588,11 +584,11 @@ size_t cstrspn(const char* str, const char* charset)
 		if (!found)
 			break;
 
-		count++;
+		cache++;
 		str++;
 	}
 
-	return count;
+	return cache;
 }
 
 size_t cstrcspn(const char* str, const char* charset)
@@ -600,7 +596,7 @@ size_t cstrcspn(const char* str, const char* charset)
 	if (str == nullptr || charset == nullptr)
 		return 0;
 
-	size_t count = 0;
+	cache = 0;
 	while (*str != '\0')
 	{
 		const char* charset_ptr = charset;
@@ -620,11 +616,11 @@ size_t cstrcspn(const char* str, const char* charset)
 		if (found)
 			break;
 
-		count++;
+		cache++;
 		str++;
 	}
 
-	return count;
+	return cache;
 }
 
 int catoi(const char* str)
