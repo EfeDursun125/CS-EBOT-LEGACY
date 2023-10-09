@@ -31,7 +31,6 @@
 #include <float.h>
 #include <time.h>
 #include <stdarg.h>
-#include <memory>
 
 #pragma warning (disable : 4996) // get rid of this
 
@@ -70,7 +69,7 @@ typedef unsigned short uint16_t;
 //
 // This macro is a null vector.
 //
-#define nullvec Vector::GetNull()
+#define nullvec Vector::GetNull ()
 
 //
 // Function: FormatBuffer
@@ -546,7 +545,7 @@ public:
     // Gets squared length (magnitude) of 3D vector.
     //
     // Returns:
-    //   squared length (magnitude) of the 3D vector.
+    //   Squared length (magnitude) of the 3D vector.
     //
     // See Also:
     //   <GetLength>
@@ -767,6 +766,14 @@ public:
         }
     }
 };
+
+namespace Math
+{
+    inline bool BBoxIntersects(const Vector& min1, const Vector& max1, const Vector& min2, const Vector& max2)
+    {
+        return min1.x < max2.x && max1.x > min2.x && min1.y < max2.y && max1.y > min2.y && min1.z < max2.z && max1.z > min2.z;
+    }
+}
 
 //
 // Class: Array
@@ -993,7 +1000,7 @@ public:
     T& GetAt(const int index)
     {
         if (index < 0 || index >= m_itemCount)
-            return m_elements[crandomint(0, m_itemCount - 1)];
+            return m_elements[CRandomInt(0, m_itemCount - 1)];
 
         return m_elements[index];
     }
@@ -1330,7 +1337,7 @@ public:
         if (m_itemCount < 2)
             return m_elements[0];
 
-        return m_elements[crandomint(0, m_itemCount - 1)];
+        return m_elements[CRandomInt(0, m_itemCount - 1)];
     }
 
     Array <T>& operator = (const Array <T>& other)
@@ -2736,7 +2743,7 @@ public:
     //
     Array <String> Split(const char separator)
     {
-        const char sep[2] = {separator, 0x0};
+        const char sep[2] = { separator, 0x0 };
         return Split(sep);
     }
 };
@@ -2891,7 +2898,7 @@ public:
     }
 
     //
-    // Function: Printf
+    // Function: Print
     //  Puts formatted buffer, into stream.
     //
     // Parameters:
@@ -2900,7 +2907,7 @@ public:
     // Returns:
     //  Number of bytes, that was written.
     //
-    int Printf(const char* format, ...)
+    int Print(const char* format, ...)
     {
         va_list ap;
         va_start(ap, format);
@@ -3176,6 +3183,7 @@ public:
     {
         m_logger = logger;
 
+
         if (m_logger && m_logFile.IsValid())
         {
             m_logFile.Close();
@@ -3191,7 +3199,7 @@ public:
 #define DEFINE_PRINT_FUNCTION(funcName, logMask, logStr) \
    void funcName (const char *format, ...) \
    { \
-      const int flags = m_logger->GetFlags (); \
+      int flags = m_logger->GetFlags (); \
       \
       if ((flags & logMask) != logMask) \
          return; \
@@ -3206,7 +3214,7 @@ public:
       if (flags & LM_CONSOLE) \
          m_logger->EchoWithTag ("(%s): %s", logStr, buffer); \
       \
-      m_logFile.Printf ("[%s] (%s): %s\n", GetTimeFormatString (), logStr, buffer); \
+      m_logFile.Print ("[%s] (%s): %s\n", GetTimeFormatString (), logStr, buffer); \
       \
    }
 
@@ -3286,8 +3294,6 @@ template <typename T1, typename T2> inline Pair <T1, T2> MakePair(T1 first, T2 s
 
 // @DEPRECATEME@
 #define ITERATE_ARRAY(arrayName, iteratorName) \
-const int size = arrayName.GetElementNumber(); \
-int iteratorName; \
-for (iteratorName = 0; iteratorName != size; iteratorName++)
+   for (int iteratorName = 0; iteratorName != arrayName.GetElementNumber (); iteratorName++)
 
 #endif // RUNTIME_INCLUDED
