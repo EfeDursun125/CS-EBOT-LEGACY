@@ -206,7 +206,7 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 			" Website: " PRODUCT_URL "\n"
 			"+---------------------------------------------------------------------------------+\n";
 
-		HudMessage(ent, true, Color(crandomint(33, 255), crandomint(33, 255), crandomint(33, 255)), aboutData);
+		HudMessage(ent, true, Color(CRandomInt(33, 255), CRandomInt(33, 255), CRandomInt(33, 255)), aboutData);
 	}
 
 	// displays version information
@@ -309,9 +309,8 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		// test random number generator
 		if (cstricmp(arg0, "randgen") == 0)
 		{
-			int i;
-			for (i = 0; i < 500; i++)
-				ServerPrintNoTag("Result Range[0 - 100]: %d", crandomint(0, 100));
+			for (int i = 0; i < 500; i++)
+				ServerPrintNoTag("Result Range[0 - 100]: %d", CRandomInt(0, 100));
 		}
 	}
 
@@ -331,8 +330,7 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 				g_waypoint->CreateBasic();
 
 			// no expand
-			int i;
-			for (i = 0; i < (Const_MaxWaypoints - 1); i++)
+			for (int i = 0; i < (Const_MaxWaypoints - 1); i++)
 				g_expanded[i] = false;
 		}
 
@@ -432,14 +430,14 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		else if (cstricmp(arg1, "setmesh") == 0)
 		{
 			if (IsNullString(arg2))
-				ClientPrint(ent, print_withtag, "Please set mesh <number>, min 0, max 255");
+				ClientPrint(ent, print_withtag, "Please set mesh <number>");
 			else
 			{
-				const int index = g_waypoint->FindNearestInCircle(GetEntityOrigin(g_hostEntity), 75.0f);
+				const int index = g_waypoint->FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
 				if (IsValidWaypoint(index))
 				{
 					g_waypoint->GetPath(index)->mesh = catoi(arg2);
-					ClientPrint(ent, print_withtag, "Waypoint mesh set to %d", static_cast<uint8_t>(g_waypoint->GetPath(index)->mesh));
+					ClientPrint(ent, print_withtag, "Waypoint mesh set to %d", static_cast <int> (g_waypoint->GetPath(index)->mesh));
 				}
 				else
 					ClientPrint(ent, print_withtag, "Waypoint is not valid");
@@ -453,7 +451,7 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 				ClientPrint(ent, print_withtag, "Please set gravity <number>");
 			else
 			{
-				const int index = g_waypoint->FindNearestInCircle(GetEntityOrigin(g_hostEntity), 75.0f);
+				const int index = g_waypoint->FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
 				if (IsValidWaypoint(index))
 				{
 					g_waypoint->GetPath(index)->gravity = cabsf(catof(arg2));
@@ -481,7 +479,7 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		// save waypoint data into file on hard disk
 		else if (cstricmp(arg1, "save") == 0)
 		{
-			if (FStrEq(arg2, "pwf"))
+			if (FStrEq(arg2, "pwf") || FStrEq(arg2, "old"))
 			{
 				g_waypoint->SaveOLD();
 				ServerPrint("Waypoints Saved As PWF");
@@ -682,9 +680,8 @@ void CheckEntityAction(void)
 void LoadEntityData(void)
 {
 	edict_t* entity;
-	int i;
 
-	for (i = engine->GetMaxClients() + 1; i < entityNum; i++)
+	for (int i = engine->GetMaxClients() + 1; i < entityNum; i++)
 	{
 		if (g_entityId[i] == -1)
 			continue;
@@ -700,7 +697,7 @@ void LoadEntityData(void)
 			SetEntityWaypoint(entity);
 	}
 
-	for (i = 0; i < engine->GetMaxClients(); i++)
+	for (int i = 0; i < engine->GetMaxClients(); i++)
 	{
 		entity = INDEXENT(i);
 
@@ -927,7 +924,6 @@ void InitConfig(void)
 	// GENERAL DATA INITIALIZATION
 	if (OpenConfig("general.cfg", "General configuration file not found. Loading defaults", &fp))
 	{
-		int i;
 		while (fp.GetBuffer(line, 255))
 		{
 			SKIP_COMMENTS();
@@ -947,7 +943,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (i = 0; i < Const_NumWeapons; i++)
+				for (int i = 0; i < Const_NumWeapons; i++)
 					g_weaponSelect[i].teamStandard = splitted[i];
 			}
 			else if (pair[0] == "MapAS")
@@ -955,7 +951,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (i = 0; i < Const_NumWeapons; i++)
+				for (int i = 0; i < Const_NumWeapons; i++)
 					g_weaponSelect[i].teamAS = splitted[i];
 			}
 			else if (pair[0] == "PersonalityNormal")
@@ -963,7 +959,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (i = 0; i < Const_NumWeapons; i++)
+				for (int i = 0; i < Const_NumWeapons; i++)
 					g_normalWeaponPrefs[i] = splitted[i];
 			}
 			else if (pair[0] == "PersonalityRusher")
@@ -971,7 +967,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (i = 0; i < Const_NumWeapons; i++)
+				for (int i = 0; i < Const_NumWeapons; i++)
 					g_rusherWeaponPrefs[i] = splitted[i];
 			}
 			else if (pair[0] == "PersonalityCareful")
@@ -979,7 +975,7 @@ void InitConfig(void)
 				if (splitted.GetElementNumber() != Const_NumWeapons)
 					AddLogEntry(LOG_FATAL, "%s entry in general config is not valid.", pair[0][0]);
 
-				for (i = 0; i < Const_NumWeapons; i++)
+				for (int i = 0; i < Const_NumWeapons; i++)
 					g_carefulWeaponPrefs[i] = splitted[i];
 			}
 			else if (pair[0].Contains("Skill"))
@@ -1002,7 +998,7 @@ void InitConfig(void)
 				else if (pair[0].Contains("Elite"))
 					parserState = 5;
 
-				for (i = 0; i < 8; i++)
+				for (int i = 0; i < 8; i++)
 				{
 					switch (i)
 					{
@@ -1194,11 +1190,11 @@ int Spawn(edict_t* ent)
 			else if (cstrcmp(entityClassname, "func_escapezone") == 0)
 				g_mapType |= MAP_ES;
 			// next maps doesn't have map-specific entities, so determine it by name
-			else if (cstrncmp(GetMapName(), "fy_", 4) == 0) // fun map
+			else if (cstrncmp(GetMapName(), "fy_", 3) == 0) // fun map
 				g_mapType |= MAP_FY;
-			else if (cstrncmp(GetMapName(), "ka_", 4) == 0) // knife arena map
+			else if (cstrncmp(GetMapName(), "ka_", 3) == 0) // knife arena map
 				g_mapType |= MAP_KA;
-			else if (cstrncmp(GetMapName(), "awp_", 5) == 0) // awp only map
+			else if (cstrncmp(GetMapName(), "awp_", 4) == 0) // awp only map
 				g_mapType |= MAP_AWP;
 			else if (cstrncmp(GetMapName(), "he_", 4) == 0) // grenade wars
 				g_mapType |= MAP_HE;
@@ -1252,7 +1248,7 @@ void Touch(edict_t* pentTouched, edict_t* pentOther)
 
 	if (!FNullEnt(pentTouched) && !FNullEnt(pentOther))
 	{
-		Bot* bot = g_botManager->GetBot(pentOther);
+		Bot* bot = g_botManager->GetBot(const_cast <edict_t*> (pentOther));
 		if (bot != nullptr)
 			bot->CheckTouchEntity(pentTouched);
 	}
@@ -1288,7 +1284,7 @@ int ClientConnect(edict_t* ent, const char* name, const char* addr, char rejectR
    // callbacks->OnClientConnect (ent, name, addr);
 
 	// check if this client is the listen server client
-	if (cstrncmp(addr, "loopback", 9) == 0)
+	if (cstrcmp(addr, "loopback") == 0)
 		g_hostEntity = ent; // save the edict of the listen server client...
 
 	LoadEntityData();
@@ -1315,8 +1311,7 @@ void ClientDisconnect(edict_t* ent)
 	const int i = ENTINDEX(ent) - 1;
 
 	// check if its a bot
-	Bot* bot = g_botManager->GetBot(i);
-	if (bot != nullptr && bot->pev->pContainingEntity == ent)
+	if (g_botManager->GetBot(i) != nullptr && g_botManager->GetBot(i)->pev == &ent->v)
 		g_botManager->Free(i);
 
 	LoadEntityData();
@@ -1345,9 +1340,9 @@ void ClientUserInfoChanged(edict_t* ent, char* infobuffer)
 		(*g_functionTable.pfnClientUserInfoChanged) (ent, infobuffer);
 	}
 
-	const int clientIndex = ENTINDEX(ent) - 1;
+	int clientIndex = ENTINDEX(ent) - 1;
 
-	if (cstrcmp(password, INFOKEY_VALUE(infobuffer, const_cast<char*>(passwordField))) == 0)
+	if (cstrcmp(password, INFOKEY_VALUE(infobuffer, const_cast <char*> (passwordField))) == 0)
 		g_clients[clientIndex].flags |= CFLAG_OWNER;
 	else
 		g_clients[clientIndex].flags &= ~CFLAG_OWNER;
@@ -1383,7 +1378,7 @@ void ClientCommand(edict_t* ent)
 	{
 		if (cstricmp(command, "ebot") == 0)
 		{
-			const int state = BotCommandHandler(ent, IsNullString(CMD_ARGV(1)) ? "help" : CMD_ARGV(1), CMD_ARGV(2), CMD_ARGV(3), CMD_ARGV(4), CMD_ARGV(5), CMD_ARGV(6));
+			int state = BotCommandHandler(ent, IsNullString(CMD_ARGV(1)) ? "help" : CMD_ARGV(1), CMD_ARGV(2), CMD_ARGV(3), CMD_ARGV(4), CMD_ARGV(5), CMD_ARGV(6));
 
 			switch (state)
 			{
@@ -1407,7 +1402,7 @@ void ClientCommand(edict_t* ent)
 		else if (cstricmp(command, "menuselect") == 0 && !IsNullString(arg1) && g_clients[ENTINDEX(ent) - 1].menu != nullptr)
 		{
 			Clients* client = &g_clients[ENTINDEX(ent) - 1];
-			const int selection = catoi(arg1);
+			int selection = catoi(arg1);
 
 			if (client->menu == &g_menus[12])
 			{
@@ -1674,38 +1669,33 @@ void ClientCommand(edict_t* ent)
 					int meshPoints = 0;
 					int usePoints = 0;
 
-					int i;
-					for (i = 0; i < g_numWaypoints; i++)
+					for (int i = 0; i < g_numWaypoints; i++)
 					{
-						const Path* pointer = g_waypoint->GetPath(i);
-						if (pointer == nullptr)
-							continue;
-
-						if (pointer->flags & WAYPOINT_TERRORIST)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_TERRORIST)
 							terrPoints++;
 
-						if (pointer->flags & WAYPOINT_COUNTER)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_COUNTER)
 							ctPoints++;
 
-						if (pointer->flags & WAYPOINT_GOAL)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_GOAL)
 							goalPoints++;
 
-						if (pointer->flags & WAYPOINT_RESCUE)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_RESCUE)
 							rescuePoints++;
 
-						if (pointer->flags & WAYPOINT_CAMP)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_CAMP)
 							campPoints++;
 
-						if (pointer->flags & WAYPOINT_SNIPER)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_SNIPER)
 							sniperPoints++;
 
-						if (pointer->flags & WAYPOINT_AVOID)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_AVOID)
 							avoidPoints++;
 
-						if (pointer->flags & WAYPOINT_USEBUTTON)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_USEBUTTON)
 							usePoints++;
 
-						if (pointer->flags & WAYPOINT_HMCAMPMESH)
+						if (g_waypoint->GetPath(i)->flags & WAYPOINT_HMCAMPMESH)
 							meshPoints++;
 					}
 
@@ -1778,7 +1768,7 @@ void ClientCommand(edict_t* ent)
 
 				const int radiusValue[] = { 0, 8, 16, 32, 48, 64, 80, 96, 128 };
 
-				if (selection >= 1 && selection <= 9)
+				if ((selection >= 1) && (selection <= 9))
 					g_waypoint->SetRadius(radiusValue[selection - 1]);
 
 				if (g_isMetamod)
@@ -1907,7 +1897,7 @@ void ClientCommand(edict_t* ent)
 				{
 				case 1:
 				case 2:
-					if (FindNearestPlayer(reinterpret_cast<void**>(&bot), client->ent, 4096.0f, true, true, true))
+					if (FindNearestPlayer(reinterpret_cast <void**> (&bot), client->ent, 4096.0, true, true, true))
 					{
 						if (!(bot->pev->weapons & (1 << WEAPON_C4)) && !bot->HasHostage() && (bot->GetCurrentTaskID() != TASK_PLANTBOMB) && (bot->GetCurrentTaskID() != TASK_DEFUSEBOMB))
 						{
@@ -1918,7 +1908,7 @@ void ClientCommand(edict_t* ent)
 								bot->m_doubleJumpOrigin = GetEntityOrigin(client->ent);
 								bot->m_doubleJumpEntity = client->ent;
 
-								bot->PushTask(TASK_DOUBLEJUMP, TASKPRI_DOUBLEJUMP, engine->GetTime(), true);
+								bot->PushTask(TASK_DOUBLEJUMP, TASKPRI_DOUBLEJUMP, -1, engine->GetTime(), true);
 								bot->ChatSay(true, FormatBuffer("Ok %s, i will help you!", GetEntityName(ent)));
 							}
 							else if (selection == 2)
@@ -1930,7 +1920,7 @@ void ClientCommand(edict_t* ent)
 
 				case 3:
 				case 4:
-					if (FindNearestPlayer(reinterpret_cast <void**> (&bot), ent, 300.0f, true, true, true))
+					if (FindNearestPlayer(reinterpret_cast <void**> (&bot), ent, 300.0, true, true, true))
 						bot->DiscardWeaponForUser(ent, selection == 4 ? false : true);
 					break;
 
@@ -2211,23 +2201,23 @@ void ClientCommand(edict_t* ent)
 				switch (selection)
 				{
 				case 1:
-					g_storeAddbotVars[0] = crandomint(0, 20);
+					g_storeAddbotVars[0] = CRandomInt(0, 20);
 					break;
 
 				case 2:
-					g_storeAddbotVars[0] = crandomint(20, 40);
+					g_storeAddbotVars[0] = CRandomInt(20, 40);
 					break;
 
 				case 3:
-					g_storeAddbotVars[0] = crandomint(40, 60);
+					g_storeAddbotVars[0] = CRandomInt(40, 60);
 					break;
 
 				case 4:
-					g_storeAddbotVars[0] = crandomint(60, 80);
+					g_storeAddbotVars[0] = CRandomInt(60, 80);
 					break;
 
 				case 5:
-					g_storeAddbotVars[0] = crandomint(80, 99);
+					g_storeAddbotVars[0] = CRandomInt(80, 99);
 					break;
 
 				case 6:
@@ -2790,11 +2780,11 @@ void JustAStuff(void)
 		{
 			for (const auto& bot : g_botManager->m_bots)
 			{
-				if (bot == nullptr)
-					continue;
-
-				g_botManager->RemoveAll();
-				break;
+				if (bot != nullptr)
+				{
+					g_botManager->RemoveAll();
+					break;
+				}
 			}
 
 			g_waypoint->Think();
@@ -2817,7 +2807,7 @@ void FrameThread(void)
 	if (g_bombPlanted)
 		g_waypoint->SetBombPosition();
 
-	secondTimer = engine->GetTime() + 1.0f;
+	secondTimer = AddTime(1.0f);
 }
 
 void StartFrame(void)
@@ -2859,7 +2849,7 @@ void StartFrame_Post(void)
 	if (updateTimer < engine->GetTime())
 	{
 		g_botManager->Think();
-		updateTimer = engine->GetTime() + 0.03333333333f;
+		updateTimer = AddTime(0.03333333333f);
 	}
 	// **** AI EXECUTION FINISH ****
 
@@ -2879,7 +2869,7 @@ int Spawn_Post(edict_t* ent)
 		ent->v.flags &= ~FL_WORLDBRUSH; // clear the FL_WORLDBRUSH flag out of transparent ents
 
 	// reset bot
-	Bot* bot = g_botManager->GetBot(ent);
+	auto bot = g_botManager->GetBot(ent);
 	if (bot != nullptr)
 		bot->NewRound();
 
@@ -2945,8 +2935,7 @@ void pfnChangeLevel(char* s1, char* s2)
 edict_t* pfnFindEntityByString(edict_t* edictStartSearchAfter, const char* field, const char* value)
 {
 	// round starts in counter-strike 1.5
-	const char* cs = "info_map_parameters";
-	if (cstrncmp(value, cs, sizeof(cs)) == 0)
+	if (cstrcmp(value, "info_map_parameters") == 0)
 		RoundInit();
 
 	if (g_isMetamod)
@@ -2975,10 +2964,49 @@ void pfnEmitSound(edict_t* entity, int channel, const char* sample, float volume
 	(*g_engfuncs.pfnEmitSound) (entity, channel, sample, volume, attenuation, flags, pitch);
 }
 
+void pfnClientCommand(edict_t* ent, char* format, ...)
+{
+	// this function forces the client whose player entity is ent to issue a client command.
+	// How it works is that clients all have a g_xgv global string in their client DLL that
+	// stores the command string; if ever that string is filled with characters, the client DLL
+	// sends it to the engine as a command to be executed. When the engine has executed that
+	// command, this g_xgv string is reset to zero. Here is somehow a curious implementation of
+	// ClientCommand: the engine sets the command it wants the client to issue in his g_xgv, then
+	// the client DLL sends it back to the engine, the engine receives it then executes the
+	// command therein. Don't ask me why we need all this complicated crap. Anyhow since bots have
+	// no client DLL, be certain never to call this function upon a bot entity, else it will just
+	// make the server crash. Since hordes of uncautious, not to say stupid, programmers don't
+	// even imagine some players on their servers could be bots, this check is performed less than
+	// sometimes actually by their side, that's why we strongly recommend to check it here too. In
+	// case it's a bot asking for a client command, we handle it like we do for bot commands, ie
+	// using FakeClientCommand().
+
+	va_list ap;
+	char buffer[1024];
+
+	va_start(ap, format);
+	vsnprintf(buffer, sizeof(buffer), format, ap);
+	va_end(ap);
+
+	// is the target entity an official bot, or a third party bot ?
+	if (IsValidBot(ent) || (ent->v.flags & FL_DORMANT))
+	{
+		if (g_isMetamod)
+			RETURN_META(MRES_SUPERCEDE); // prevent bots to be forced to issue client commands
+
+		return;
+	}
+
+	if (g_isMetamod)
+		RETURN_META(MRES_IGNORED);
+
+	CLIENT_COMMAND(ent, buffer);
+}
+
 // this function called each time a message is about to sent
 void pfnMessageBegin(int msgDest, int msgType, const float* origin, edict_t* ed)
 {
-	// store the message type in our own variables, since the GET_USER_MSG_ID() will just do a lot of strcmp()'s...
+	// store the message type in our own variables, since the GET_USER_MSG_ID () will just do a lot of cstrcmp()'s...
 	if (g_isMetamod && NetworkMsg::GetObjectPtr()->GetId(NETMSG_MONEY) == -1)
 	{
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_VGUI, GET_USER_MSG_ID(PLID, "VGUIMenu", nullptr));
@@ -2990,7 +3018,7 @@ void pfnMessageBegin(int msgDest, int msgType, const float* origin, edict_t* ed)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_DAMAGE, GET_USER_MSG_ID(PLID, "Damage", nullptr));
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_MONEY, GET_USER_MSG_ID(PLID, "Money", nullptr));
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_STATUSICON, GET_USER_MSG_ID(PLID, "StatusIcon", nullptr));
-		//NetworkMsg::GetObjectPtr()->SetId(NETMSG_DEATH, GET_USER_MSG_ID(PLID, "DeathMsg", nullptr));
+		NetworkMsg::GetObjectPtr()->SetId(NETMSG_DEATH, GET_USER_MSG_ID(PLID, "DeathMsg", nullptr));
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_SCREENFADE, GET_USER_MSG_ID(PLID, "ScreenFade", nullptr));
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_HLTV, GET_USER_MSG_ID(PLID, "HLTV", nullptr));
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_TEXTMSG, GET_USER_MSG_ID(PLID, "TextMsg", nullptr));
@@ -3009,15 +3037,15 @@ void pfnMessageBegin(int msgDest, int msgType, const float* origin, edict_t* ed)
 
 	NetworkMsg::GetObjectPtr()->HandleMessageIfRequired(msgType, NETMSG_WLIST);
 
-	if (!FNullEnt(ed) && !(ed->v.flags & FL_DORMANT))
+	if (!FNullEnt(ed))
 	{
-		Bot* bot = g_botManager->GetBot(ed);
+		const int index = g_botManager->GetIndex(ed);
 
 		// is this message for a bot?
-		if (bot != nullptr && bot->pev->pContainingEntity == ed)
+		if (index != -1 && !(ed->v.flags & FL_DORMANT) && g_botManager->GetBot(index)->GetEntity() == ed)
 		{
 			NetworkMsg::GetObjectPtr()->Reset();
-			NetworkMsg::GetObjectPtr()->SetBot(bot);
+			NetworkMsg::GetObjectPtr()->SetBot(g_botManager->GetBot(index));
 
 			// message handling is done in usermsg.cpp
 			NetworkMsg::GetObjectPtr()->HandleMessageIfRequired(msgType, NETMSG_VGUI);
@@ -3038,17 +3066,15 @@ void pfnMessageBegin(int msgDest, int msgType, const float* origin, edict_t* ed)
 		NetworkMsg::GetObjectPtr()->Reset();
 
 		//NetworkMsg::GetObjectPtr()->HandleMessageIfRequired (msgType, NETMSG_SCOREINFO);
-		//NetworkMsg::GetObjectPtr()->HandleMessageIfRequired(msgType, NETMSG_DEATH);
+		NetworkMsg::GetObjectPtr()->HandleMessageIfRequired(msgType, NETMSG_DEATH);
 		NetworkMsg::GetObjectPtr()->HandleMessageIfRequired(msgType, NETMSG_TEXTMSG);
 
 		if (msgType == SVC_INTERMISSION)
 		{
 			for (const auto& bot : g_botManager->m_bots)
 			{
-				if (bot == nullptr)
-					continue;
-
-				bot->m_isAlive = false;
+				if (bot != nullptr)
+					bot->m_isAlive = false;
 			}
 		}
 	}
@@ -3141,6 +3167,8 @@ void pfnWriteCoord(float value)
 
 void pfnWriteString(const char* sz)
 {
+	//Bot *bot = g_botManager->FindOneValidAliveBot ();
+
 	// if this message is for a bot, call the client message function...
 	NetworkMsg::GetObjectPtr()->Execute((void*)sz);
 
@@ -3273,17 +3301,11 @@ void pfnClientPrintf(edict_t* ent, PRINT_TYPE printType, const char* message)
 
 void pfnSetClientMaxspeed(const edict_t* ent, float newMaxspeed)
 {
-	Bot* bot = g_botManager->GetBot(const_cast<edict_t*>(ent));
+	Bot* bot = g_botManager->GetBot(const_cast <edict_t*> (ent));
 
 	// check wether it's not a bot
 	if (bot != nullptr)
-	{
-		const float newSpeed = newMaxspeed + 10.0f;
-		bot->pev->maxspeed = newSpeed;
-		(*g_engfuncs.pfnSetClientMaxspeed) (ent, newSpeed);
-		if (g_isMetamod)
-			RETURN_META(MRES_SUPERCEDE);
-	}
+		bot->pev->maxspeed = newMaxspeed;
 
 	if (g_isMetamod)
 		RETURN_META(MRES_IGNORED);
@@ -3306,48 +3328,76 @@ int pfnRegUserMsg(const char* name, int size)
 	if (g_isMetamod)
 		RETURN_META_VALUE(MRES_IGNORED, 0);
 
-	const int message = REG_USER_MSG(name, size);
+	int message = REG_USER_MSG(name, size);
 
-	if (cstrncmp(name, "VGUIMenu", 9) == 0)
+	if (cstrcmp(name, "VGUIMenu") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_VGUI, message);
-	else if (cstrncmp(name, "ShowMenu", 9) == 0)
+	else if (cstrcmp(name, "ShowMenu") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_SHOWMENU, message);
-	else if (cstrncmp(name, "WeaponList", 11) == 0)
+	else if (cstrcmp(name, "WeaponList") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_WLIST, message);
-	else if (cstrncmp(name, "CurWeapon", 10) == 0)
+	else if (cstrcmp(name, "CurWeapon") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_CURWEAPON, message);
-	else if (cstrncmp(name, "AmmoX", 6) == 0)
+	else if (cstrcmp(name, "AmmoX") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_AMMOX, message);
-	else if (cstrncmp(name, "AmmoPickup", 11) == 0)
+	else if (cstrcmp(name, "AmmoPickup") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_AMMOPICK, message);
-	else if (cstrncmp(name, "Damage", 7) == 0)
+	else if (cstrcmp(name, "Damage") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_DAMAGE, message);
-	else if (cstrncmp(name, "Money", 6) == 0)
+	else if (cstrcmp(name, "Money") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_MONEY, message);
-	else if (cstrncmp(name, "StatusIcon", 11) == 0)
+	else if (cstrcmp(name, "StatusIcon") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_STATUSICON, message);
-	//else if (cstrncmp(name, "DeathMsg", 9) == 0)
-		//NetworkMsg::GetObjectPtr()->SetId(NETMSG_DEATH, message);
-	else if (cstrncmp(name, "ScreenFade", 11) == 0)
+	else if (cstrcmp(name, "DeathMsg") == 0)
+		NetworkMsg::GetObjectPtr()->SetId(NETMSG_DEATH, message);
+	else if (cstrcmp(name, "ScreenFade") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_SCREENFADE, message);
-	else if (cstrncmp(name, "HLTV", 5) == 0)
+	else if (cstrcmp(name, "HLTV") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_HLTV, message);
-	else if (cstrncmp(name, "TextMsg", 8) == 0)
+	else if (cstrcmp(name, "TextMsg") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_TEXTMSG, message);
-	//else if (cstrncmp (name, "ScoreInfo", 10) == 0)
+	//else if (cstrcmp (name, "ScoreInfo") == 0)
 	   //NetworkMsg::GetObjectPtr()->SetId (NETMSG_SCOREINFO, message);
-	else if (cstrncmp(name, "BarTime", 8) == 0)
+	else if (cstrcmp(name, "BarTime") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_BARTIME, message);
-	else if (cstrncmp(name, "SendAudio", 10) == 0)
+	else if (cstrcmp(name, "SendAudio") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_SENDAUDIO, message);
-	else if (cstrncmp(name, "SayText", 8) == 0)
+	else if (cstrcmp(name, "SayText") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_SAYTEXT, message);
-	else if (cstrncmp(name, "BotVoice", 9) == 0)
+	else if (cstrcmp(name, "BotVoice") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_BOTVOICE, message);
-	else if (cstrncmp(name, "ResetHUD", 9) == 0)
+	else if (cstrcmp(name, "ResetHUD") == 0)
 		NetworkMsg::GetObjectPtr()->SetId(NETMSG_BOTVOICE, message);
 
 	return message;
+}
+
+void pfnAlertMessage(ALERT_TYPE alertType, char* format, ...)
+{
+	va_list ap;
+	char buffer[1024];
+
+	va_start(ap, format);
+	vsprintf(buffer, format, ap);
+	va_end(ap);
+
+	if (cstrstr(buffer, "_Defuse_") != nullptr)
+	{
+		// notify all terrorists that CT is starting bomb defusing
+		for (const auto& bot : g_botManager->m_bots)
+		{
+			if (bot != nullptr && bot->m_team == TEAM_TERRORIST && bot->m_isAlive)
+			{
+				bot->ResetTasks();
+				bot->MoveToVector(g_waypoint->GetBombPosition());
+			}
+		}
+	}
+
+	if (g_isMetamod)
+		RETURN_META(MRES_IGNORED);
+
+	(*g_engfuncs.pfnAlertMessage) (alertType, buffer);
 }
 
 gamedll_funcs_t gameDLLFunc;
@@ -3480,6 +3530,7 @@ exportc int GetEngineFunctions(enginefuncs_t* functionTable, int* /*interfaceVer
 	functionTable->pfnChangeLevel = pfnChangeLevel;
 	functionTable->pfnFindEntityByString = pfnFindEntityByString;
 	functionTable->pfnEmitSound = pfnEmitSound;
+	functionTable->pfnClientCommand = pfnClientCommand;
 	functionTable->pfnMessageBegin = pfnMessageBegin;
 	functionTable->pfnMessageEnd = pfnMessageEnd;
 	functionTable->pfnWriteByte = pfnWriteByte;
@@ -3496,6 +3547,7 @@ exportc int GetEngineFunctions(enginefuncs_t* functionTable, int* /*interfaceVer
 	functionTable->pfnCmd_Argv = pfnCmd_Argv;
 	functionTable->pfnCmd_Argc = pfnCmd_Argc;
 	functionTable->pfnSetClientMaxspeed = pfnSetClientMaxspeed;
+	functionTable->pfnAlertMessage = pfnAlertMessage;
 	functionTable->pfnGetPlayerAuthId = pfnGetPlayerAuthId;
 	functionTable->pfnGetPlayerWONId = pfnGetPlayerWONId;
 
@@ -3649,8 +3701,7 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 	ModSupport_t* knownMod = nullptr;
 	char gameDLLName[256];
 
-	int i;
-	for (i = 0; s_supportedMods[i].name; i++)
+	for (int i = 0; s_supportedMods[i].name; i++)
 	{
 		ModSupport_t* mod = &s_supportedMods[i];
 

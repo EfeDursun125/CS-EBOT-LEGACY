@@ -54,8 +54,7 @@ void Engine::RegisterVariable(const char* variable, const char* value, VarType v
 
 void Engine::PushRegisteredConVarsToEngine(void)
 {
-    int i;
-    for (i = 0; i < m_regCount; i++)
+    for (int i = 0; i < m_regCount; i++)
     {
         VarPair* ptr = &m_regVars[i];
 
@@ -197,8 +196,7 @@ void Engine::PrintAllClients(PrintType printType, const char* format, ...)
 
     if (printType == PRINT_CONSOLE)
     {
-        int i;
-        for (i = 0; i < GetMaxClients(); i++)
+        for (int i = 0; i < GetMaxClients(); i++)
         {
             const Client& client = GetClientByIndex(i);
 
@@ -305,18 +303,14 @@ float Client::GetShootingConeDeviation(const Vector& pos) const
 bool Client::IsInViewCone(const Vector& pos) const
 {
     engine->BuildGlobalVectors(GetViewAngles());
-    return ((pos - GetHeadOrigin()).Normalize() | g_pGlobals->v_forward) >= ccosf(Math::DegreeToRadian((GetFOV() > 0.0f ? GetFOV() : 90.0f) * 0.5f));
+    return ((pos - GetHeadOrigin()).Normalize() | g_pGlobals->v_forward) >= cosf(Math::DegreeToRadian((GetFOV() > 0.0f ? GetFOV() : 90.0f) * 0.5f));
 }
 
 bool Client::IsVisible(const Vector& pos) const
 {
-    TraceResult tr{};
-    TraceLine(GetHeadOrigin(), pos, true, true, m_ent, &tr);
+    Tracer trace(GetHeadOrigin(), pos, NO_BOTH, m_ent);
 
-    if (tr.flFraction == 1.0f)
-        return true;
-
-    return false;
+    return !(trace.Fire() != 1.0);
 }
 
 bool Client::HasFlag(int clientFlags)
@@ -339,6 +333,7 @@ void Client::Maintain(const Entity& ent)
     if (ent.IsPlayer())
     {
         m_ent = ent;
+
         m_safeOrigin = ent.GetOrigin();
         m_flags |= ent.IsAlive() ? CLIENT_VALID | CLIENT_ALIVE : CLIENT_VALID;
     }

@@ -25,7 +25,7 @@
 
 static size_t cache;
 
-int crandomint(const int min, const int max)
+int CRandomInt(const int min, const int max)
 {
 	if (min > max)
 		return frand() % (min - max + 1) + max;
@@ -33,7 +33,7 @@ int crandomint(const int min, const int max)
 	return frand() % (max - min + 1) + min;
 }
 
-float crandomfloat(const float min, const float max)
+float CRandomFloat(const float min, const float max)
 {
 	if (min > max)
 		return fnext() * (min - max) / UINT64_MAX + max;
@@ -41,24 +41,29 @@ float crandomfloat(const float min, const float max)
 	return fnext() * (max - min) / UINT64_MAX + min;
 }
 
-bool chanceof(const int number)
+bool ChanceOf(const int number)
 {
-	return crandomint(1, 101) < number;
+	return CRandomInt(1, 101) < number;
 }
 
-float squaredf(const float value)
+float SquaredF(const float value)
 {
 	return value * value;
 }
 
-float squaredi(const int value)
+float SquaredI(const int value)
 {
 	return static_cast<float>(value * value);
 }
 
-int squared(const int value)
+int Squared(const int value)
 {
 	return value * value;
+}
+
+float AddTime(const float time)
+{
+	return engine->GetTime() + time;
 }
 
 float cclampf(const float a, const float b, const float c)
