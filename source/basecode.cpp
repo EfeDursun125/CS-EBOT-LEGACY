@@ -2436,7 +2436,7 @@ bool Bot::ReactOnEnemy(void)
 
 	last:
 		if (!m_isEnemyReachable && (m_isZombieBot || GetCurrentTaskID() != TASK_CAMP))
-			m_enemyReachableTimer = AddTime(CRandomFloat(0.15f, 0.35f));
+			m_enemyReachableTimer = engine->GetTime() + CRandomFloat(0.15f, 0.35f);
 		else
 			m_enemyReachableTimer = AddTime(CRandomFloat(0.25f, 0.55f));
 	}

@@ -49,7 +49,7 @@ void Waypoint::Initialize(void)
             if (path == nullptr)
                 continue;
 
-            free(path);
+            delete path;
             path = nullptr;
         }
     }
@@ -797,7 +797,7 @@ void Waypoint::Add(int flags, Vector waypointOrigin)
 
         index = g_numWaypoints;
 
-        m_paths[index] = static_cast<Path*>(malloc(sizeof(Path)));
+        m_paths[index] = new(std::nothrow) Path;
 
         path = m_paths[index];
         if (path == nullptr)
@@ -1078,7 +1078,7 @@ void Waypoint::Delete(void)
     }
 
     // free deleted node
-    free(m_paths[index]);
+    delete m_paths[index];
     m_paths[index] = nullptr;
 
     // Rotate Path Array down
@@ -1137,7 +1137,7 @@ void Waypoint::DeleteByIndex(const int index)
     }
 
     // free deleted node
-    free(m_paths[index]);
+    delete m_paths[index];
     m_paths[index] = nullptr;
 
     // Rotate Path Array down
@@ -1673,7 +1673,7 @@ bool Waypoint::Load(void)
 
             for (i = 0; i < g_numWaypoints; i++)
             {
-                m_paths[i] = static_cast<Path*>(malloc(sizeof(Path)));
+                m_paths[i] = new(std::nothrow) Path;
                 if (m_paths[i] == nullptr)
                     continue;
 
@@ -1687,13 +1687,13 @@ bool Waypoint::Load(void)
 
             for (i = 0; i < g_numWaypoints; i++)
             {
-                paths[i] = static_cast<PathOLD2*>(malloc(sizeof(PathOLD2)));
+                paths[i] = new(std::nothrow) PathOLD2;
                 if (paths[i] == nullptr)
                     continue;
 
                 fp.Read(paths[i], sizeof(PathOLD2));
 
-                m_paths[i] = static_cast<Path*>(malloc(sizeof(Path)));
+                m_paths[i] = new(std::nothrow) Path;
                 if (m_paths[i] == nullptr)
                     continue;
 
@@ -1718,13 +1718,13 @@ bool Waypoint::Load(void)
 
             for (i = 0; i < g_numWaypoints; i++)
             {
-                paths[i] = static_cast<PathOLD*>(malloc(sizeof(PathOLD)));
+                paths[i] = new(std::nothrow) PathOLD;
                 if (paths[i] == nullptr)
                     continue;
 
                 fp.Read(paths[i], sizeof(PathOLD));
 
-                m_paths[i] = static_cast<Path*>(malloc(sizeof(Path)));
+                m_paths[i] = new(std::nothrow) Path;
                 if (m_paths[i] == nullptr)
                     continue;
 
@@ -1883,7 +1883,7 @@ void Waypoint::SaveOLD(void)
     // file was opened
     if (fp.IsValid())
     {
-        int i;
+        int i, x;
 
         // write the waypoint header to the file...
         fp.Write(&header, sizeof(header), 1);
@@ -1891,7 +1891,7 @@ void Waypoint::SaveOLD(void)
         PathOLD* paths[header.pointNumber];
         for (i = 0; i < header.pointNumber; i++)
         {
-            paths[i] = static_cast<PathOLD*>(malloc(sizeof(PathOLD)));
+            paths[i] = new(std::nothrow) PathOLD;
             if (paths[i] == nullptr)
                 continue;
 
@@ -1906,20 +1906,15 @@ void Waypoint::SaveOLD(void)
             paths[i]->campEndX = 0.0f;
             paths[i]->campEndY = 0.0f;
 
-            int C;
-            for (C = 0; C < 8; C++)
+            for (x = 0; x < 8; x++)
             {
-                paths[i]->index[C] = m_paths[i]->index[C];
-                paths[i]->connectionFlags[C] = m_paths[i]->connectionFlags[C];
-                paths[i]->connectionVelocity[C] = nullvec;
-                paths[i]->distances[C] = 0;
+                paths[i]->index[x] = m_paths[i]->index[x];
+                paths[i]->connectionFlags[x] = m_paths[i]->connectionFlags[x];
+                paths[i]->connectionVelocity[x] = nullvec;
+                paths[i]->distances[x] = 0;
             }
-        }
 
-        for (i = 0; i < header.pointNumber; i++)
-        {
             // iterate through connections and find, if it's a jump path
-            int x;
             for (x = 0; x < Const_MaxPathIndex; x++)
             {
                 // check if we got a valid connection
@@ -1927,6 +1922,7 @@ void Waypoint::SaveOLD(void)
                 {
                     Vector myOrigin = paths[i]->origin;
                     Vector waypointOrigin = paths[m_paths[i]->index[x]]->origin;
+                    paths[i]->distances[x] = static_cast<int32>((myOrigin - waypointOrigin).GetLength());
 
                     if (paths[m_paths[i]->index[x]]->flags & WAYPOINT_CROUCH)
                         waypointOrigin.z -= 18.0f;
@@ -1937,26 +1933,20 @@ void Waypoint::SaveOLD(void)
                         myOrigin.z -= 18.0f;
                     else
                         myOrigin.z -= 36.0f;
-
-                    paths[i]->distances[x] = static_cast<int32>((myOrigin - waypointOrigin).GetLength());
-
+                    
                     if (paths[i]->connectionFlags[x] & PATHFLAG_JUMP)
                     {
-                        const float timeToReachWaypoint = csqrtf(SquaredF(waypointOrigin.x - myOrigin.x) + SquaredF(waypointOrigin.y - myOrigin.y)) / 250.0f;
+                        const float timeToReachWaypoint = csqrtf(SquaredF(waypointOrigin.x - myOrigin.x) + SquaredF(waypointOrigin.y - myOrigin.y) + SquaredF(waypointOrigin.z - myOrigin.z)) / 250.0f;
                         paths[i]->connectionVelocity[x].x = (waypointOrigin.x - myOrigin.x) / timeToReachWaypoint;
                         paths[i]->connectionVelocity[x].y = (waypointOrigin.y - myOrigin.y) / timeToReachWaypoint;
-                        paths[i]->connectionVelocity[x].z = 2.0f * (waypointOrigin.z - myOrigin.z - 0.5f * 1.0f * SquaredF(timeToReachWaypoint)) / timeToReachWaypoint;
-
-                        if (paths[i]->connectionVelocity[x].z > 250.0f)
-                            paths[i]->connectionVelocity[x].z = 250.0f;
+                        paths[i]->connectionVelocity[x].z = ((waypointOrigin.z - myOrigin.z) * SquaredF(timeToReachWaypoint)) / timeToReachWaypoint;
                     }
                 }
             }
-        }
 
-        // save the waypoint paths...
-        for (i = 0; i < header.pointNumber; i++)
+            // save the waypoint paths...
             fp.Write(paths[i], sizeof(PathOLD));
+        }
 
         fp.Close();
     }

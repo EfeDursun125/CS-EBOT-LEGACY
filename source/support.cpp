@@ -740,39 +740,40 @@ void AutoLoadGameMode(void)
 		const int Const_GameModes = 13;
 		int bteGameModAi[Const_GameModes] =
 		{
-			MODE_BASE,		//1
-			MODE_TDM,		//2
-			MODE_DM,		//3
-			MODE_NOTEAM,	//4
-			MODE_TDM,		//5
-			MODE_ZP,		//6
-			MODE_ZP,		//7
-			MODE_ZP,		//8
-			MODE_ZP,		//9
-			MODE_ZH,		//10
-			MODE_ZP,		//11
-			MODE_NOTEAM,	//12
-			MODE_ZP			//13
+			MODE_BASE,		// 1
+			MODE_TDM,		// 2
+			MODE_DM,		// 3
+			MODE_NOTEAM,	// 4
+			MODE_TDM,		// 5
+			MODE_ZP,		// 6
+			MODE_ZP,		// 7
+			MODE_ZP,		// 8
+			MODE_ZP,		// 9
+			MODE_ZH,		// 10
+			MODE_ZP,		// 11
+			MODE_NOTEAM,	// 12
+			MODE_ZP			// 13
 		};
 
 		char* bteGameINI[Const_GameModes] =
 		{
-			"plugins-none", //1
-			"plugins-td",   //2
-			"plugins-dm",   //3
-			"plugins-dr",   //4
-			"plugins-gd",   //5
-			"plugins-ghost",//6
-			"plugins-zb1",  //7
-			"plugins-zb3",  //8
-			"plugins-zb4",  //9 
-			"plugins-ze",   //10
-			"plugins-zse",  //11
-			"plugins-npc",  //12
-			"plugins-zb5"   //13
+			"plugins-none", // 1
+			"plugins-td",   // 2
+			"plugins-dm",   // 3
+			"plugins-dr",   // 4
+			"plugins-gd",   // 5
+			"plugins-ghost",// 6
+			"plugins-zb1",  // 7
+			"plugins-zb3",  // 8
+			"plugins-zb4",  // 9 
+			"plugins-ze",   // 10
+			"plugins-zse",  // 11
+			"plugins-npc",  // 12
+			"plugins-zb5"   // 13
 		};
 
-		for (int i = 0; i < Const_GameModes; i++)
+		int i;
+		for (i = 0; i < Const_GameModes; i++)
 		{
 			if (TryFileOpen(FormatBuffer("%s/addons/amxmodx/configs/%s.ini", GetModName(), bteGameINI[i])))
 			{
@@ -814,59 +815,56 @@ void AutoLoadGameMode(void)
 			ebot_escape.SetInt(1);
 			ServerPrint("*** E-BOT Detected Zombie Escape Map: ebot_zombie_escape_mode is set to 1 ***");
 		}
+
+		g_mapType = MAP_DE;
+		return;
 	}
 	else
 	{
 		auto zpCvar = g_engfuncs.pfnCVarGetPointer("zp_delay");
-		if (!zpCvar)
+		if (zpCvar == nullptr)
 			zpCvar = g_engfuncs.pfnCVarGetPointer("zp_gamemode_delay");
 
 		if (zpCvar != nullptr)
 		{
+			if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
+				ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Plague/Escape) ***");
+
+			SetGameMode(MODE_ZP);
+
+			// zombie escape
+			if (g_mapType & MAP_ZE)
+			{
+				extern ConVar ebot_escape;
+				ebot_escape.SetInt(1);
+				ServerPrint("*** E-BOT Detected Zombie Escape Map: ebot_zombie_escape_mode is set to 1 ***");
+			}
+
 			const float delayTime = zpCvar->value + 2.2f;
 			if (delayTime > 0.0f)
-			{
-				if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
-					ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Plague/Escape) ***");
-
-				// zombie escape
-				if (g_mapType & MAP_ZE)
-				{
-					extern ConVar ebot_escape;
-					ebot_escape.SetInt(1);
-					ServerPrint("*** E-BOT Detected Zombie Escape Map: ebot_zombie_escape_mode is set to 1 ***");
-				}
-
-				SetGameMode(MODE_ZP);
 				g_DelayTimer = engine->GetTime() + delayTime;
-			}
+
+			g_mapType = MAP_DE;
+			return;
 		}
 	}
 
 	// Base Builder
-	char* bbVersion[] =
+	const auto bbCvar = g_engfuncs.pfnCVarGetPointer("bb_buildtime");
+	const auto bbCvar2 = g_engfuncs.pfnCVarGetPointer("bb_preptime");
+	if (bbCvar != nullptr && bbCvar2 != nullptr)
 	{
-		"plugins-basebuilder",
-		"plugins-bb"
-	};
+		if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
+			ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Base Builder) ***");
 
-	for (int i = 0; i < 2; i++)
-	{
-		Plugin_INI = FormatBuffer("%s/addons/amxmodx/configs/%s.ini", GetModName(), bbVersion[i]);
-		if (TryFileOpen(Plugin_INI))
-		{
-			float delayTime = CVAR_GET_FLOAT("bb_buildtime") + CVAR_GET_FLOAT("bb_preptime") + 2.2f;
+		SetGameMode(MODE_ZP);
 
-			if (delayTime > 0)
-			{
-				if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
-					ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Base Builder) ***");
+		const float delayTime = bbCvar->value + bbCvar2->value + 2.2f;
+		if (delayTime > 0.0f)
+			g_DelayTimer = engine->GetTime() + delayTime;
 
-				SetGameMode(MODE_ZP);
-
-				g_DelayTimer = engine->GetTime() + delayTime;
-			}
-		}
+		g_mapType = MAP_DE;
+		return;
 	}
 
 	// DM:KD
@@ -887,11 +885,14 @@ void AutoLoadGameMode(void)
 
 			SetGameMode(MODE_TDM);
 		}
+
+		g_mapType = MAP_DE;
+		return;
 	}
 
 	// Zombie Hell
-	Plugin_INI = FormatBuffer("%s/addons/amxmodx/configs/zombiehell.cfg", GetModName());
-	if (TryFileOpen(Plugin_INI) && CVAR_GET_FLOAT("zh_zombie_maxslots") > 0)
+	const auto zhCvar = g_engfuncs.pfnCVarGetPointer("zh_zombie_maxslots");
+	if (zhCvar != nullptr && zhCvar->value > 0.0f)
 	{
 		if (checkShowTextTime < 3 || GetGameMode() != MODE_ZH)
 			ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Hell ***");
@@ -899,50 +900,39 @@ void AutoLoadGameMode(void)
 		SetGameMode(MODE_ZH);
 
 		extern ConVar ebot_quota;
-		ebot_quota.SetInt(static_cast <int> (CVAR_GET_FLOAT("zh_zombie_maxslots")));
+		ebot_quota.SetInt(static_cast<int>(zhCvar->value));
+		g_mapType = MAP_DE;
+		return;
 	}
 
-	// Biohazard
-	char* biohazard[] =
+	const auto bhCvar = g_engfuncs.pfnCVarGetPointer("bh_starttime");
+	if (bhCvar != nullptr)
 	{
-		"plugins-biohazard",
-		"plugins-bio",
-		"plugins-bh"
-	};
+		if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
+			ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Biohazard) ***");
 
-	for (int i = 0; i < 3; i++)
-	{
-		Plugin_INI = FormatBuffer("%s/addons/amxmodx/configs/%s.ini", GetModName(), biohazard[i]);
-		if (TryFileOpen(Plugin_INI))
-		{
-			float delayTime = CVAR_GET_FLOAT("bh_starttime") + 0.5f;
+		SetGameMode(MODE_ZP);
 
-			if (delayTime > 0)
-			{
-				if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
-					ServerPrint("*** E-BOT Auto Game Mode Setting: Zombie Mode (Biohazard) ***");
+		const float delayTime = bhCvar->value + 1.0f;
+		if (delayTime > 0.0f)
+			g_DelayTimer = engine->GetTime() + delayTime;
 
-				SetGameMode(MODE_ZP);
-
-				g_DelayTimer = engine->GetTime() + delayTime;
-			}
-		}
+		g_mapType = MAP_DE;
+		return;
 	}
 
-	static auto dmActive = g_engfuncs.pfnCVarGetPointer("csdm_active");
-	static auto freeForAll = g_engfuncs.pfnCVarGetPointer("mp_freeforall");
-
-	if (dmActive && freeForAll)
+	const auto dmActive = g_engfuncs.pfnCVarGetPointer("csdm_active");
+	if (dmActive != nullptr && dmActive->value > 0.0f)
 	{
-		if (dmActive->value > 0.0f)
+		const auto freeForAll = g_engfuncs.pfnCVarGetPointer("mp_freeforall");
+		if (freeForAll != nullptr && freeForAll->value > 0.0f)
 		{
-			if (freeForAll->value > 0.0f)
-			{
-				if (checkShowTextTime < 3 || GetGameMode() != MODE_DM)
-					ServerPrint("*** E-BOT Auto Game Mode Setting: CSDM-DM ***");
+			if (checkShowTextTime < 3 || GetGameMode() != MODE_DM)
+				ServerPrint("*** E-BOT Auto Game Mode Setting: CSDM-DM ***");
 
-				SetGameMode(MODE_DM);
-			}
+			SetGameMode(MODE_DM);
+			g_mapType = MAP_DE;
+			return;
 		}
 	}
 
@@ -953,9 +943,6 @@ void AutoLoadGameMode(void)
 		else
 			ServerPrint("*** E-BOT Auto Game Mode Setting: N/A ***");
 	}
-
-	if (GetGameMode() != MODE_BASE)
-		g_mapType = MAP_DE;
 }
 // returns if weapon can pierce through a wall
 bool IsWeaponShootingThroughWall(int id)

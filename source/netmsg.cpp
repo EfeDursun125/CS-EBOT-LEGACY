@@ -30,8 +30,8 @@ NetworkMsg::NetworkMsg(void)
     m_state = 0;
     m_bot = nullptr;
 
-    for (int i = 0; i < NETMSG_NUM; i++)
-        m_registerdMessages[i] = NETMSG_UNDEFINED;
+    for (auto& message : m_registerdMessages)
+        message = NETMSG_UNDEFINED;
 }
 
 void NetworkMsg::HandleMessageIfRequired(const int messageType, const int requiredType)

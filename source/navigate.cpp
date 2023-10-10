@@ -433,112 +433,139 @@ bool Bot::DoWaypointNav(void)
 	return false;
 }
 
+// Priority queue class (smallest item out first)
 class PriorityQueue
 {
+public:
+	PriorityQueue(void);
+	~PriorityQueue(void);
+
+	inline bool IsEmpty(void) { return !m_size; }
+	inline int Size(void) { return m_size; }
+	void Insert(const int value, const float priority);
+	int Remove(void);
+
 private:
-	struct Node
+	struct HeapNode
 	{
 		int id;
-		float pri;
-	};
+		float priority;
+	} *m_heap;
 
-	int m_allocCount;
 	int m_size;
 	int m_heapSize;
-	Node* m_heap;
-public:
 
-	inline bool IsEmpty(void)
-	{
-		return !m_size;
-	}
-
-	inline int Size(void)
-	{
-		return m_size;
-	}
-
-	inline PriorityQueue(void)
-	{
-		m_allocCount = 0;
-		m_size = 0;
-		m_heapSize = g_numWaypoints + 32;
-		ce::malloc(m_heap, m_heapSize);
-	}
-
-	inline ~PriorityQueue(void) { ce::free(m_heap); }
-
-	// inserts a value into the priority queue
-	inline void Insert(const int value, const float pri)
-	{
-		if (m_allocCount > 20)
-		{
-			AddLogEntry(LOG_FATAL, "Tried to re-allocate heap too many times in pathfinder. This usually indicates corrupted waypoint file. Please obtain new copy of waypoint.");
-			return;
-		}
-
-		if (m_size >= m_heapSize)
-		{
-			m_allocCount++;
-			m_heapSize += 100;
-			Node* newHeap = static_cast<Node*>(ce::realloc(m_heap, sizeof(Node) * m_heapSize));
-			m_heap = newHeap;
-		}
-
-		m_heap[m_size].pri = pri;
-		m_heap[m_size].id = value;
-
-		int child = ++m_size - 1;
-		while (child)
-		{
-			const int parent = (child - 1) * 0.5f;
-			if (m_heap[parent].pri <= m_heap[child].pri)
-				break;
-
-			const Node ref = m_heap[child];
-
-			m_heap[child] = m_heap[parent];
-			m_heap[parent] = ref;
-
-			child = parent;
-		}
-	}
-
-	// removes the smallest item from the priority queue
-	inline int Remove(void)
-	{
-		if (m_heap == nullptr)
-			return -1;
-
-		const int result = m_heap[0].id;
-
-		m_size--;
-		m_heap[0] = m_heap[m_size];
-
-		int parent = 0;
-		int child = (2 * parent) + 1;
-
-		const Node ref = m_heap[parent];
-
-		while (child < m_size)
-		{
-			const int right = (2 * parent) + 2;
-			if (right < m_size && m_heap[right].pri < m_heap[child].pri)
-				child = right;
-
-			if (ref.pri <= m_heap[child].pri)
-				break;
-
-			m_heap[parent] = m_heap[child];
-
-			parent = child;
-			child = (2 * parent) + 1;
-		}
-
-		m_heap[parent] = ref;
-		return result;
-	}
+	bool HeapAllocated(const int size);
+	void HeapSiftDown(const int subRoot);
+	void HeapSiftUp(void);
 };
+
+bool PriorityQueue::HeapAllocated(const int size)
+{
+	if (m_heap != nullptr)
+		return true;
+
+	m_heap = new(std::nothrow) HeapNode[size];
+	if (m_heap != nullptr)
+		return true;
+
+	return false;
+}
+
+PriorityQueue::PriorityQueue(void)
+{
+	m_size = 0;
+	m_heapSize = g_numWaypoints * 2;
+	m_heap = new(std::nothrow) HeapNode[m_heapSize];
+}
+
+PriorityQueue::~PriorityQueue(void)
+{
+	if (m_heap != nullptr)
+	{
+		delete[] m_heap;
+		m_heap = nullptr;
+	}
+}
+
+// inserts a value into the priority queue
+void PriorityQueue::Insert(const int value, const float priority)
+{
+	if (m_size >= m_heapSize)
+	{
+		m_heapSize += 200;
+		if (m_heap != nullptr)
+			m_heap = static_cast<HeapNode*>(realloc(m_heap, sizeof(HeapNode) * m_heapSize));
+	}
+
+	if (!HeapAllocated(m_heapSize))
+		return;
+
+	m_heap[m_size].priority = priority;
+	m_heap[m_size].id = value;
+
+	m_size++;
+	HeapSiftUp();
+}
+
+// removes the smallest item from the priority queue
+int PriorityQueue::Remove(void)
+{
+	if (!HeapAllocated(m_heapSize))
+		return -1;
+
+	const int retID = m_heap[0].id;
+
+	m_size--;
+	m_heap[0] = m_heap[m_size];
+
+	HeapSiftDown(0);
+	return retID;
+}
+
+void PriorityQueue::HeapSiftDown(const int subRoot)
+{
+	int parent = subRoot;
+	int child = (2 * parent) + 1;
+
+	const HeapNode ref = m_heap[parent];
+
+	while (child < m_size)
+	{
+		const int rightChild = (2 * parent) + 2;
+		if (rightChild < m_size)
+		{
+			if (m_heap[rightChild].priority < m_heap[child].priority)
+				child = rightChild;
+		}
+
+		if (ref.priority <= m_heap[child].priority)
+			break;
+
+		m_heap[parent] = m_heap[child];
+		parent = child;
+		child = (2 * parent) + 1;
+	}
+
+	m_heap[parent] = ref;
+}
+
+void PriorityQueue::HeapSiftUp(void)
+{
+	int child = m_size - 1;
+
+	while (child)
+	{
+		const int parent = (child - 1) * 0.5f;
+		if (m_heap[parent].priority <= m_heap[child].priority)
+			break;
+
+		const HeapNode temp = m_heap[child];
+		m_heap[child] = m_heap[parent];
+		m_heap[parent] = temp;
+		child = parent;
+	}
+}
 
 inline const float GF_CostHuman(const int index, const int parent, const int team, const float gravity, const bool isZombie)
 {
@@ -1027,6 +1054,8 @@ void Bot::FindPath(int srcIndex, int destIndex)
 	{
 		// remove the first node from the open list
 		int currentIndex = openList.Remove();
+		if (!IsValidWaypoint(currentIndex))
+			break;
 
 		// is the current node the goal node?
 		if (currentIndex == destIndex)
@@ -1036,7 +1065,6 @@ void Bot::FindPath(int srcIndex, int destIndex)
 
 			// set the chosen goal value
 			m_chosenGoalIndex = destIndex;
-			m_goalValue = 0.0f;
 
 			do
 			{
@@ -1045,12 +1073,12 @@ void Bot::FindPath(int srcIndex, int destIndex)
 			} while (IsValidWaypoint(currentIndex));
 
 			m_navNode.Reverse();
-
 			ChangeWptIndex(m_navNode.First());
 			SetWaypointOrigin();
 			m_destOrigin = m_waypointOrigin;
 			m_jumpFinished = false;
 			g_pathTimer = engine->GetTime() + 0.25f;
+			IgnoreCollisionShortly();
 
 			return;
 		}
@@ -1167,6 +1195,8 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 	{
 		// remove the first node from the open list
 		int currentIndex = openList.Remove();
+		if (!IsValidWaypoint(currentIndex))
+			break;
 
 		// is the current node the goal node?
 		if (currentIndex == destIndex)
@@ -1174,9 +1204,8 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 			// delete path for new one
 			DeleteSearchNodes();
 
-			// set chosen goal
+			// set the chosen goal value
 			m_chosenGoalIndex = destIndex;
-			m_goalValue = 0.0f;
 
 			do
 			{
@@ -1185,12 +1214,12 @@ void Bot::FindShortestPath(int srcIndex, int destIndex)
 			} while (IsValidWaypoint(currentIndex));
 
 			m_navNode.Reverse();
-
 			ChangeWptIndex(m_navNode.First());
 			SetWaypointOrigin();
 			m_destOrigin = m_waypointOrigin;
 			m_jumpFinished = false;
 			g_pathTimer = engine->GetTime() + 0.25f;
+			IgnoreCollisionShortly();
 
 			return;
 		}
@@ -2398,7 +2427,7 @@ bool Bot::IsDeadlyDrop(Vector targetOriginPos)
 	Vector botPos = pev->origin;
 	TraceResult tr{};
 
-	Vector move((targetOriginPos - botPos).ToYaw(), 0.0f, 0.0f);
+	const Vector move((targetOriginPos - botPos).ToYaw(), 0.0f, 0.0f);
 	MakeVectors(move);
 
 	Vector direction = (targetOriginPos - botPos).Normalize();  // 1 unit long

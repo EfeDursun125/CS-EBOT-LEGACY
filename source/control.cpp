@@ -205,8 +205,8 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 	}
 
 	const int index = ENTINDEX(bot) - 1;
-	m_bots[index] = new Bot(bot, skill, personality, team, member);
-	if (!m_bots[index])
+	m_bots[index] = new(std::nothrow) Bot(bot, skill, personality, team, member);
+	if (m_bots[index] == nullptr)
 		return -1;
 
 	ServerPrint("Connecting E-Bot - %s | Skill %d", GetEntityName(bot), skill);
@@ -219,7 +219,7 @@ int BotControl::GetIndex(edict_t* ent)
 	if (FNullEnt(ent))
 		return -1;
 
-	int index = ENTINDEX(ent) - 1;
+	const int index = ENTINDEX(ent) - 1;
 	if (index < 0 || index >= 32)
 		return -1;
 

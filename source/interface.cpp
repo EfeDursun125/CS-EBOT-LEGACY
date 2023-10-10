@@ -3720,9 +3720,9 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 			return; // we should stop the attempt for loading the real gamedll, since metamod handle this for us
 
 		sprintf(gameDLLName, "%s/dlls/%s", knownMod->name, !IsLinux() ? knownMod->winLib : knownMod->linuxLib);
-		g_gameLib = new Library(gameDLLName);
+		g_gameLib = new(std::nothrow) Library(gameDLLName);
 
-		if ((g_gameLib == nullptr || (g_gameLib && !g_gameLib->IsLoaded())))
+		if ((g_gameLib == nullptr || (g_gameLib != nullptr && !g_gameLib->IsLoaded())))
 		{
 			// try to extract the game dll out of the steam cache
 			AddLogEntry(LOG_WARNING | LOG_IGNORE, "Trying to extract dll '%s' out of the steam cache", gameDLLName);
@@ -3745,18 +3745,21 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 				FREE_FILE(buffer);
 			}
 
-			g_gameLib = new Library(gameDLLName);
+			g_gameLib = new(std::nothrow) Library(gameDLLName);
 		}
 	}
 	else
 		AddLogEntry(LOG_FATAL | LOG_IGNORE, "Mod that you has started, not supported by this bot (gamedir: %s)", GetModName());
+
+	if (g_gameLib == nullptr)
+		return;
 
 	g_funcPointers = (FuncPointers_t)g_gameLib->GetFunctionAddr("GiveFnptrsToDll");
 	g_entityAPI = (EntityAPI_t)g_gameLib->GetFunctionAddr("GetEntityAPI");
 	g_getNewEntityAPI = (NewEntityAPI_t)g_gameLib->GetFunctionAddr("GetNewDLLFunctions");
 	g_serverBlendingAPI = (BlendAPI_t)g_gameLib->GetFunctionAddr("Server_GetBlendingInterface");
 
-	if (!g_funcPointers || !g_entityAPI || !g_getNewEntityAPI || !g_serverBlendingAPI)
+	if (g_funcPointers == nullptr || g_entityAPI == nullptr || g_getNewEntityAPI == nullptr || g_serverBlendingAPI == nullptr)
 		return;
 
 	GetEngineFunctions(functionTable, nullptr);
@@ -3776,7 +3779,10 @@ DLL_ENTRYPOINT
 	{
 	   FreeLibraryMemory(); // free everything that's freeable
 	   if (g_gameLib != nullptr)
-		  delete g_gameLib; // if dynamic link library of mod is load, free it
+	   {
+		   delete g_gameLib; // if dynamic link library of mod is load, free it
+		   g_gameLib = nullptr;
+	   }
 	}
 
 	DLL_RETENTRY; // the return data type is OS specific too
