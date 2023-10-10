@@ -6,13 +6,14 @@
 // And to get same results/performance on every OS
 //
 
-extern int CRandomInt(const int min, const int max);
-extern float CRandomFloat(const float min, const float max);
-extern bool ChanceOf(const int number);
-extern float SquaredF(const float value);
-extern float SquaredI(const int value);
-extern int Squared(const int value);
-extern float AddTime(const float time);
+#pragma once
+
+extern int crandomint(const int min, const int max);
+extern float crandomfloat(const float min, const float max);
+extern bool chanceof(const int number);
+extern float squaredf(const float value);
+extern float squaredi(const int value);
+extern int squared(const int value);
 extern float cclampf(const float a, const float b, const float c);
 extern int cclamp(const int a, const int b, const int c);
 extern float cmaxf(const float a, const float b);
@@ -39,9 +40,6 @@ extern size_t cstrlen(const char* str);
 extern int cstrcmp(const char* str1, const char* str2);
 extern int cstrncmp(const char* str1, const char* str2, const size_t num);
 extern void cstrcpy(char* dest, const char* src);
-extern void cmemcpy(void* dest, const void* src, const size_t size);
-extern void cmemset(void* dest, const int value, const size_t count);
-extern void* cmemmove(void* dest, const void* src, size_t count);
 extern int cctz(unsigned int value);
 extern int ctolower(const int value);
 extern int ctoupper(const int value);
