@@ -25,7 +25,7 @@
 
 static size_t cache;
 
-int crandomint(const int min, const int max)
+int CRandomInt(const int min, const int max)
 {
 	if (min > max)
 		return frand() % (min - max + 1) + max;
@@ -33,7 +33,7 @@ int crandomint(const int min, const int max)
 	return frand() % (max - min + 1) + min;
 }
 
-float crandomfloat(const float min, const float max)
+float CRandomFloat(const float min, const float max)
 {
 	if (min > max)
 		return fnext() * (min - max) / UINT64_MAX + max;
@@ -41,24 +41,29 @@ float crandomfloat(const float min, const float max)
 	return fnext() * (max - min) / UINT64_MAX + min;
 }
 
-bool chanceof(const int number)
+bool ChanceOf(const int number)
 {
-	return crandomint(1, 101) < number;
+	return CRandomInt(1, 101) < number;
 }
 
-float squaredf(const float value)
+float SquaredF(const float value)
 {
 	return value * value;
 }
 
-float squaredi(const int value)
+float SquaredI(const int value)
 {
 	return static_cast<float>(value * value);
 }
 
-int squared(const int value)
+int Squared(const int value)
 {
 	return value * value;
+}
+
+float AddTime(const float time)
+{
+	return engine->GetTime() + time;
 }
 
 float cclampf(const float a, const float b, const float c)
@@ -338,6 +343,51 @@ void cstrcpy(char* dest, const char* src)
 	}
 
 	*dest = '\0';
+}
+
+void cmemcpy(void* dest, const void* src, const size_t size)
+{
+	char* dest2 = static_cast<char*>(dest);
+	const char* src2 = static_cast<const char*>(src);
+
+	for (cache = 0; cache < size; ++cache)
+		dest2[cache] = src2[cache];
+}
+
+void cmemset(void* dest, const int value, const size_t count)
+{
+	unsigned char* ptr = static_cast<unsigned char*>(dest);
+	const unsigned char byteValue = static_cast<unsigned char>(value);
+
+	for (cache = 0; cache < count; ++cache)
+	{
+		*ptr = byteValue;
+		ptr++;
+	}
+}
+
+void* cmemmove(void* dest, const void* src, size_t count)
+{
+	unsigned char* d = static_cast<unsigned char*>(dest);
+	const unsigned char* s = static_cast<const unsigned char*>(src);
+
+	if (d == s)
+		return dest;
+
+	if (d < s)
+	{
+		while (count--)
+			*d++ = *s++;
+	}
+	else
+	{
+		d += count;
+		s += count;
+		while (count--)
+			*--d = *--s;
+	}
+
+	return dest;
 }
 
 int cctz(unsigned int value)
