@@ -30,8 +30,8 @@ NetworkMsg::NetworkMsg(void)
     m_state = 0;
     m_bot = nullptr;
 
-    for (int i = 0; i < NETMSG_NUM; i++)
-        m_registerdMessages[i] = NETMSG_UNDEFINED;
+    for (auto& reg : m_registerdMessages)
+        reg = NETMSG_UNDEFINED;
 }
 
 void NetworkMsg::HandleMessageIfRequired(const int messageType, const int requiredType)
@@ -45,7 +45,7 @@ void NetworkMsg::Execute(void* p)
     if (m_message == NETMSG_UNDEFINED)
         return; // no message or not for bot, return
 
-   // some needed variables
+    // some needed variables
     static uint8_t r, g, b;
     static uint8_t enabled;
 
@@ -61,10 +61,12 @@ void NetworkMsg::Execute(void* p)
     switch (m_message)
     {
     case NETMSG_VGUI:
+    {
         // this message is sent when a VGUI menu is displayed.
         if (m_state == 0)
         {
-            switch (PTR_TO_INT(p))
+            const int x = PTR_TO_INT(p);
+            switch (x)
             {
             case GMENU_TEAM:
                 m_bot->m_startAction = CMENU_TEAM;
@@ -76,43 +78,44 @@ void NetworkMsg::Execute(void* p)
                 break;
             }
         }
+
         break;
-
+    }
     case NETMSG_SHOWMENU:
+    {
         // this message is sent when a text menu is displayed.
-
         if (m_state < 3) // ignore first 3 fields of message
             break;
 
         {
             const char* x = PTR_TO_STR(p);
-            if (cstrcmp(x, "#Team_Select") == 0) // team select menu?
+            if (cstrncmp(x, "#Team_Select", 13) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#Team_Select_Spect") == 0) // team select menu?
+            else if (cstrncmp(x, "#Team_Select_Spect", 19) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_Team_Select_Spect") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_Team_Select_Spect", 22) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_Team_Select") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_Team_Select", 16) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_VIP_Team_Select") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_VIP_Team_Select", 20) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#IG_VIP_Team_Select_Spect") == 0) // team select menu?
+            else if (cstrncmp(x, "#IG_VIP_Team_Select_Spect", 26) == 0) // team select menu?
                 m_bot->m_startAction = CMENU_TEAM;
-            else if (cstrcmp(x, "#Terrorist_Select") == 0) // T model select?
+            else if (cstrncmp(x, "#Terrorist_Select", 18) == 0) // T model select?
                 m_bot->m_startAction = CMENU_CLASS;
-            else if (cstrcmp(x, "#CT_Select") == 0) // CT model select menu?
+            else if (cstrncmp(x, "#CT_Select", 11) == 0) // CT model select menu?
                 m_bot->m_startAction = CMENU_CLASS;
         }
 
         break;
-
+    }
     case NETMSG_WLIST:
+    {
         // this message is sent when a client joins the game. All of the weapons are sent with the weapon ID and information about what ammo is used.
-
         switch (m_state)
         {
         case 0:
-            cstrcpy(weaponProp.className, PTR_TO_STR(p));
+            cstrncpy(weaponProp.className, PTR_TO_STR(p), sizeof(weaponProp.className));
             break;
 
         case 1:
@@ -136,15 +139,16 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 8:
-            weaponProp.flags = PTR_TO_INT(p); // flags for weapon (WTF???)
-            g_weaponDefs[weaponProp.id] = weaponProp; // store away this weapon with it's ammo information...
+            weaponProp.flags = PTR_TO_INT(p); // flags for weapon
+            if (weaponProp.id >= 0 && weaponProp.id <= Const_MaxWeapons)
+                g_weaponDefs[weaponProp.id] = weaponProp; // store away this weapon with it's ammo information...
             break;
         }
         break;
-
+    }
     case NETMSG_CURWEAPON:
+    {
         // this message is sent when a weapon is selected (either by the bot chosing a weapon or by the server auto assigning the bot a weapon). In CS it's also called when Ammo is increased/decreased
-
         switch (m_state)
         {
         case 0:
@@ -158,19 +162,21 @@ void NetworkMsg::Execute(void* p)
         case 2:
             clip = PTR_TO_INT(p); // ammo currently in the clip for this weapon
 
-            if (id <= 31)
+            if (id >= 0 && id < Const_MaxWeapons)
             {
                 if (state != 0)
                     m_bot->m_currentWeapon = id;
+
                 m_bot->m_ammoInClip[id] = clip;
             }
+
             break;
         }
         break;
-
+    }
     case NETMSG_AMMOX:
+    {
         // this message is sent whenever ammo amounts are adjusted (up or down). NOTE: Logging reveals that CS uses it very unreliable!
-
         switch (m_state)
         {
         case 0:
@@ -178,16 +184,18 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 1:
-            m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
+            if (index >= 0 && index < Const_MaxWeapons)
+                m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
+
             break;
         }
         break;
-
+    }
     case NETMSG_AMMOPICK:
+    {
         // this message is sent when the bot picks up some ammo (AmmoX messages are also sent so this message is probably
-        // not really necessary except it allows the HUD to draw pictures of ammo that have been picked up.  The bots
+        // not really necessary except it allows the HUD to draw pictures of ammo that have been picked up. The bots
         // don't really need pictures since they don't have any eyes anyway.
-
         switch (m_state)
         {
         case 0:
@@ -195,69 +203,53 @@ void NetworkMsg::Execute(void* p)
             break;
 
         case 1:
-            m_bot->m_ammo[index] = PTR_TO_INT(p);
+            if (index >= 0 && index < Const_MaxWeapons)
+                m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
+
             break;
         }
         break;
-
-    case NETMSG_DAMAGE:
-        // this message gets sent when the bots are getting damaged.
-        switch (m_state)
-        {
-        case 0:
-            damageArmor = PTR_TO_INT(p);
-            break;
-
-        case 1:
-            damageTaken = PTR_TO_INT(p);
-            break;
-
-        case 2:
-            damageBits = PTR_TO_INT(p);
-
-            if (m_bot != nullptr && (damageArmor > 0 || damageTaken > 0))
-                m_bot->TakeDamage(m_bot->pev->dmg_inflictor, damageTaken, damageArmor, damageBits);
-            break;
-        }
-
-        break;
-
+    }
     case NETMSG_MONEY:
+    {
         // this message gets sent when the bots money amount changes
-
         if (m_state == 0)
             m_bot->m_moneyAmount = PTR_TO_INT(p); // amount of money
         break;
-
+    }
     case NETMSG_STATUSICON:
+    {
         switch (m_state)
         {
         case 0:
+        {
             enabled = PTR_TO_BYTE(p);
             break;
-
+        }
         case 1:
-            if (g_gameVersion != HALFLIFE)
+        {
             {
                 const char* x = PTR_TO_STR(p);
-                if (cstrcmp(x, "defuser") == 0)
+                if (cstrncmp(x, "defuser", 8) == 0)
                     m_bot->m_hasDefuser = (enabled != 0);
-                else if (cstrcmp(x, "buyzone") == 0)
+                else if (cstrncmp(x, "buyzone", 8) == 0)
                 {
                     m_bot->m_inBuyZone = (enabled != 0);
                     m_bot->EquipInBuyzone(0);
                 }
-                else if (cstrcmp(x, "vipsafety") == 0)
+                else if (cstrncmp(x, "vipsafety", 10) == 0)
                     m_bot->m_inVIPZone = (enabled != 0);
-                else if (cstrcmp(x, "c4") == 0)
+                else if (cstrncmp(x, "c4", 3) == 0)
                     m_bot->m_inBombZone = (enabled == 2);
-            }
 
-            break;
+                break;
+            }
+        }
         }
         break;
-
+    }
     case NETMSG_DEATH: // this message sends on death
+    {
         switch (m_state)
         {
         case 0:
@@ -283,8 +275,9 @@ void NetworkMsg::Execute(void* p)
             break;
         }
         break;
-
+    }
     case NETMSG_SCREENFADE: // this message gets sent when the Screen fades (Flashbang)
+    {
         switch (m_state)
         {
         case 3:
@@ -304,8 +297,9 @@ void NetworkMsg::Execute(void* p)
             break;
         }
         break;
-
+    }
     case NETMSG_HLTV: // round restart in steam cs
+    {
         switch (m_state)
         {
         case 0:
@@ -318,43 +312,44 @@ void NetworkMsg::Execute(void* p)
             break;
         }
         break;
-
+    }
     case NETMSG_TEXTMSG:
+    {
         if (m_state == 1)
         {
             const char* x = PTR_TO_STR(p);
-            if (FStrEq(x, "#CTs_Win") ||
-                FStrEq(x, "#Bomb_Defused") ||
-                FStrEq(x, "#Terrorists_Win") ||
-                FStrEq(x, "#Round_Draw") ||
-                FStrEq(x, "#All_Hostages_Rescued") ||
-                FStrEq(x, "#Target_Saved") ||
-                FStrEq(x, "#Hostages_Not_Rescued") ||
-                FStrEq(x, "#Terrorists_Not_Escaped") ||
-                FStrEq(x, "#VIP_Not_Escaped") ||
-                FStrEq(x, "#Escaping_Terrorists_Neutralized") ||
-                FStrEq(x, "#VIP_Assassinated") ||
-                FStrEq(x, "#VIP_Escaped") ||
-                FStrEq(x, "#Terrorists_Escaped") ||
-                FStrEq(x, "#CTs_PreventEscape") ||
-                FStrEq(x, "#Target_Bombed") ||
-                FStrEq(x, "#Game_Commencing") ||
-                FStrEq(x, "#Game_will_restart_in"))
+            if (cstrncmp(x, "#CTs_Win", 9) == 0 ||
+                cstrncmp(x, "#Bomb_Defused", 14) == 0 ||
+                cstrncmp(x, "#Terrorists_Win", 16) == 0 ||
+                cstrncmp(x, "#Round_Draw", 12) == 0 ||
+                cstrncmp(x, "#All_Hostages_Rescued", 22) == 0 ||
+                cstrncmp(x, "#Target_Saved", 14) == 0 ||
+                cstrncmp(x, "#Hostages_Not_Rescued", 22) == 0 ||
+                cstrncmp(x, "#Terrorists_Not_Escaped", 24) == 0 ||
+                cstrncmp(x, "#VIP_Not_Escaped", 17) == 0 ||
+                cstrncmp(x, "#Escaping_Terrorists_Neutralized", 33) == 0 ||
+                cstrncmp(x, "#VIP_Assassinated", 18) == 0 ||
+                cstrncmp(x, "#VIP_Escaped", 13) == 0 ||
+                cstrncmp(x, "#Terrorists_Escaped", 20) == 0 ||
+                cstrncmp(x, "#CTs_PreventEscape", 19) == 0 ||
+                cstrncmp(x, "#Target_Bombed", 15) == 0 ||
+                cstrncmp(x, "#Game_Commencing", 17) == 0 ||
+                cstrncmp(x, "#Game_will_restart_in", 22) == 0)
             {
                 g_roundEnded = true;
 
-                if (GetGameMode() == MODE_BASE)
+                if (GetGameMode() == GameMode::Original)
                 {
-                    if (FStrEq(x, "#CTs_Win"))
-                        g_botManager->SetLastWinner(TEAM_COUNTER); // update last winner for economics
+                    if (cstrncmp(x, "#CTs_Win", 9) == 0)
+                        g_botManager->SetLastWinner(Team::Counter); // update last winner for economics
 
-                    if (FStrEq(x, "#Terrorists_Win"))
-                        g_botManager->SetLastWinner(TEAM_TERRORIST); // update last winner for economics
+                    if (cstrncmp(x, "#Terrorists_Win", 16) == 0)
+                        g_botManager->SetLastWinner(Team::Terrorist); // update last winner for economics
                 }
 
                 g_waypoint->SetBombPosition(true);
             }
-            else if (!g_bombPlanted && FStrEq(x, "#Bomb_Planted"))
+            else if (!g_bombPlanted && cstrncmp(x, "#Bomb_Planted", 14) == 0)
             {
                 g_bombPlanted = true;
                 g_bombSayString = true;
@@ -363,24 +358,31 @@ void NetworkMsg::Execute(void* p)
 
                 for (const auto& bot : g_botManager->m_bots)
                 {
-                    if (bot != nullptr && bot->m_isAlive)
-                    {
-                        bot->DeleteSearchNodes();
-                        bot->ResetTasks();
-                    }
+                    if (bot == nullptr)
+                        continue;
+
+                    if (!bot->m_isAlive)
+                        continue;
+                    
+                    bot->DeleteSearchNodes();
                 }
             }
-            else if (m_bot != nullptr && FStrEq(x, "#Switch_To_BurstFire"))
-                m_bot->m_weaponBurstMode = BURST_ENABLED;
-            else if (m_bot != nullptr && FStrEq(x, "#Switch_To_SemiAuto"))
-                m_bot->m_weaponBurstMode = BURST_DISABLED;
+            else if (m_bot != nullptr)
+            {
+                if (cstrncmp(x, "#Switch_To_BurstFire", 21) == 0)
+                    m_bot->m_weaponBurstMode = BurstMode::Enabled;
+                else if (cstrncmp(x, "#Switch_To_SemiAuto", 20) == 0)
+                    m_bot->m_weaponBurstMode = BurstMode::Disabled;
+            }
         }
-        break;
 
+        break;
+    }
     case NETMSG_BARTIME:
+    {
         if (m_state == 0)
         {
-            if (GetGameMode() == MODE_BASE)
+            if (GetGameMode() == GameMode::Original)
             {
                 const int x = PTR_TO_INT(p);
                 if (x > 0)
@@ -391,10 +393,12 @@ void NetworkMsg::Execute(void* p)
             else
                 m_bot->m_hasProgressBar = false;
         }
-        break;
 
-    default:
-        AddLogEntry(LOG_FATAL, "Network message handler error. Call to unrecognized message id (%d).\n", m_message);
+        break;
     }
+    default:
+        AddLogEntry(Log::Fatal, "Network message handler error. Call to unrecognized message id (%d).\n", m_message);
+    }
+
     m_state++; // and finally update network message state
 }
