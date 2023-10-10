@@ -199,17 +199,6 @@ typedef void* HINSTANCE;
 // In cases where no default is present or appropriate, this causes MSVC to generate 
 // as little code as possible, and throw an assertion in debug.
 #define NO_DEFAULT default: UNREACHABLE();
-
-#ifdef _WIN32
-// Alloca defined for this platform
-#define  stackalloc( _size ) _alloca( _size )
-#define  stackfree( _p )   0
-#elif __linux__
-// Alloca defined for this platform
-#define  stackalloc( _size ) alloca( _size )
-#define  stackfree( _p )   0
-#endif
-
 #include <math.h>
 
 #include "runtime.h"

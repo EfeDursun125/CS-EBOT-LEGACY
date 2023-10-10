@@ -31,6 +31,7 @@
 #include <float.h>
 #include <time.h>
 #include <stdarg.h>
+#include <new>
 
 #pragma warning (disable : 4996) // get rid of this
 
@@ -892,7 +893,9 @@ public:
         if (newSize > checkSize)
             checkSize = newSize;
 
-        T* buffer = new T[checkSize];
+        T* buffer = new(std::nothrow) T[checkSize];
+        if (buffer == nullptr)
+            return false;
 
         if (keepData && m_elements != nullptr)
         {
@@ -1246,7 +1249,9 @@ public:
             return;
         }
 
-        T* buffer = new T[m_itemCount];
+        T* buffer = new(std::nothrow) T[m_itemCount];
+        if (buffer == nullptr)
+            return;
 
         if (m_elements != nullptr)
         {
@@ -1398,7 +1403,9 @@ private:
             return;
 
         m_allocatedSize = size + 16;
-        char* tempBuffer = new char[size + 1];
+        char* tempBuffer = new(std::nothrow) char[size + 1];
+        if (tempBuffer == nullptr)
+            return;
 
         if (m_bufferPtr != nullptr)
         {
@@ -1989,10 +1996,8 @@ public:
     //
     String Mid(const int startIndex, int count = -1)
     {
-        String result;
-
         if (startIndex >= m_stringLength || !m_bufferPtr)
-            return result;
+            return nullptr;
 
         if (count == -1)
             count = m_stringLength - startIndex;
@@ -2000,11 +2005,14 @@ public:
             count = m_stringLength - startIndex;
 
         int i = 0, j = 0;
-        char* holder = new char[m_stringLength + 1];
+        char* holder = new(std::nothrow) char[m_stringLength + 1];
+        if (holder == nullptr)
+            return nullptr;
 
         for (i = startIndex; i < startIndex + count; i++)
             holder[j++] = m_bufferPtr[i];
 
+        String result;
         holder[j] = 0;
         result.Assign(holder);
 
@@ -2416,7 +2424,7 @@ public:
 
         if (str != m_bufferPtr)
         {
-            const int first = int(str - GetBuffer());
+            const int first = static_cast<int>(str - GetBuffer());
             char* buffer = GetBuffer(GetLength());
 
             str = buffer + first;

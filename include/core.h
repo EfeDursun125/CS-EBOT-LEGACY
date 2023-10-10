@@ -46,7 +46,7 @@
 using namespace Math;
 
 #include <platform.h>
-#include <cmemory.h>
+#include <memory>
 #include <runtime.h>
 
 const int checkEntityNum = 20;
@@ -522,7 +522,14 @@ private:
 
 public:
 	explicit PathNode(void) = default;
-	~PathNode(void) { ce::free(m_path); }
+	~PathNode(void)
+	{
+		if (m_path != nullptr)
+		{
+			delete m_path;
+			m_path = nullptr;
+		}
+	}
 
 public:
 	uint32_t& Next(void)
@@ -540,21 +547,21 @@ public:
 		return At(Length() - 1);
 	}
 
-	uint32_t& At(const uint32_t index)
+	uint32_t& At(const size_t index)
 	{
 		return m_path[m_cursor + index];
 	}
 
 	void Shift(void)
 	{
-		++m_cursor;
+		m_cursor++;
 	}
 
 	void Reverse(void)
 	{
 		size_t i;
 		const size_t half = m_length * 0.5f;
-		for (i = 0; i < half; ++i)
+		for (i = 0; i < half; i++)
 			std::swap(m_path[i], m_path[m_length - 1 - i]);
 	}
 
@@ -584,13 +591,9 @@ public:
 		if (m_length >= m_capacity)
 		{
 			const size_t newCapacity = m_length * 2;
-			uint32_t* newPath = static_cast<uint32_t*>(ce::malloc(newCapacity));
-
-			if (m_length > 0)
-			{
-				ce::memcpy(newPath, m_path, m_length * sizeof(uint32_t));
-				ce::free(m_path);
-			}
+			uint32_t* newPath = static_cast<uint32_t*>(realloc(m_path, newCapacity * sizeof(uint32_t)));
+			if (newPath == nullptr)
+				return;
 
 			m_path = newPath;
 			m_capacity = newCapacity;
@@ -608,8 +611,14 @@ public:
 
 	void Init(const size_t length)
 	{
+		while (m_path == nullptr)
+		{
+			m_path = new(std::nothrow) uint32_t[length];
+			if (m_path != nullptr)
+				break;
+		}
+
 		m_capacity = length;
-		ce::malloc(m_path, length);
 	}
 };
 
@@ -1161,7 +1170,6 @@ public:
 
 	int m_prevGoalIndex; // holds destination goal waypoint
 	int m_chosenGoalIndex; // used for experience, same as above
-	float m_goalValue; // ranking value for this waypoint
 
 	Vector m_waypointOrigin; // origin of waypoint
 	Vector m_destOrigin; // origin of move destination
