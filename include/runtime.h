@@ -31,13 +31,6 @@
 #include <float.h>
 #include <time.h>
 #include <stdarg.h>
-#include <vector>
-#include <list>
-#include <cstring>
-#include <cstdarg>
-#include <algorithm>
-
-#include <cmemory.h>
 
 #pragma warning (disable : 4996) // get rid of this
 
@@ -77,13 +70,6 @@ typedef unsigned short uint16_t;
 // This macro is a null vector.
 //
 #define nullvec Vector::GetNull ()
-
-//
-// Macro: InternalAssert
-//
-// Asserts expression.
-//
-#define Assert(expr)
 
 //
 // Function: FormatBuffer
@@ -203,9 +189,9 @@ namespace Math
     // Constant: MATH_PI
     // Mathematical PI value.
     //
-    const float MATH_PI = 3.14159265358f;
-    const float MATH_D2R = MATH_PI * 0.00555555555f;
-    const float MATH_R2D = 57.2957795131f;
+    const float MATH_PI = 3.14159265358979323846f;
+    const float MATH_D2R = 0.017453292519943295f;
+    const float MATH_R2D = 57.295779513082320876f;
 
     //
     // Function: FltZero
@@ -303,7 +289,7 @@ namespace Math
     //
     inline float AngleMod(float angle)
     {
-        return 360.0f / 65536.0f * (static_cast<int>(angle * (65536.0f / 360.0f)) & 65535);
+        return 360.0f / 65536.0f * (static_cast <int> (angle * (65536.0f / 360.0f)) & 65535);
     }
 
     //
@@ -319,7 +305,10 @@ namespace Math
     //
     inline float AngleNormalize(float angle)
     {
-        return 360.0f / 65536.0f * (static_cast<int>((angle + 180.0f) * (65536.0f / 360.0f)) & 65535) - 180.0f;
+        angle = angle - 360.0f * croundf(angle / 360.0f);
+        while (angle > 180.0f) angle -= 360.0f;
+        while (angle < -180.0f) angle += 360.0f;
+        return angle;
     }
 }
 
@@ -556,7 +545,7 @@ public:
     // Gets squared length (magnitude) of 3D vector.
     //
     // Returns:
-    //   squared length (magnitude) of the 3D vector.
+    //   Squared length (magnitude) of the 3D vector.
     //
     // See Also:
     //   <GetLength>
@@ -621,6 +610,23 @@ public:
     {
         const float length = crsqrtf(x * x + y * y);
         return Vector(x * length, y * length, 0.0f);
+    }
+
+    inline float NormalizeInPlace()
+    {
+        float flLen = GetLength();
+        if (flLen > 0.0)
+        {
+            x = (1 / flLen * x);
+            y = (1 / flLen * y);
+        }
+        else
+        {
+            x = 1.0;
+            y = 0.0;
+        }
+
+        return flLen;
     }
 
     //
@@ -760,6 +766,14 @@ public:
         }
     }
 };
+
+namespace Math
+{
+    inline bool BBoxIntersects(const Vector& min1, const Vector& max1, const Vector& min2, const Vector& max2)
+    {
+        return min1.x < max2.x && max1.x > min2.x && min1.y < max2.y && max1.y > min2.y && min1.z < max2.z && max1.z > min2.z;
+    }
+}
 
 //
 // Class: Array
@@ -986,7 +1000,7 @@ public:
     T& GetAt(const int index)
     {
         if (index < 0 || index >= m_itemCount)
-            return m_elements[crandomint(0, m_itemCount - 1)];
+            return m_elements[CRandomInt(0, m_itemCount - 1)];
 
         return m_elements[index];
     }
@@ -1323,7 +1337,7 @@ public:
         if (m_itemCount < 2)
             return m_elements[0];
 
-        return m_elements[crandomint(0, m_itemCount - 1)];
+        return m_elements[CRandomInt(0, m_itemCount - 1)];
     }
 
     Array <T>& operator = (const Array <T>& other)
@@ -1407,7 +1421,7 @@ private:
     //
     void MoveItems(const int destIndex, const int sourceIndex)
     {
-        c::memmove(m_bufferPtr + destIndex, m_bufferPtr + sourceIndex, sizeof(char) * (m_stringLength - sourceIndex + 1));
+        cmemmove(m_bufferPtr + destIndex, m_bufferPtr + sourceIndex, sizeof(char) * (m_stringLength - sourceIndex + 1));
     }
 
     //
@@ -1719,9 +1733,9 @@ public:
     // Parameters:
     //  input - Character to assign.
     //
-    void Assign(const char input)
+    void Assign(char input)
     {
-        const char psz[2] = {input, 0x0};
+        char psz[2] = { input, 0 };
         Assign(psz);
     }
 
@@ -1977,7 +1991,7 @@ public:
     {
         String result;
 
-        if (m_bufferPtr == nullptr || !m_stringLength || startIndex >= m_stringLength)
+        if (startIndex >= m_stringLength || !m_bufferPtr)
             return result;
 
         if (count == -1)
@@ -1987,17 +2001,14 @@ public:
 
         int i = 0, j = 0;
         char* holder = new char[m_stringLength + 1];
-        if (holder != nullptr)
-        {
-            for (i = startIndex; i < startIndex + count; i++)
-                holder[j++] = m_bufferPtr[i];
 
-            holder[j] = 0;
-            result.Assign(holder);
+        for (i = startIndex; i < startIndex + count; i++)
+            holder[j++] = m_bufferPtr[i];
 
-            delete[] holder;
-        }
+        holder[j] = 0;
+        result.Assign(holder);
 
+        delete[] holder;
         return result;
     }
 
@@ -2252,7 +2263,7 @@ public:
         for (;;)
         {
             if (*str == input)
-                return static_cast<int>(str - m_bufferPtr);
+                return str - m_bufferPtr;
 
             if (!*str)
                 return -1;
@@ -2384,7 +2395,7 @@ public:
         }
 
         if (last != nullptr)
-            Delete(static_cast<int>(last - m_bufferPtr));
+            Delete(last - m_bufferPtr);
 
         return *this;
     }
@@ -2405,13 +2416,13 @@ public:
 
         if (str != m_bufferPtr)
         {
-            const int first = static_cast<int>(str - GetBuffer());
+            const int first = int(str - GetBuffer());
             char* buffer = GetBuffer(GetLength());
 
             str = buffer + first;
             const int length = GetLength() - first;
 
-            c::memmove(buffer, str, (length + 1) * sizeof(char));
+            cmemmove(buffer, str, (length + 1) * sizeof(char));
             ReleaseBuffer(length);
         }
 
@@ -2457,7 +2468,7 @@ public:
 
         if (last != nullptr)
         {
-            const int i = static_cast<int>(last - m_bufferPtr);
+            const int i = last - m_bufferPtr;
             Delete(i, m_stringLength - i);
         }
     }
@@ -2476,7 +2487,7 @@ public:
         while (ch == *str)
             str++;
 
-        Delete(0, static_cast<int>(str - m_bufferPtr));
+        Delete(0, str - m_bufferPtr);
     }
 
     //
@@ -2732,7 +2743,7 @@ public:
     //
     Array <String> Split(const char separator)
     {
-        const char sep[2] = {separator , 0x0};
+        const char sep[2] = { separator, 0x0 };
         return Split(sep);
     }
 };
@@ -2766,7 +2777,7 @@ public:
     // Function: File
     //  Default file class, constructor, with file opening.
     //
-    File(const String fileName, const String mode = "rt")
+    File(String fileName, String mode = "rt")
     {
         Open(fileName, mode);
     }
@@ -2887,7 +2898,7 @@ public:
     }
 
     //
-    // Function: Printf
+    // Function: Print
     //  Puts formatted buffer, into stream.
     //
     // Parameters:
@@ -2896,7 +2907,7 @@ public:
     // Returns:
     //  Number of bytes, that was written.
     //
-    int Printf(const char* format, ...)
+    int Print(const char* format, ...)
     {
         va_list ap;
         va_start(ap, format);
@@ -3146,10 +3157,13 @@ private:
     inline const char* GetTimeFormatString(void) const
     {
         static char timeFormatStr[32];
-        c::memset(timeFormatStr, 0, sizeof(char) * 32);
+        cmemset(timeFormatStr, 0, sizeof(char) * 32);
+
         time_t tick = time(&tick);
-        const tm* time = localtime(&tick);
+        tm* time = localtime(&tick);
+
         sprintf(timeFormatStr, "%02i:%02i:%02i", time->tm_hour, time->tm_min, time->tm_sec);
+
         return &timeFormatStr[0];
     }
 
@@ -3185,7 +3199,7 @@ public:
 #define DEFINE_PRINT_FUNCTION(funcName, logMask, logStr) \
    void funcName (const char *format, ...) \
    { \
-      const int flags = m_logger->GetFlags (); \
+      int flags = m_logger->GetFlags (); \
       \
       if ((flags & logMask) != logMask) \
          return; \
@@ -3200,7 +3214,7 @@ public:
       if (flags & LM_CONSOLE) \
          m_logger->EchoWithTag ("(%s): %s", logStr, buffer); \
       \
-      m_logFile.Printf ("[%s] (%s): %s\n", GetTimeFormatString (), logStr, buffer); \
+      m_logFile.Print ("[%s] (%s): %s\n", GetTimeFormatString (), logStr, buffer); \
       \
    }
 
@@ -3277,9 +3291,9 @@ template <typename T1, typename T2> inline Pair <T1, T2> MakePair(T1 first, T2 s
     return Pair <T1, T2>(first, second);
 }
 
+
 // @DEPRECATEME@
 #define ITERATE_ARRAY(arrayName, iteratorName) \
-    int iteratorName; \
-    for (iteratorName = 0; iteratorName != arrayName.GetElementNumber (); iteratorName++)
+   for (int iteratorName = 0; iteratorName != arrayName.GetElementNumber (); iteratorName++)
 
 #endif // RUNTIME_INCLUDED

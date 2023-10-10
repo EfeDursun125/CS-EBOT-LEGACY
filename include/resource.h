@@ -22,18 +22,32 @@
 // $Id:$
 //
 
+
 #ifndef RESOURCE_INCLUDED
 #define RESOURCE_INCLUDED
 
-#define PRODUCT_DEV_VERSION_FORTEST ""
+// This is test version?
+// #define PRODUCT_DEV_VERSION
 
-// E-Bot Version
-#define PRODUCT_VERSION_DWORD 109,20230326,10 // yyyy/mm/dd
-#define PRODUCT_VERSION "1.09"
-#define PRODUCT_VERSION_F 1.09
+#if defined(PRODUCT_DEV_VERSION)
+#define PRODUCT_DEV_VERSION_FORTEST "(PRV)"
+//#define PRODUCT_DEV_VERSION_FORTEST "(DEV)"
+//#define PRODUCT_DEV_VERSION_FORTEST "(Preview-2)"
+// Dev Version Date
+#define PV_VERSION_YEAR 2017
+#define PV_VERSION_MON 2
+#define PV_VERSION_DAY 10
+#else
+#define PRODUCT_DEV_VERSION_FORTEST ""
+#endif
+
+// E-BOT Version
+#define PRODUCT_VERSION_DWORD 1,07,20230213,8 // yyyy/mm/dd
+#define PRODUCT_VERSION "1.07"
+#define PRODUCT_VERSION_F 1.07
 
 // general product information
-#define PRODUCT_NAME "E-BOT"
+#define PRODUCT_NAME "E-BOT LEGACY"
 #define PRODUCT_AUTHOR "EfeDursun125"
 #define PRODUCT_URL "ebots-for-cs.blogspot.com"
 #define PRODUCT_EMAIL "efedursun91@gmail.com"

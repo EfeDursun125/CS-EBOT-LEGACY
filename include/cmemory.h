@@ -17,7 +17,7 @@ __asm__(".symver realloc,realloc@GLIBC_2.0");
 __asm__(".symver free,free@GLIBC_2.0");
 #endif
 
-namespace c
+namespace ce
 {
     inline void memcpy(void* dest, const void* src, const size_t size)
     {
