@@ -524,11 +524,8 @@ public:
 	explicit PathNode(void) = default;
 	~PathNode(void)
 	{
-		if (m_path != nullptr)
-		{
-			delete m_path;
-			m_path = nullptr;
-		}
+		delete m_path;
+		m_path = nullptr;
 	}
 
 public:
@@ -549,6 +546,9 @@ public:
 
 	uint32_t& At(const size_t index)
 	{
+		if (m_path == nullptr)
+			return m_cursor;
+
 		return m_path[m_cursor + index];
 	}
 
@@ -559,8 +559,11 @@ public:
 
 	void Reverse(void)
 	{
+		if (m_path == nullptr)
+			return;
+
 		size_t i;
-		const size_t half = m_length * 0.5f;
+		const size_t half = m_length / 2;
 		for (i = 0; i < half; i++)
 			std::swap(m_path[i], m_path[m_length - 1 - i]);
 	}
@@ -590,14 +593,15 @@ public:
 
 		if (m_length >= m_capacity)
 		{
-			const size_t newCapacity = m_length * 2;
-			uint32_t* newPath = static_cast<uint32_t*>(realloc(m_path, newCapacity * sizeof(uint32_t)));
-			if (newPath == nullptr)
-				return;
-
-			m_path = newPath;
-			m_capacity = newCapacity;
+			m_capacity = m_length * 2;
+			if (m_path != nullptr)
+				m_path = static_cast<uint32_t*>(realloc(m_path, m_capacity * sizeof(uint32_t)));
+			else
+				m_path = new(std::nothrow) uint32_t[m_capacity];
 		}
+
+		if (m_path == nullptr)
+			return;
 
 		m_path[m_length++] = waypoint;
 	}
@@ -606,7 +610,8 @@ public:
 	{
 		m_cursor = 0;
 		m_length = 0;
-		m_path[0] = 0;
+		if (m_path != nullptr)
+			m_path[0] = 0;
 	}
 
 	void Init(const size_t length)
@@ -617,7 +622,7 @@ public:
 			if (m_path != nullptr)
 				break;
 		}
-
+		
 		m_capacity = length;
 	}
 };
