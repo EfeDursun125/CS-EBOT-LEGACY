@@ -2157,12 +2157,12 @@ void Bot::CheckGrenadeThrow(void)
 		targetEntity = m_lastEnemy;
 	else if (IsZombieMode())
 	{
-		if (!FNullEnt(m_moveTargetEntity))
+		if (m_isZombieBot && !FNullEnt(m_moveTargetEntity))
 			targetEntity = m_moveTargetEntity;
 		else if (!FNullEnt(m_enemy))
 			targetEntity = m_enemy;
 	}
-	else
+	else if (!FNullEnt(m_enemy))
 		targetEntity = m_enemy;
 
 	if (FNullEnt(targetEntity))
@@ -2462,6 +2462,9 @@ bool Bot::LastEnemyShootable(void)
 void Bot::CheckRadioCommands(void)
 {
 	if (!m_isSlowThink)
+		return;
+
+	if (IsZombieMode())
 		return;
 
 	if (m_numFriendsLeft == 0)
@@ -4977,7 +4980,7 @@ void Bot::RunTask(void)
 					m_strafeSpeed = 0.0f;
 				}
 			}
-			else if (((pev->origin + pev->velocity * m_frameInterval) - m_enemyOrigin).GetLengthSquared() <= SquaredF(cabsf(m_enemy->v.speed) + ebot_zp_escape_distance.GetFloat()))
+			else if (((pev->origin + pev->velocity * m_frameInterval) - m_enemyOrigin).GetLengthSquared() < SquaredF(cabsf(m_enemy->v.speed) + ebot_zp_escape_distance.GetFloat()))
 			{
 				destination = m_enemyOrigin;
 				m_destOrigin = destination;
@@ -4998,15 +5001,13 @@ void Bot::RunTask(void)
 
 			m_moveToGoal = false;
 		}
-		else if (!FNullEnt(m_enemy) || m_enemyOrigin != nullvec)
+		else if (!FNullEnt(m_enemy) && m_enemyOrigin != nullvec)
 			destination = m_enemyOrigin + (m_enemy->v.velocity.SkipZ() * 0.54f);
-		else
-			m_enemy = m_lastEnemy;
 
 		m_isUsingGrenade = true;
 		m_checkTerrain = false;
 
-		if (!IsZombieMode() && ((pev->origin + pev->velocity * m_frameInterval) - destination).GetLengthSquared() <= SquaredF(400.0f))
+		if (!IsZombieMode() && ((pev->origin + pev->velocity * m_frameInterval) - destination).GetLengthSquared() < SquaredF(400.0f))
 		{
 			// heck, I don't wanna blow up myself
 			m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
@@ -5019,10 +5020,10 @@ void Bot::RunTask(void)
 
 		m_grenade = CheckThrow(EyePosition(), destination);
 
-		if (m_grenade.GetLengthSquared() <= SquaredF(100.0f))
+		if (m_grenade.GetLengthSquared() < SquaredF(100.0f))
 			m_grenade = CheckToss(EyePosition(), destination);
 
-		if (!IsZombieMode() && m_grenade != nullvec && m_grenade.GetLengthSquared() <= SquaredF(100.0f))
+		if (!IsZombieMode() && m_grenade != nullvec && m_grenade.GetLengthSquared() < SquaredF(100.0f))
 		{
 			m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
 			m_grenade = m_lookAt;
@@ -5039,7 +5040,7 @@ void Bot::RunTask(void)
 				if (ent->v.owner == GetEntity() && cstrcmp(STRING(ent->v.model) + 9, "hegrenade.mdl") == 0)
 				{
 					// set the correct velocity for the grenade
-					if (m_grenade != nullvec && m_grenade.GetLengthSquared() >= SquaredF(100.0f))
+					if (m_grenade != nullvec && m_grenade.GetLengthSquared() > SquaredF(100.0f))
 						ent->v.velocity = m_grenade;
 
 					m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
@@ -5093,7 +5094,7 @@ void Bot::RunTask(void)
 					m_strafeSpeed = 0.0f;
 				}
 			}
-			else if (((pev->origin + pev->velocity * m_frameInterval) - m_enemyOrigin).GetLengthSquared() <= SquaredF(cabsf(m_enemy->v.speed) + ebot_zp_escape_distance.GetFloat()))
+			else if (((pev->origin + pev->velocity * m_frameInterval) - m_enemyOrigin).GetLengthSquared() < SquaredF(cabsf(m_enemy->v.speed) + ebot_zp_escape_distance.GetFloat()))
 			{
 				destination = m_enemyOrigin;
 				m_destOrigin = destination;
@@ -5114,20 +5115,18 @@ void Bot::RunTask(void)
 
 			m_moveToGoal = false;
 		}
-		else if (!FNullEnt(m_enemy) || m_enemyOrigin != nullvec)
+		else if (!FNullEnt(m_enemy) && m_enemyOrigin != nullvec)
 			destination = m_enemyOrigin + (m_enemy->v.velocity.SkipZ() * 0.54f);
-		else
-			m_enemy = m_lastEnemy;
 
 		m_isUsingGrenade = true;
 		m_checkTerrain = false;
 
 		m_grenade = CheckThrow(EyePosition(), destination);
 
-		if (m_grenade.GetLengthSquared() <= SquaredF(100.0f))
+		if (m_grenade.GetLengthSquared() < SquaredF(100.0f))
 			m_grenade = CheckToss(pev->origin, destination);
 
-		if (!IsZombieMode() && m_grenade != nullvec && m_grenade.GetLengthSquared() <= SquaredF(100.0f))
+		if (!IsZombieMode() && m_grenade != nullvec && m_grenade.GetLengthSquared() < SquaredF(100.0f))
 		{
 			m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
 			m_grenade = m_lookAt;
@@ -5143,7 +5142,7 @@ void Bot::RunTask(void)
 				if (ent->v.owner == GetEntity() && cstrcmp(STRING(ent->v.model) + 9, "flashbang.mdl") == 0)
 				{
 					// set the correct velocity for the grenade
-					if (m_grenade != nullvec && m_grenade.GetLengthSquared() >= SquaredF(100.0f))
+					if (m_grenade != nullvec && m_grenade.GetLengthSquared() > SquaredF(100.0f))
 						ent->v.velocity = m_grenade;
 
 					m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
@@ -5198,7 +5197,7 @@ void Bot::RunTask(void)
 
 				m_moveToGoal = false;
 			}
-			else if (((pev->origin + pev->velocity * m_frameInterval) - m_enemyOrigin).GetLengthSquared() <= SquaredF(cabsf(m_enemy->v.speed) + ebot_zp_escape_distance.GetFloat()))
+			else if (((pev->origin + pev->velocity * m_frameInterval) - m_enemyOrigin).GetLengthSquared() < SquaredF(cabsf(m_enemy->v.speed) + ebot_zp_escape_distance.GetFloat()))
 			{
 				destination = m_enemyOrigin;
 				m_destOrigin = destination;
@@ -5218,10 +5217,8 @@ void Bot::RunTask(void)
 			m_strafeSpeed = 0.0f;
 			m_moveToGoal = false;
 		}
-		else if (!FNullEnt(m_enemy) || m_enemyOrigin != nullvec)
+		else if (!FNullEnt(m_enemy) && m_enemyOrigin != nullvec)
 			destination = m_enemyOrigin + (m_enemy->v.velocity.SkipZ() * 0.54f);
-		else
-			m_enemy = m_lastEnemy;
 
 		m_isUsingGrenade = true;
 		m_checkTerrain = false;
@@ -5237,7 +5234,7 @@ void Bot::RunTask(void)
 				if (ent->v.owner == GetEntity() && cstrcmp(STRING(ent->v.model) + 9, "smokegrenade.mdl") == 0)
 				{
 					// set the correct velocity for the grenade
-					if (m_grenade != nullvec && m_grenade.GetLengthSquared() >= SquaredF(100.0f))
+					if (m_grenade != nullvec && m_grenade.GetLengthSquared() > SquaredF(100.0f))
 						ent->v.velocity = m_grenade;
 
 					m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
@@ -5283,7 +5280,7 @@ void Bot::RunTask(void)
 
 			m_moveToGoal = false;
 		}
-		else if (!FNullEnt(m_enemy) || m_enemyOrigin != nullvec)
+		else if (!FNullEnt(m_enemy) && m_enemyOrigin != nullvec)
 			destination = m_enemyOrigin + (m_enemy->v.velocity.SkipZ() * 0.54f);
 
 		m_isUsingGrenade = true;
@@ -5291,10 +5288,10 @@ void Bot::RunTask(void)
 
 		m_grenade = CheckThrow(EyePosition(), destination);
 
-		if (m_grenade.GetLengthSquared() <= SquaredF(100.0))
+		if (m_grenade.GetLengthSquared() < SquaredF(100.0))
 			m_grenade = CheckToss(EyePosition(), destination);
 
-		if (!IsZombieMode() && m_grenade != nullvec && m_grenade.GetLengthSquared() <= SquaredF(100.0))
+		if (!IsZombieMode() && m_grenade != nullvec && m_grenade.GetLengthSquared() < SquaredF(100.0))
 		{
 			m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;
 			m_grenade = m_lookAt;
@@ -5311,7 +5308,7 @@ void Bot::RunTask(void)
 				if (ent->v.owner == GetEntity() && cstrcmp(STRING(ent->v.model) + 9, "smokegrenade.mdl") == 0)
 				{
 					// set the correct velocity for the grenade
-					if (m_grenade != nullvec && m_grenade.GetLengthSquared() >= SquaredF(100.0f))
+					if (m_grenade != nullvec && m_grenade.GetLengthSquared() > SquaredF(100.0f))
 						ent->v.velocity = m_grenade;
 
 					m_grenadeCheckTime = engine->GetTime() + Const_GrenadeTimer;

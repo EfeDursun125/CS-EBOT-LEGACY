@@ -26,8 +26,7 @@
 
 ConVar ebot_quota("ebot_quota", "10");
 ConVar ebot_forceteam("ebot_force_team", "any");
-ConVar ebot_auto_players("ebot_auto_players", "-1"); // i don't even know what is this...
-ConVar ebot_quota_save("ebot_quota_save", "-1");
+ConVar ebot_auto_players("ebot_auto_players", "-1");
 
 ConVar ebot_difficulty("ebot_difficulty", "4");
 ConVar ebot_minskill("ebot_min_skill", "1");
@@ -62,13 +61,13 @@ BotControl::BotControl(void)
 // this is a bot manager class destructor, do not use engine->GetMaxClients () here !!
 BotControl::~BotControl(void)
 {
-	for (int i = 0; i < 32; i++)
+	for (auto& bot : m_bots)
 	{
-		if (m_bots[i])
-		{
-			delete m_bots[i];
-			m_bots[i] = nullptr;
-		}
+		if (bot == nullptr)
+			continue;
+
+		delete bot;
+		bot = nullptr;
 	}
 }
 
@@ -82,7 +81,6 @@ void BotControl::CallGameEntity(entvars_t* vars)
 	}
 
 	static EntityPtr_t playerFunction = nullptr;
-
 	if (playerFunction == nullptr)
 		playerFunction = (EntityPtr_t)g_gameLib->GetFunctionAddr("player");
 
@@ -94,7 +92,6 @@ void BotControl::CallGameEntity(entvars_t* vars)
 // then sends result to bot constructor
 int BotControl::CreateBot(String name, int skill, int personality, int team, int member)
 {
-	edict_t* bot = nullptr;
 	if (g_numWaypoints < 1) // don't allow creating bots with no waypoints loaded
 	{
 		ServerPrint("No any waypoints for this map, Cannot Add E-BOT");
@@ -123,8 +120,8 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 			skill = CRandomInt(1, 30);
 		else
 		{
-			int maxSkill = ebot_maxskill.GetInt();
-			int minSkill = (ebot_minskill.GetInt() == 0) ? 1 : ebot_minskill.GetInt();
+			const int maxSkill = ebot_maxskill.GetInt();
+			const int minSkill = (ebot_minskill.GetInt() == 0) ? 1 : ebot_minskill.GetInt();
 
 			if (maxSkill <= 100 && minSkill > 0)
 				skill = CRandomInt(minSkill, maxSkill);
@@ -135,7 +132,7 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 
 	if (personality < 0 || personality > 2)
 	{
-		int randomPrecent = CRandomInt(1, 3);
+		const int randomPrecent = CRandomInt(1, 3);
 
 		if (randomPrecent == 1)
 			personality = PERSONALITY_NORMAL;
@@ -198,6 +195,7 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 	else
 		cstrncpy(botName, outputName, sizeof(botName));
 
+	edict_t* bot = nullptr;
 	if (FNullEnt((bot = (*g_engfuncs.pfnCreateFakeClient) (botName))))
 	{
 		CenterPrint(" Unable to create E-Bot, Maximum players reached (%d/%d)", engine->GetMaxClients(), engine->GetMaxClients());
@@ -209,7 +207,7 @@ int BotControl::CreateBot(String name, int skill, int personality, int team, int
 	if (m_bots[index] == nullptr)
 		return -1;
 
-	ServerPrint("Connecting E-Bot - %s | Skill %d", GetEntityName(bot), skill);
+	ServerPrint("Connecting E-Bot - %s | Skill %d", botName, skill);
 	return index;
 }
 
@@ -297,7 +295,7 @@ void BotControl::DoJoinQuitStuff(void)
 	if (ebot_stay_min.GetFloat() > ebot_stay_max.GetFloat())
 		ebot_stay_min.SetFloat(ebot_stay_max.GetFloat());
 
-	float min = ebot_stay_min.GetFloat() * 2.0f;
+	const float min = ebot_stay_min.GetFloat() * 2.0f;
 	float max = ebot_stay_max.GetFloat() * 0.5f;
 
 	if (min > max)
@@ -348,96 +346,6 @@ void BotControl::AddBot(const String& name, int skill, int personality, int team
 
 void BotControl::CheckBotNum(void)
 {
-	if (ebot_auto_players.GetInt() == -1 && ebot_quota_save.GetInt() == -1)
-		return;
-
-	int needBotNumber = 0;
-	if (ebot_quota_save.GetInt() != -1)
-	{
-		if (ebot_quota_save.GetInt() > 32)
-			ebot_quota_save.SetInt(32);
-
-		needBotNumber = ebot_quota_save.GetInt();
-
-		File fp(FormatBuffer("%s/addons/ebot/ebot.cfg", GetModName()), "rt+");
-		if (fp.IsValid())
-		{
-			const char quotaCvar[11] = { 's', 'y', 'p', 'b', '_', 'q', 'u', 'o', 't', 'a', ' ' };
-
-			char line[256];
-			bool changeed = false;
-			while (fp.GetBuffer(line, 255))
-			{
-				bool trueCvar = true;
-				for (int j = 0; (j < 11 && trueCvar); j++)
-				{
-					if (quotaCvar[j] != line[j])
-						trueCvar = false;
-				}
-
-				if (!trueCvar)
-					continue;
-
-				changeed = true;
-
-				int i = 0;
-				for (i = 0; i <= 255; i++)
-				{
-					if (line[i] == 0)
-						break;
-				}
-				i++;
-				fp.Seek(-i, SEEK_CUR);
-
-				if (line[11] == 0 || line[12] == 0 || line[13] == '"' ||
-					line[11] == '\n' || line[12] == '\n')
-				{
-					changeed = false;
-					fp.Print("//////////");
-					break;
-				}
-
-				if (line[11] == '"')
-				{
-					fp.PutString(FormatBuffer("ebot_quota \"%s%d\"",
-						needBotNumber > 10 ? "" : "0", needBotNumber));
-				}
-				else
-					fp.PutString(FormatBuffer("ebot_quota %s%d",
-						needBotNumber > 10 ? "" : "0", needBotNumber));
-
-				ServerPrint("ebot_quota save to '%d' - C", needBotNumber);
-
-				break;
-			}
-
-			if (!changeed)
-			{
-				fp.Seek(0, SEEK_END);
-				fp.Print(FormatBuffer("\nebot_quota \"%s%d\"\n",
-					needBotNumber > 10 ? "" : "0", needBotNumber));
-				ServerPrint("ebot_quota save to '%d' - A", needBotNumber);
-			}
-
-			fp.Close();
-		}
-		else
-		{
-			File fp2(FormatBuffer("%s/addons/ebot/ebot.cfg", GetModName()), "at");
-			if (fp2.IsValid())
-			{
-				fp2.Print(FormatBuffer("\nebot_quota \"%s%d\"\n",
-					needBotNumber > 10 ? "" : "0", needBotNumber));
-				ServerPrint("ebot_quota save to '%d' - A", needBotNumber);
-				fp2.Close();
-			}
-			else
-				ServerPrint("Unknow Problem - Cannot save ebot quota");
-		}
-
-		ebot_quota_save.SetInt(-1);
-	}
-
 	if (ebot_auto_players.GetInt() != -1)
 	{
 		if (ebot_auto_players.GetInt() > engine->GetMaxClients())
@@ -446,12 +354,8 @@ void BotControl::CheckBotNum(void)
 			ebot_auto_players.SetInt(engine->GetMaxClients());
 		}
 
-		needBotNumber = ebot_auto_players.GetInt() - GetHumansNum();
-		if (needBotNumber <= 0)
-			needBotNumber = 0;
+		ebot_quota.SetInt(cmax(0, ebot_auto_players.GetInt() - GetHumansNum()));
 	}
-
-	ebot_quota.SetInt(needBotNumber);
 }
 
 int BotControl::AddBotAPI(const String& name, int skill, int team)
@@ -459,7 +363,7 @@ int BotControl::AddBotAPI(const String& name, int skill, int team)
 	if (g_botManager->GetBotsNum() + 1 > ebot_quota.GetInt())
 		ebot_quota.SetInt(g_botManager->GetBotsNum() + 1);
 
-	int resultOfCall = CreateBot(name, skill, -1, team, -1);
+	const int resultOfCall = CreateBot(name, skill, -1, team, -1);
 
 	// check the result of creation
 	if (resultOfCall == -1)
@@ -512,8 +416,8 @@ void BotControl::MaintainBotQuota(void)
 	g_botManager->CheckBotNum();
 	if (m_maintainTime < engine->GetTime())
 	{
-		int botNumber = GetBotsNum();
-		int maxClients = engine->GetMaxClients();
+		const int botNumber = GetBotsNum();
+		const int maxClients = engine->GetMaxClients();
 		int desiredBotCount = ebot_quota.GetInt();
 		
 		if (ebot_autovacate.GetBool())
@@ -548,7 +452,8 @@ void BotControl::InitQuota(void)
 {
 	m_maintainTime = AddTime(2.0f);
 	m_creationTab.Destroy();
-	for (int i = 0; i < entityNum; i++)
+	int i;
+	for (i = 0; i < entityNum; i++)
 		SetEntityActionData(i);
 }
 
@@ -556,7 +461,7 @@ void BotControl::InitQuota(void)
 void BotControl::FillServer(int selection, int personality, int skill, int numToAdd)
 {
 	// always keep one slot
-	int maxClients = ebot_autovacate.GetBool() ? engine->GetMaxClients() - 1 - (IsDedicatedServer() ? 0 : GetHumansNum()) : engine->GetMaxClients();
+	const int maxClients = ebot_autovacate.GetBool() ? engine->GetMaxClients() - 1 - (IsDedicatedServer() ? 0 : GetHumansNum()) : engine->GetMaxClients();
 
 	if (GetBotsNum() >= maxClients - GetHumansNum())
 		return;
@@ -579,9 +484,10 @@ void BotControl::FillServer(int selection, int personality, int skill, int numTo
 	   {"Random"},
 	};
 
-	int toAdd = numToAdd == -1 ? maxClients - (GetHumansNum() + GetBotsNum()) : numToAdd;
+	const int toAdd = numToAdd == -1 ? maxClients - (GetHumansNum() + GetBotsNum()) : numToAdd;
 
-	for (int i = 0; i <= toAdd; i++)
+	int i;
+	for (i = 0; i <= toAdd; i++)
 	{
 		// since we got constant skill from menu (since creation process call automatic), we need to manually
 		// randomize skill here, on given skill there.
@@ -653,8 +559,9 @@ void BotControl::RemoveMenu(edict_t* ent, int selection)
 	cmemset(tempBuffer, 0, sizeof(tempBuffer));
 	cmemset(buffer, 0, sizeof(buffer));
 
+	int i;
 	int validSlots = (selection == 4) ? (1 << 9) : ((1 << 8) | (1 << 9));
-	for (int i = ((selection - 1) * 8); i < selection * 8; ++i)
+	for (i = ((selection - 1) * 8); i < selection * 8; ++i)
 	{
 		if ((m_bots[i] != nullptr) && !FNullEnt(m_bots[i]->GetEntity()))
 		{
@@ -766,9 +673,11 @@ void BotControl::SetWeaponMode(int selection)
 	   {"Sniper"},
 	   {"Standard"}
 	};
+
 	selection--;
 
-	for (int i = 0; i < Const_NumWeapons; i++)
+	int i;
+	for (i = 0; i < Const_NumWeapons; i++)
 	{
 		g_weaponSelect[i].teamStandard = tabMapStandart[selection][i];
 		g_weaponSelect[i].teamAS = tabMapAS[selection][i];
@@ -896,24 +805,25 @@ void BotControl::CheckTeamEconomics(int team)
 // this function free all bots slots (used on server shutdown)
 void BotControl::Free(void)
 {
-	for (int i = 0; i < 32; i++)
+	for (auto& bot : m_bots)
 	{
-		if (m_bots[i] != nullptr)
-		{
-			if (ebot_save_bot_names.GetBool())
-				m_savedBotNames.Push(STRING(m_bots[i]->GetEntity()->v.netname));
+		if (bot == nullptr)
+			continue;
 
-			m_bots[i]->m_stayTime = 0.0f;
-			delete m_bots[i];
-			m_bots[i] = nullptr;
-		}
+		if (ebot_save_bot_names.GetBool())
+			m_savedBotNames.Push(STRING(bot->GetEntity()->v.netname));
+
+		delete bot;
+		bot = nullptr;
 	}
 }
 
 // this function frees one bot selected by index (used on bot disconnect)
-void BotControl::Free(int index)
+void BotControl::Free(const int index)
 {
-	m_bots[index]->m_stayTime = 0.0f;
+	if (m_bots[index] == nullptr)
+		return;
+
 	delete m_bots[index];
 	m_bots[index] = nullptr;
 }
@@ -921,11 +831,11 @@ void BotControl::Free(int index)
 // this function controls the bot entity
 Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 {
-	if (!bot)
+	if (bot == nullptr)
 		return;
 
 	char rejectReason[128];
-	int clientIndex = ENTINDEX(bot);
+	const int clientIndex = ENTINDEX(bot);
 
 	cmemset(reinterpret_cast <void*> (this), 0, sizeof(*this));
 
@@ -1041,7 +951,7 @@ Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
 	m_pushMessageIndex = 0;
 
 	// init path
-	m_navNode.Init(g_numWaypoints + 32);
+	m_navNode.Init(g_numWaypoints + 64);
 
 	// assign team and class
 	m_wantedTeam = team;
@@ -1266,7 +1176,6 @@ void Bot::NewRound(void)
 void Bot::Kill(void)
 {
 	edict_t* hurtEntity = (*g_engfuncs.pfnCreateNamedEntity) (MAKE_STRING("trigger_hurt"));
-
 	if (FNullEnt(hurtEntity))
 		return;
 
@@ -1277,7 +1186,7 @@ void Bot::Kill(void)
 	hurtEntity->v.dmgtime = 2.0f;
 	hurtEntity->v.effects |= EF_NODRAW;
 
-	(*g_engfuncs.pfnSetOrigin) (hurtEntity, Vector(-4000, -4000, -4000));
+	(*g_engfuncs.pfnSetOrigin) (hurtEntity, Vector(-4000.0f, -4000.0f, -4000.0f));
 
 	KeyValueData kv;
 	kv.szClassName = const_cast <char*> (g_weaponDefs[m_currentWeapon].className);
@@ -1295,12 +1204,12 @@ void Bot::Kill(void)
 
 void Bot::Kick(void)
 {
-	auto myName = GetEntityName(GetEntity());
+	const char* myName = GetEntityName(GetEntity());
 	if (IsNullString(myName))
 		return;
 
-	ServerCommand("kick \"%s\"", GetEntityName(GetEntity()));
-	CenterPrint("E-Bot '%s' kicked from the server", GetEntityName(GetEntity()));
+	ServerCommand("kick \"%s\"", myName);
+	CenterPrint("E-Bot '%s' kicked from the server", myName);
 
 	if (g_botManager->GetBotsNum() - 1 < ebot_quota.GetInt())
 		ebot_quota.SetInt(g_botManager->GetBotsNum() - 1);
@@ -1365,7 +1274,7 @@ void Bot::StartGame(void)
 		m_wantedClass = CRandomInt(1, maxChoice);
 
 		// select the class the bot wishes to use...
-		FakeClientCommand(GetEntity(), "menuselect %d", maxChoice);
+		FakeClientCommand(GetEntity(), "menuselect %d", m_wantedClass);
 
 		// bot has now joined the game (doesn't need to be started)
 		m_notStarted = false;
