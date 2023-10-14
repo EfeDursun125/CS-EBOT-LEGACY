@@ -524,7 +524,7 @@ public:
 	explicit PathNode(void) = default;
 	~PathNode(void)
 	{
-		delete m_path;
+		delete[] m_path;
 		m_path = nullptr;
 	}
 
