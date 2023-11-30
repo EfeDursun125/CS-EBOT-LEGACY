@@ -87,7 +87,7 @@ void BotCallbacks::OnEntitySpawned(const Entity& ent)
 
 }
 
-void BotCallbacks::OnRunCommand(const Entity& client, const String& command, const Array <const String&>& args)
+void BotCallbacks::OnRunCommand(const Entity& client, const String& command, const MiniArray <const String&>& args)
 {
 
 }

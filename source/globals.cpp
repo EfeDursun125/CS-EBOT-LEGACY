@@ -37,11 +37,10 @@ bool g_waypointOn = false;
 bool g_waypointsChanged = true;
 bool g_autoWaypoint = false;
 bool g_bLearnJumpWaypoint = false;
-bool g_leaderChoosen[2] = { false, false };
+bool g_leaderChoosen[2] = {false, false};
 bool g_analyzewaypoints = false;
 bool g_analyzeputrequirescrouch = false;
 bool g_expanded[Const_MaxWaypoints];
-bool g_sendMessage = false;
 bool g_isXash = false;
 
 bool g_sgdWaypoint = false;
@@ -52,18 +51,13 @@ float g_lastChatTime = 0.0f;
 float g_timeRoundStart = 0.0f;
 float g_timeRoundEnd = 0.0f;
 float g_timeRoundMid = 0.0f;
-float g_timeNextBombUpdate = 0.0f;
 float g_timeBombPlanted = 0.0f;
-float g_lastRadioTime[2] = { 0.0f, 0.0f };
-float g_audioTime = 0.0f;
+float g_lastRadioTime[2] = {0.0f, 0.0f};
 float g_autoPathDistance = 250.0f;
 float g_fakePingUpdate = 0.0f;
 float g_pathTimer = 0.0f;
-
+float g_audioTime = 0.0f;
 float g_DelayTimer = 0.0f;
-
-int humansNumber;
-int botsNumber;
 
 int g_lastRadio[2];
 int g_storeAddbotVars[4];
@@ -72,7 +66,6 @@ int g_fakeArgc = 0;
 int g_gameVersion = CSVER_CSTRIKE;
 int g_numWaypoints = 0;
 int g_mapType = 0;
-unsigned short g_killHistory = 0;
 
 int g_modelIndexLaser = 0;
 int g_modelIndexArrow = 0;
@@ -88,9 +81,9 @@ Vector g_entityGetWpOrigin[entityNum];
 float g_entityGetWpTime[entityNum];
 //******
 
-Array <Array <String> > g_chatFactory;
-Array <NameItem> g_botNames;
-Array <KwChat> g_replyFactory;
+MiniArray <Array <String>> g_chatFactory;
+MiniArray <NameItem> g_botNames;
+MiniArray <KwChat> g_replyFactory;
 
 Library* g_gameLib = nullptr;
 
@@ -124,12 +117,12 @@ int g_carefulWeaponPrefs[Const_NumWeapons] =
 
 SkillDef g_skillTab[6] =
 {
-   {0.8f, 1.0, 45.0, 65.0, 2.0, 3.0, 40.0f, 40.0f, 50.0f,   0,   0,   0, 50},
-   {0.6f, 0.8f, 40.0f, 60.0f, 3.0, 4.0, 30.0f, 30.0f, 42.0,  10,   0,   0, 40},
-   {0.4f, 0.6f, 35.0, 55.0, 4.0, 6.0, 20.0f, 20.0f, 32.0,  30,   0,  50, 35},
-   {0.2f, 0.3f, 30.0f, 50.0f, 6.0, 8.0, 10.0f, 10.0f, 18.0,   0,  30,  80, 30},
-   {0.1f, 0.2f, 25.0, 40.0f, 8.0, 10.0f, 5.0,  5.0, 10.0f,  80,  50, 100, 23},
-   {0.0f, 0.1f, 20.0f, 30.0f, 9.0, 12.0, 0.0f,  5.0,  0.0f, 100, 100, 100, 20}
+   {45.0f, 65.0f, 2.0f, 3.0f, 40.0f, 40.0f, 50.0f,   0,   0,   0, 50},
+   {40.0f, 60.0f, 3.0f, 4.0f, 30.0f, 30.0f, 42.0f,  10,   0,   0, 40},
+   {35.0f, 55.0f, 4.0f, 6.0f, 20.0f, 20.0f, 32.0f,  30,   0,  50, 35},
+   {30.0f, 50.0f, 6.0f, 8.0f, 10.0f, 10.0f, 18.0f,   0,  30,  80, 30},
+   {25.0f, 40.0f, 8.0f, 10.0f, 5.0f,  5.0f, 10.0f,  80,  50, 100, 23},
+   {20.0f, 30.0f, 9.0f, 12.0f, 0.0f,  5.0f,  0.0f, 100, 100, 100, 20}
 };
 
 int* g_weaponPrefs[] =
@@ -181,7 +174,6 @@ TaskItem g_taskFilters[] =
    {TASK_DEFUSEBOMB, 0, -1, 0.0f, false},
    {TASK_FIGHTENEMY, 0, -1, 0.0f, false},
    {TASK_HUNTENEMY, 0, -1, 0.0f, false},
-   {TASK_SEEKCOVER, 0, -1, 0.0f, false},
    {TASK_THROWHEGRENADE, 0, -1, 0.0f, false},
    {TASK_THROWFBGRENADE, 0, -1, 0.0f, false},
    {TASK_THROWSMGRENADE, 0, -1, 0.0f, false},
@@ -190,7 +182,6 @@ TaskItem g_taskFilters[] =
    {TASK_DESTROYBREAKABLE, 0, -1, 0.0f, false},
    {TASK_HIDE, 0, -1, 0.0f, false},
    {TASK_BLINDED, 0, -1, 0.0f, false},
-   {TASK_SPRAYLOGO, 0, -1, 0.0f, false},
    {TASK_MOVETOTARGET, 0, -1, 0.0f, true},
    {TASK_GOINGFORCAMP, 0, -1, 0.0f, true}
 };

@@ -29,60 +29,50 @@ ConVar ebot_zp_use_grenade_percent("ebot_zm_use_grenade_percent", "10");
 ConVar ebot_zp_escape_distance("ebot_zm_escape_distance", "320");
 ConVar ebot_zombie_speed_factor("ebot_zombie_speed_factor", "0.54");
 
-int Bot::GetNearbyFriendsNearPosition(Vector origin, float radius)
+int Bot::GetNearbyFriendsNearPosition(const Vector& origin, const float& radius)
 {
 	if (GetGameMode() == MODE_DM)
 		return 0;
 
-	if (origin == nullvec)
-		return 0;
-
 	int count = 0;
+	const float sqRange = squaredf(radius);
 	for (const auto& client : g_clients)
 	{
-		if (client.index < 0)
-			continue;
-
 		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
 			continue;
 
-		if ((client.origin - origin).GetLengthSquared() < SquaredF(radius))
+		if ((client.origin - origin).GetLengthSquared() < sqRange)
 			count++;
 	}
 
 	return count;
 }
 
-int Bot::GetNearbyEnemiesNearPosition(Vector origin, float radius)
+int Bot::GetNearbyEnemiesNearPosition(const Vector& origin, const float& radius)
 {
-	if (origin == nullvec)
-		return 0;
-
 	int count = 0;
+	const float sqRange = squaredf(radius);
 	for (const auto& client : g_clients)
 	{
-		if (client.index < 0)
-			continue;
-
 		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team == m_team)
 			continue;
 
-		if ((client.origin - origin).GetLengthSquared() < SquaredF(radius))
+		if ((client.origin - origin).GetLengthSquared() < sqRange)
 			count++;
 	}
 
 	return count;
 }
 
-void Bot::ResetCheckEnemy()
+void Bot::ResetCheckEnemy(void)
 {
-	int i;
+	int i, y, z;
 	edict_t* entity = nullptr;
 	m_checkEnemyNum = 0;
 	for (i = 0; i < checkEnemyNum; i++)
@@ -96,9 +86,6 @@ void Bot::ResetCheckEnemy()
 
 	for (const auto& client : g_clients)
 	{
-		if (client.index < 0)
-			continue;
-
 		if (FNullEnt(client.ent))
 			continue;
 
@@ -128,19 +115,12 @@ void Bot::ResetCheckEnemy()
 
 	for (i = 0; i < m_checkEnemyNum; i++)
 	{
-		for (int y = 0; y < checkEnemyNum; y++)
+		for (y = 0; y < checkEnemyNum; y++)
 		{
 			if (m_allEnemyDistance[i] > m_checkEnemyDistance[y])
 				continue;
 
-			if (m_allEnemyDistance[i] == m_checkEnemyDistance[y])
-			{
-				Vector myVec = pev->origin + pev->velocity * m_frameInterval;
-				if ((myVec - GetEntityOrigin(m_allEnemy[i])).GetLengthSquared2D() > (myVec - GetEntityOrigin(m_checkEnemy[y])).GetLengthSquared2D())
-					continue;
-			}
-
-			for (int z = m_checkEnemyNum - 1; z >= y; z--)
+			for (z = m_checkEnemyNum - 1; z >= y; z--)
 			{
 				if (z == m_checkEnemyNum - 1 || m_checkEnemy[z] == nullptr)
 					continue;
@@ -151,7 +131,6 @@ void Bot::ResetCheckEnemy()
 
 			m_checkEnemy[y] = m_allEnemy[i];
 			m_checkEnemyDistance[y] = m_allEnemyDistance[i];
-
 			break;
 		}
 	}
@@ -191,7 +170,7 @@ bool Bot::LookupEnemy(void)
 
 		if ((m_enemyUpdateTime > engine->GetTime()))
 		{
-			if (IsEnemyViewable(m_enemy, true) || IsShootableThruObstacle(m_enemy))
+			if (IsEnemyViewable(m_enemy, true))
 			{
 				m_aimFlags |= AIM_ENEMY;
 				return true;
@@ -205,7 +184,7 @@ bool Bot::LookupEnemy(void)
 	}
 	else if (!FNullEnt(m_moveTargetEntity))
 	{
-		auto origin = GetEntityOrigin(m_moveTargetEntity);
+		const Vector origin = GetEntityOrigin(m_moveTargetEntity);
 		if (m_team == GetTeam(m_moveTargetEntity) || !IsAlive(m_moveTargetEntity) || origin == nullvec)
 			SetMoveTarget(nullptr);
 
@@ -225,9 +204,9 @@ bool Bot::LookupEnemy(void)
 			continue;
 
 		if (m_blindRecognizeTime < engine->GetTime() && IsBehindSmokeClouds(entity))
-			m_blindRecognizeTime = engine->GetTime() + CRandomFloat(2.0f, 3.0f);
+			m_blindRecognizeTime = engine->GetTime() + crandomfloat(2.0f, 3.0f);
 
-		if (m_blindRecognizeTime >= engine->GetTime())
+		if (m_blindRecognizeTime > engine->GetTime())
 			continue;
 
 		if (IsValidPlayer(entity) && IsEnemyProtectedByShield(entity))
@@ -243,55 +222,17 @@ bool Bot::LookupEnemy(void)
 		}
 	}
 
-	if (!FNullEnt(m_moveTargetEntity) && m_moveTargetEntity != targetEntity)
-	{
-		if (m_currentWaypointIndex != GetEntityWaypoint(targetEntity))
-		{
-			const float distance = (pev->origin - GetEntityOrigin(m_moveTargetEntity)).GetLengthSquared();
-			if (distance <= SquaredF(enemy_distance + 400.0f))
-			{
-				const int targetWpIndex = GetEntityWaypoint(targetEntity);
-				bool shortDistance = false;
-
-				const Path* path = g_waypoint->GetPath(m_currentWaypointIndex);
-				for (int j = 0; j < Const_MaxPathIndex; j++)
-				{
-					if (path->index[j] != targetWpIndex)
-						continue;
-
-					if (path->connectionFlags[j] & PATHFLAG_JUMP)
-						break;
-
-					shortDistance = true;
-				}
-
-				if (shortDistance == false)
-				{
-					enemy_distance = distance;
-					targetEntity = nullptr;
-				}
-			}
-		}
-	}
-
 	// last checking
 	if (!FNullEnt(targetEntity) && !IsEnemyViewable(targetEntity, true, true))
 		targetEntity = nullptr;
 
-	if (!FNullEnt(m_enemy) && FNullEnt(targetEntity))
+	if (m_isZombieBot || (ebot_knifemode.GetBool() && targetEntity == m_moveTargetEntity))
 	{
-		if (m_isZombieBot || (ebot_knifemode.GetBool() && targetEntity == m_moveTargetEntity))
+		if (!FNullEnt(m_enemy) && FNullEnt(targetEntity))
 		{
 			g_botsCanPause = false;
-
 			SetMoveTarget(m_enemy);
 			return false;
-		}
-		else if (IsShootableThruObstacle(m_enemy))
-		{
-			m_enemyOrigin = GetEntityOrigin(m_enemy);
-			m_visibility = VISIBILITY_BODY;
-			return true;
 		}
 	}
 
@@ -302,7 +243,7 @@ bool Bot::LookupEnemy(void)
 			bool moveTotarget = true;
 			int movePoint = 0;
 
-			int srcIndex = GetEntityWaypoint(GetEntity());
+			const int srcIndex = GetEntityWaypoint(GetEntity());
 			const int destIndex = GetEntityWaypoint(targetEntity);
 			if ((m_currentTravelFlags & PATHFLAG_JUMP))
 				movePoint = 10;
@@ -318,10 +259,10 @@ bool Bot::LookupEnemy(void)
 						continue;
 
 					movePoint++;
-					for (int j = 0; j < Const_MaxPathIndex; j++)
+					int j;
+					for (j = 0; j < Const_MaxPathIndex; j++)
 					{
-						if (path->index[j] == srcIndex &&
-							path->connectionFlags[j] & PATHFLAG_JUMP)
+						if (path->index[j] == srcIndex && path->connectionFlags[j] & PATHFLAG_JUMP)
 						{
 							movePoint += 3;
 							break;
@@ -331,7 +272,7 @@ bool Bot::LookupEnemy(void)
 			}
 
 			enemy_distance = (GetEntityOrigin(targetEntity) - pev->origin).GetLengthSquared();
-			if ((enemy_distance <= SquaredF(150.0f) && movePoint <= 1) || (targetEntity == m_moveTargetEntity && movePoint <= 2))
+			if ((enemy_distance < squaredf(150.0f) && movePoint <= 1) || (targetEntity == m_moveTargetEntity && movePoint <= 2))
 			{
 				moveTotarget = false;
 				if (targetEntity == m_moveTargetEntity && movePoint <= 1)
@@ -363,9 +304,7 @@ bool Bot::LookupEnemy(void)
 		if (targetEntity == m_enemy)
 		{
 			m_seeEnemyTime = engine->GetTime();
-			m_actualReactionTime = 0.0f;
 			SetLastEnemy(targetEntity);
-
 			return true;
 		}
 
@@ -373,13 +312,6 @@ bool Bot::LookupEnemy(void)
 			RadioMessage(Radio_EnemySpotted);
 
 		m_targetEntity = nullptr;
-
-		if (ChanceOf(m_skill))
-			m_enemySurpriseTime = engine->GetTime() + (m_actualReactionTime * 0.33333333333f);
-		else
-			m_enemySurpriseTime = engine->GetTime() + m_actualReactionTime;
-
-		m_actualReactionTime = 0.0f;
 
 		SetEnemy(targetEntity);
 		SetLastEnemy(m_enemy);
@@ -393,7 +325,7 @@ bool Bot::LookupEnemy(void)
 		return true;
 	}
 
-	if ((m_aimFlags <= AIM_PREDICTENEMY && m_seeEnemyTime + 4.0f < engine->GetTime() && !(m_states & (STATE_SEEINGENEMY | STATE_HEARENEMY)) && FNullEnt(m_lastEnemy) && FNullEnt(m_enemy) && GetCurrentTaskID() != TASK_DESTROYBREAKABLE && GetCurrentTaskID() != TASK_PLANTBOMB && GetCurrentTaskID() != TASK_DEFUSEBOMB) || g_roundEnded)
+	if ((m_aimFlags < AIM_LASTENEMY && m_seeEnemyTime + 4.0f < engine->GetTime() && !(m_states & (STATE_SEEINGENEMY | STATE_HEARENEMY)) && FNullEnt(m_lastEnemy) && FNullEnt(m_enemy) && GetCurrentTaskID() != TASK_DESTROYBREAKABLE && GetCurrentTaskID() != TASK_PLANTBOMB && GetCurrentTaskID() != TASK_DEFUSEBOMB) || g_roundEnded)
 	{
 		if (!m_reloadState)
 			m_reloadState = RSTATE_PRIMARY;
@@ -412,17 +344,13 @@ bool Bot::LookupEnemy(void)
 
 Vector Bot::GetAimPosition(void)
 {
+	// not even visible?
+	if (m_visibility == VISIBILITY_NONE)
+		return m_lastEnemyOrigin = m_enemyOrigin;
+
 	// npc/entity
 	if (!IsValidPlayer(m_enemy))
 		return m_lastEnemyOrigin = m_enemyOrigin;
-
-	// not even visible?
-	if (m_visibility == VISIBILITY_NONE)
-		return m_enemyOrigin;
-
-	// return last position
-	if (FNullEnt(m_enemy))
-		return m_enemyOrigin;
 
 	// get enemy position initially
 	Vector targetOrigin = m_enemy->v.origin;
@@ -430,10 +358,11 @@ Vector Bot::GetAimPosition(void)
 	// now take in account different parts of enemy body
 	if (m_visibility & (VISIBILITY_HEAD | VISIBILITY_BODY)) // visible head & body
 	{
-		if (!IsZombieMode() && (m_currentWeapon == WEAPON_AWP || m_currentWeapon == WEAPON_SCOUT))
+		// aim to body with awp, because it deals to much damage
+		if (!IsZombieMode() && m_currentWeapon == WEAPON_AWP)
 			return targetOrigin;
 		// now check is our skill match to aim at head, else aim at enemy body
-		else if (IsZombieMode() || ChanceOf(m_skill) || UsesPistol())
+		else if (IsZombieMode() || chanceof(m_skill) || UsesPistol())
 			targetOrigin += m_enemy->v.view_ofs + Vector(0.0f, 0.0f, GetZOffset((targetOrigin - pev->origin).GetLengthSquared()));
 		else
 			targetOrigin += Vector(0.0f, 0.0f, GetZOffset((targetOrigin - pev->origin).GetLengthSquared()));
@@ -442,7 +371,7 @@ Vector Bot::GetAimPosition(void)
 		targetOrigin += m_enemy->v.view_ofs + Vector(0.0f, 0.0f, GetZOffset((targetOrigin - pev->origin).GetLengthSquared()));
 	else if (m_visibility & VISIBILITY_BODY) // visible only body
 		targetOrigin += Vector(0.0f, 0.0f, GetZOffset((targetOrigin - pev->origin).GetLengthSquared()));
-	else if (m_visibility & VISIBILITY_OTHER) // random part of body is visible
+	else // random part of body is visible
 		targetOrigin = m_enemyOrigin;
 
 	return m_enemyOrigin = m_lastEnemyOrigin = targetOrigin;
@@ -450,42 +379,69 @@ Vector Bot::GetAimPosition(void)
 
 float Bot::GetZOffset(const float distance)
 {
-	bool sniper = UsesSniper();
-	bool pistol = UsesPistol();
-	bool rifle = UsesRifle();
+	if (m_skill < 30)
+		return 0.0f;
 
-	bool zoomableRifle = UsesZoomableRifle();
-	bool submachine = UsesSubmachineGun();
-	bool shotgun = (m_currentWeapon == WEAPON_XM1014 || m_currentWeapon == WEAPON_M3);
-	bool m249 = m_currentWeapon == WEAPON_M249;
+	if (distance > squaredf(2800.0f))
+		return 3.5f;
 
-	float result = -2.0f;
-
-	if (distance > SquaredF(512.0f))
+	if (distance > squaredf(600.0f))
 	{
-		if (sniper)
-			result = 0.18f;
-		else if (zoomableRifle)
-			result = 1.5f;
-		else if (pistol)
-			result = 2.5f;
-		else if (submachine)
-			result = 1.5f;
-		else if (rifle)
-			result = 1.0f;
-		else if (m249)
-			result = -5.5f;
-		else if (shotgun)
-			result = -4.5f;
+		if (UsesSniper())
+			return 3.5f;
+		else if (UsesZoomableRifle())
+			return 4.5f;
+		else if (UsesPistol())
+			return 6.5f;
+		else if (UsesSubmachineGun())
+			return 5.5f;
+		else if (UsesRifle())
+			return 5.5f;
+		else if (m_currentWeapon == WEAPON_M249)
+			return 2.5f;
+		else if (m_currentWeapon == WEAPON_XM1014 || m_currentWeapon == WEAPON_M3 || m_currentWeapon == WEAPON_SHOTGUN)
+			return 10.5f;
+	}
+	else if (distance > squaredf(300.0f))
+	{
+		if (UsesSniper())
+			return 3.5f;
+		else if (UsesZoomableRifle())
+			return 3.5f;
+		else if (UsesPistol())
+			return 6.5f;
+		else if (UsesSubmachineGun())
+			return 3.5f;
+		else if (UsesRifle())
+			return 1.6f;
+		else if (m_currentWeapon == WEAPON_M249)
+			return -1.0f;
+		else if (m_currentWeapon == WEAPON_XM1014 || m_currentWeapon == WEAPON_M3 || m_currentWeapon == WEAPON_SHOTGUN)
+			return 10.0f;
 	}
 	else
-		return -9.0f;
+	{
+		if (UsesSniper())
+			return 4.5f;
+		else if (UsesZoomableRifle())
+			return -5.0f;
+		else if (UsesPistol())
+			return 4.5f;
+		else if (UsesSubmachineGun())
+			return -4.5f;
+		else if (UsesRifle())
+			return -4.5f;
+		else if (m_currentWeapon == WEAPON_M249)
+			return -6.0f;
+		else if (m_currentWeapon == WEAPON_XM1014 || m_currentWeapon == WEAPON_M3 || m_currentWeapon == WEAPON_SHOTGUN)
+			return -5.0f;
+	}
 
-	return result;
+	return 3.5f;
 }
 
 // bot can't hurt teammates, if friendly fire is not enabled...
-bool Bot::IsFriendInLineOfFire(float distance)
+bool Bot::IsFriendInLineOfFire(const float distance)
 {
 	if (g_gameVersion == HALFLIFE || !engine->IsFriendlyFireOn() || GetGameMode() == MODE_DM || GetGameMode() == MODE_NOTEAM)
 		return false;
@@ -502,8 +458,9 @@ bool Bot::IsFriendInLineOfFire(float distance)
 			if (IsValidPlayer(tr.pHit))
 				return true;
 
-			int entityIndex = ENTINDEX(tr.pHit);
-			for (int i = 0; i < entityNum; i++)
+			int i;
+			const int entityIndex = ENTINDEX(tr.pHit);
+			for (i = 0; i < entityNum; i++)
 			{
 				if (g_entityId[i] == -1 || g_entityAction[i] != 1)
 					continue;
@@ -514,118 +471,41 @@ bool Bot::IsFriendInLineOfFire(float distance)
 		}
 	}
 
+	Vector origin;
+	float friendDistance;
 	for (const auto& client : g_clients)
 	{
-		if (client.index < 0)
-			continue;
-
 		if (FNullEnt(client.ent))
 			continue;
 
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
 			continue;
 
-		Vector origin = client.ent->v.origin;
-		float friendDistance = (origin - pev->origin).GetLengthSquared();
-
-		if (friendDistance <= distance && GetShootingConeDeviation(GetEntity(), &origin) > (friendDistance / (friendDistance + 1089.0f)))
+		origin = client.ent->v.origin;
+		friendDistance = (origin - pev->origin).GetLengthSquared();
+		if (friendDistance < distance && GetShootingConeDeviation(GetEntity(), origin) > (friendDistance / (friendDistance + 1089.0f)))
 			return true;
 	}
 
 	return false;
 }
 
-int CorrectGun(int weaponID)
-{
-	if (GetGameMode() != MODE_BASE)
-		return 0;
-
-	if (weaponID == WEAPON_AUG || weaponID == WEAPON_M4A1 || weaponID == WEAPON_SG552 || weaponID == WEAPON_AK47 || weaponID == WEAPON_FAMAS || weaponID == WEAPON_GALIL)
-		return 2;
-	else if (weaponID == WEAPON_SG552 || weaponID == WEAPON_G3SG1)
-		return 3;
-
-	return 0;
-}
-
-bool Bot::IsShootableThruObstacle(edict_t* entity)
-{
-	if (FNullEnt(entity))
-		return false;
-
-	if (!IsValidPlayer(entity) || IsZombieEntity(entity))
-		return false;
-
-	if (entity->v.health >= 60.0f)
-		return false;
-
-	int currentWeaponPenetrationPower = CorrectGun(m_currentWeapon);
-	if (currentWeaponPenetrationPower == 0)
-		return false;
-
-	TraceResult tr{};
-	Vector dest = GetEntityOrigin(entity);
-
-	float obstacleDistance = 0.0f;
-
-	TraceLine(EyePosition(), dest, true, GetEntity(), &tr);
-
-	if (tr.fStartSolid)
-	{
-		Vector source = tr.vecEndPos;
-
-		TraceLine(dest, source, true, GetEntity(), &tr);
-		if (tr.flFraction != 1.0f)
-		{
-			if ((tr.vecEndPos - dest).GetLengthSquared() > SquaredF(800.0f))
-				return false;
-
-			if (tr.vecEndPos.z >= dest.z + 200.0f)
-				return false;
-
-			if (dest.z >= tr.vecEndPos.z + 200.0f)
-				return false;
-
-			obstacleDistance = (tr.vecEndPos - source).GetLengthSquared();
-		}
-	}
-
-	if (obstacleDistance > 0.0f)
-	{
-		while (currentWeaponPenetrationPower > 0.0f)
-		{
-			if (obstacleDistance > SquaredF(75.0f))
-			{
-				obstacleDistance -= SquaredF(75.0f);
-				currentWeaponPenetrationPower--;
-				continue;
-			}
-
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool Bot::DoFirePause(float distance)//, FireDelay *fireDelay)
+bool Bot::DoFirePause(const float distance)//, FireDelay *fireDelay)
 {
 	if (m_firePause > engine->GetTime())
 		return true;
 
-	if ((m_aimFlags & AIM_ENEMY) && m_enemyOrigin != nullvec)
+	if (m_aimFlags & AIM_ENEMY)
 	{
-		if (IsEnemyProtectedByShield(m_enemy) && GetShootingConeDeviation(GetEntity(), &m_enemyOrigin) > 0.92f)
+		if (IsEnemyProtectedByShield(m_enemy) && GetShootingConeDeviation(GetEntity(), m_enemyOrigin) > 0.9f)
 			return true;
 	}
 
-	const float angle = (cabsf(pev->punchangle.y) + cabsf(pev->punchangle.x)) * (Math::MATH_PI * 0.00277777777f);
-
 	// check if we need to compensate recoil
-	if (ctanf(angle) * (distance + (distance * 0.25f)) > g_skillTab[m_skill / 20].recoilAmount)
+	if (ctanf((cabsf(pev->punchangle.y) + cabsf(pev->punchangle.x)) * 0.00872664625f) * (distance + (distance * 0.25f)) > g_skillTab[m_skill / 20].recoilAmount)
 	{
-		if (m_firePause < (engine->GetTime() - 0.4))
-			m_firePause = engine->GetTime() + CRandomFloat(0.4f, (0.4f + 1.2f * ((100 - m_skill)) * 0.01f));
+		if (m_firePause < (engine->GetTime() - 0.4f))
+			m_firePause = engine->GetTime() + crandomfloat(0.4f, (0.4f + 1.2f * ((100 - m_skill)) * 0.01f));
 
 		return true;
 	}
@@ -658,13 +538,13 @@ void Bot::FireWeapon(void)
 		return;
 	}
 
-	float distance = (m_lookAt - pev->origin).GetLengthSquared(); // how far away is the enemy?
+	float distance;
 
 	// or if friend in line of fire, stop this too but do not update shoot time
-	if (!FNullEnt(m_enemy) && IsFriendInLineOfFire(distance))
+	if (!FNullEnt(m_enemy) && IsFriendInLineOfFire((distance = (m_lookAt - pev->origin).GetLengthSquared()))) // how far away is the enemy?
 		return;
 
-	int melee = g_gameVersion == HALFLIFE ? WEAPON_CROWBAR : WEAPON_KNIFE;
+	const int melee = g_gameVersion == HALFLIFE ? WEAPON_CROWBAR : WEAPON_KNIFE;
 
 	FireDelay* delay = &g_fireDelay[0];
 	WeaponSelect* selectTab = g_gameVersion == HALFLIFE ? &g_weaponSelectHL[0] : &g_weaponSelect[0];
@@ -672,11 +552,11 @@ void Bot::FireWeapon(void)
 	edict_t* enemy = m_enemy;
 
 	int selectId = melee, selectIndex = 0, chosenWeaponIndex = 0;
-	int weapons = pev->weapons;
+	const int weapons = pev->weapons;
 
 	if (m_isZombieBot || ebot_knifemode.GetBool())
 		goto WeaponSelectEnd;
-	else if (!FNullEnt(enemy) && ChanceOf(m_skill) && !IsZombieEntity(enemy) && IsOnAttackDistance(enemy, 128.0f) && (enemy->v.health <= 30 || pev->health > enemy->v.health) && !IsOnLadder() && !IsGroupOfEnemies(pev->origin))
+	else if (!FNullEnt(enemy) && chanceof(m_skill) && !IsZombieEntity(enemy) && IsOnAttackDistance(enemy, 128.0f) && (enemy->v.health <= 30 || pev->health > enemy->v.health) && !IsOnLadder() && !IsGroupOfEnemies(pev->origin))
 		goto WeaponSelectEnd;
 
 	// loop through all the weapons until terminator is found...
@@ -686,17 +566,16 @@ void Bot::FireWeapon(void)
 		if (weapons & (1 << selectTab[selectIndex].id))
 		{
 			// cannot be used in water...
-			if (pev->waterlevel == 3 && g_weaponDefs[selectTab[selectIndex].id].flags & ITEM_FLAG_NOFIREUNDERWATER)
-				continue;
+			// if (pev->waterlevel == 3 && g_weaponDefs[selectTab[selectIndex].id].flags & ITEM_FLAG_NOFIREUNDERWATER)
+			//	continue;
 
 			// is enough ammo available to fire AND check is better to use pistol in our current situation...
 			if (g_gameVersion == HALFLIFE)
 			{
-				if (selectIndex == WEAPON_SNARK || selectIndex == WEAPON_GAUSS ||selectIndex == WEAPON_EGON || (selectIndex == WEAPON_HANDGRENADE && distance > SquaredF(384.0f) && distance < SquaredF(768.0f)) || (selectIndex == WEAPON_RPG && distance > SquaredF(320.0f)) || (selectIndex == WEAPON_CROSSBOW && distance > SquaredF(320.0f)))
+				if (selectIndex == WEAPON_SNARK || selectIndex == WEAPON_GAUSS ||selectIndex == WEAPON_EGON || (selectIndex == WEAPON_HANDGRENADE && distance > squaredf(384.0f) && distance < squaredf(768.0f)) || (selectIndex == WEAPON_RPG && distance > squaredf(320.0f)) || (selectIndex == WEAPON_CROSSBOW && distance > squaredf(320.0f)))
 					chosenWeaponIndex = selectIndex;
 				else if (selectIndex != WEAPON_HANDGRENADE && selectIndex != WEAPON_RPG  && selectIndex != WEAPON_CROSSBOW && (m_ammoInClip[selectTab[selectIndex].id] > 0) && !IsWeaponBadInDistance(selectIndex, distance))
-						chosenWeaponIndex = selectIndex;
-
+					chosenWeaponIndex = selectIndex;
 			}
 			else if ((m_ammoInClip[selectTab[selectIndex].id] > 0) && !IsWeaponBadInDistance(selectIndex, distance))
 				chosenWeaponIndex = selectIndex;
@@ -711,18 +590,19 @@ void Bot::FireWeapon(void)
 	if (chosenWeaponIndex == 0)
 	{
 		selectIndex = 0;
+		int id;
 
 		// loop through all the weapons until terminator is found...
 		while (selectTab[selectIndex].id)
 		{
-			int id = selectTab[selectIndex].id;
+			id = selectTab[selectIndex].id;
 
 			// is the bot carrying this weapon?
 			if (weapons & (1 << id))
 			{
 				// cannot be used in water...
-				if (pev->waterlevel == 3 && g_weaponDefs[id].flags & ITEM_FLAG_NOFIREUNDERWATER)
-					continue;
+				// if (pev->waterlevel == 3 && g_weaponDefs[id].flags & ITEM_FLAG_NOFIREUNDERWATER)
+				// 	continue;
 
 				if (g_weaponDefs[id].ammo1 != -1 && m_ammo[g_weaponDefs[id].ammo1] >= selectTab[selectIndex].minPrimaryAmmo)
 				{
@@ -791,7 +671,7 @@ WeaponSelectEnd:
 
 		if (HasShield() && m_shieldCheckTime < engine->GetTime() && GetCurrentTaskID() != TASK_CAMP) // better shield gun usage
 		{
-			if ((distance > SquaredF(768.0f)) && !IsShieldDrawn())
+			if ((distance > squaredf(768.0f)) && !IsShieldDrawn())
 				pev->button |= IN_ATTACK2; // draw the shield
 			else if (IsShieldDrawn() || (!FNullEnt(enemy) && (enemy->v.button & IN_RELOAD)))
 				pev->button |= IN_ATTACK2; // draw out the shield
@@ -802,23 +682,23 @@ WeaponSelectEnd:
 
 	if (UsesSniper() && m_zoomCheckTime < engine->GetTime()) // is the bot holding a sniper rifle?
 	{
-		if (distance > SquaredF(1500.0f) && pev->fov >= 40.0f) // should the bot switch to the long-range zoom?
+		if (distance > squaredf(1500.0f) && pev->fov >= 40.0f) // should the bot switch to the long-range zoom?
 			pev->button |= IN_ATTACK2;
 
-		else if (distance > SquaredF(150.0f) && pev->fov >= 90.0f) // else should the bot switch to the close-range zoom ?
+		else if (distance > squaredf(150.0f) && pev->fov >= 90.0f) // else should the bot switch to the close-range zoom ?
 			pev->button |= IN_ATTACK2;
 
-		else if (distance <= SquaredF(150.0f) && pev->fov < 90.0f) // else should the bot restore the normal view ?
+		else if (distance <= squaredf(150.0f) && pev->fov < 90.0f) // else should the bot restore the normal view ?
 			pev->button |= IN_ATTACK2;
 
 		m_zoomCheckTime = engine->GetTime();
 	}
 	else if (UsesZoomableRifle() && m_zoomCheckTime < engine->GetTime() && m_skill < 90) // else is the bot holding a zoomable rifle?
 	{
-		if (distance > SquaredF(800.0f) && pev->fov >= 90.0f) // should the bot switch to zoomed mode?
+		if (distance > squaredf(800.0f) && pev->fov >= 90.0f) // should the bot switch to zoomed mode?
 			pev->button |= IN_ATTACK2;
 
-		else if (distance <= SquaredF(800.0f) && pev->fov < 90.0f) // else should the bot restore the normal view?
+		else if (distance <= squaredf(800.0f) && pev->fov < 90.0f) // else should the bot restore the normal view?
 			pev->button |= IN_ATTACK2;
 
 		m_zoomCheckTime = engine->GetTime();
@@ -827,7 +707,7 @@ WeaponSelectEnd:
 	// need to care for burst fire?
 	if (g_gameVersion == HALFLIFE || distance < 256.0f || m_blindTime > engine->GetTime())
 	{
-		if (selectId == melee)
+		if (m_currentWeapon == melee && selectId == melee)
 			KnifeAttack();
 		else
 		{
@@ -854,7 +734,7 @@ WeaponSelectEnd:
 			return;
 
 		// don't attack with knife over long distance
-		if (selectId == melee)
+		if (m_currentWeapon == melee && selectId == melee)
 		{
 			KnifeAttack();
 			return;
@@ -869,31 +749,31 @@ WeaponSelectEnd:
 		else
 		{
 			pev->button |= IN_ATTACK;  // use primary attack
-			delayTime = baseDelay + CRandomFloat(minDelay, maxDelay);
+			delayTime = baseDelay + crandomfloat(minDelay, maxDelay);
 			m_zoomCheckTime = engine->GetTime();
 		}
 
-		if (!FNullEnt(enemy) && distance > SquaredF(1200.0f))
+		if (!FNullEnt(enemy) && distance > squaredf(1200.0f))
 		{
 			if (m_visibility & (VISIBILITY_HEAD | VISIBILITY_BODY))
 				delayTime -= (delayTime == 0.0f) ? 0.0f : 0.02f;
 			else if (m_visibility & VISIBILITY_HEAD)
 			{
-				if (distance > SquaredF(2400.0f))
+				if (distance > squaredf(2400.0f))
 					delayTime += (delayTime == 0.0f) ? 0.15f : 0.10f;
 				else
 					delayTime += (delayTime == 0.0f) ? 0.10f : 0.05f;
 			}
 			else if (m_visibility & VISIBILITY_BODY)
 			{
-				if (distance > SquaredF(2400.0f))
+				if (distance > squaredf(2400.0f))
 					delayTime += (delayTime == 0.0f) ? 0.12f : 0.08f;
 				else
 					delayTime += (delayTime == 0.0f) ? 0.08f : 0.0f;
 			}
 			else
 			{
-				if (distance > SquaredF(2400.0f))
+				if (distance > squaredf(2400.0f))
 					delayTime += (delayTime == 0.0f) ? 0.18f : 0.15f;
 				else
 					delayTime += (delayTime == 0.0f) ? 0.15f : 0.10f;
@@ -946,7 +826,7 @@ bool Bot::KnifeAttack(float attackDistance)
 		Vector entityOrigin = GetEntityOrigin(entity);
 		float distanceSkipZ = (pev->origin - entityOrigin).GetLengthSquared2D();
 
-		if (pev->origin.z > entityOrigin.z && distanceSkipZ < SquaredF(64.0f))
+		if (pev->origin.z > entityOrigin.z && distanceSkipZ < squaredf(64.0f))
 		{
 			pev->button |= IN_DUCK;
 			m_campButtons |= IN_DUCK;
@@ -957,7 +837,7 @@ bool Bot::KnifeAttack(float attackDistance)
 			pev->button &= ~IN_DUCK;
 			m_campButtons &= ~IN_DUCK;
 
-			if (pev->origin.z + 150.0f < entityOrigin.z && distanceSkipZ < SquaredF(300.0f))
+			if (pev->origin.z + 150.0f < entityOrigin.z && distanceSkipZ < squaredf(300.0f))
 				pev->button |= IN_JUMP;
 		}
 
@@ -974,7 +854,7 @@ bool Bot::KnifeAttack(float attackDistance)
 				pev->button |= IN_ATTACK;
 			else if (kaMode == 2)
 				pev->button |= IN_ATTACK2;
-			else if (CRandomInt(1, 10) < 3 || HasShield())
+			else if (crandomint(1, 10) < 3 || HasShield())
 				pev->button |= IN_ATTACK;
 			else
 				pev->button |= IN_ATTACK2;
@@ -988,7 +868,7 @@ bool Bot::KnifeAttack(float attackDistance)
 
 // this function checks, is it better to use pistol instead of current primary weapon
 // to attack our enemy, since current weapon is not very good in this situation
-bool Bot::IsWeaponBadInDistance(int weaponIndex, float distance)
+bool Bot::IsWeaponBadInDistance(const int weaponIndex, const float distance)
 {
 	if (g_gameVersion == HALFLIFE)
 	{
@@ -997,7 +877,7 @@ bool Bot::IsWeaponBadInDistance(int weaponIndex, float distance)
 			return false;
 
 		// shotgun is too inaccurate at long distances, so weapon is bad
-		if (weaponID == WEAPON_SHOTGUN && distance > SquaredF(768.0f))
+		if (weaponID == WEAPON_SHOTGUN && distance > squaredf(768.0f))
 			return true;
 	}
 	else
@@ -1007,12 +887,12 @@ bool Bot::IsWeaponBadInDistance(int weaponIndex, float distance)
 			return false;
 
 		// shotguns is too inaccurate at long distances, so weapon is bad
-		if ((weaponID == WEAPON_M3 || weaponID == WEAPON_XM1014) && distance > SquaredF(768.0f))
+		if ((weaponID == WEAPON_M3 || weaponID == WEAPON_XM1014) && distance > squaredf(768.0f))
 			return true;
 
 		if (!IsZombieMode())
 		{
-			if ((weaponID == WEAPON_SCOUT || weaponID == WEAPON_AWP || weaponID == WEAPON_G3SG1 || weaponID == WEAPON_SG550) && distance <= SquaredF(512.0f))
+			if ((weaponID == WEAPON_SCOUT || weaponID == WEAPON_AWP || weaponID == WEAPON_G3SG1 || weaponID == WEAPON_SG550) && distance <= squaredf(512.0f))
 				return true;
 		}
 	}
@@ -1028,45 +908,27 @@ void Bot::FocusEnemy(void)
 {
 	m_lookAt = GetAimPosition();
 
-	if (m_enemySurpriseTime > engine->GetTime())
-		return;
-
-	const float distance = (m_lookAt - EyePosition()).GetLengthSquared();  // how far away is the enemy scum?
-
-	if (distance < SquaredF(128.0f))
+	if (m_currentWeapon == WEAPON_KNIFE)
 	{
-		if (m_currentWeapon == WEAPON_KNIFE)
-		{
-			if (IsOnAttackDistance(m_enemy, 64.0f))
-				m_wantsToFire = true;
-		}
-		else
+		if (IsOnAttackDistance(m_enemy, 64.0f))
 			m_wantsToFire = true;
 	}
-	else
+	else if (!m_wantsToFire)
 	{
-		if (m_currentWeapon == WEAPON_KNIFE)
-			m_wantsToFire = true;
+		const float dot = GetShootingConeDeviation(GetEntity(), m_enemyOrigin);
+		if (dot < 0.9f)
+			m_wantsToFire = false;
 		else
 		{
-			const float dot = GetShootingConeDeviation(GetEntity(), &m_enemyOrigin);
-
-			if (dot < 0.90f)
-				m_wantsToFire = false;
+			// enemy faces bot?
+			if (GetShootingConeDeviation(m_enemy, pev->origin) > 0.9f)
+				m_wantsToFire = true;
 			else
 			{
-				const float enemyDot = GetShootingConeDeviation(m_enemy, &pev->origin);
-
-				// enemy faces bot?
-				if (enemyDot >= 0.90f)
+				if (dot > 0.9f)
 					m_wantsToFire = true;
 				else
-				{
-					if (dot > 0.99f)
-						m_wantsToFire = true;
-					else
-						m_wantsToFire = false;
-				}
+					m_wantsToFire = false;
 			}
 		}
 	}
@@ -1102,9 +964,9 @@ void Bot::CombatFight(void)
 		DeleteSearchNodes();
 		m_moveSpeed = pev->maxspeed;
 
-		if (m_isSlowThink && !(pev->flags & FL_DUCKING) && CRandomInt(1, 2) == 1 && !IsOnLadder() && pev->speed >= pev->maxspeed)
+		if (m_isSlowThink && !(pev->flags & FL_DUCKING) && crandomint(1, 2) == 1 && !IsOnLadder() && pev->speed >= pev->maxspeed)
 		{
-			int random = CRandomInt(1, 3);
+			const int random = crandomint(1, 3);
 			if (random == 1)
 				pev->button |= IN_JUMP;
 			else if (random == 2)
@@ -1113,7 +975,7 @@ void Bot::CombatFight(void)
 		else if (!m_isSlowThink)
 			pev->button |= IN_ATTACK;
 
-		m_destOrigin = m_enemyOrigin + m_enemy->v.velocity * ebot_zombie_speed_factor.GetFloat();
+		m_destOrigin = m_enemy->v.origin + m_enemy->v.velocity * ebot_zombie_speed_factor.GetFloat();
 
 		if (!(pev->flags & FL_DUCKING))
 			m_waypointOrigin = m_destOrigin;
@@ -1129,7 +991,7 @@ void Bot::CombatFight(void)
 		const Vector enemyVel = m_enemy->v.velocity;
 		float baseDistance = ebot_zp_escape_distance.GetFloat() + cabsf(m_enemy->v.speed);
 
-		Vector myVec = pev->origin + pev->velocity * m_frameInterval;
+		const Vector myVec = pev->origin + pev->velocity * m_frameInterval;
 
 		if (NPCEnemy || enemyIsZombie)
 		{
@@ -1139,36 +1001,34 @@ void Bot::CombatFight(void)
 					baseDistance = -1.0f;
 			}
 
-			const Vector destOrigin = m_enemyOrigin + enemyVel * m_frameInterval;
+			const Vector destOrigin = m_enemy->v.origin + enemyVel * m_frameInterval;
 			const float distance = (myVec - destOrigin).GetLengthSquared();
-			if (m_isSlowThink && distance <= SquaredF(768.0f) && m_enemy->v.health > 100 && ChanceOf(ebot_zp_use_grenade_percent.GetInt()) && m_enemy->v.velocity.GetLengthSquared() > SquaredF(10.0f))
+			if (m_isSlowThink && distance < squaredf(768.0f) && m_enemy->v.health > 100 && chanceof(ebot_zp_use_grenade_percent.GetInt()) && m_enemy->v.velocity.GetLengthSquared() > m_enemy->v.maxspeed)
 			{
 				if (m_skill >= 50)
 				{
-					if (pev->weapons & (1 << WEAPON_FBGRENADE) && (m_enemy->v.speed >= m_enemy->v.maxspeed || distance <= SquaredF(384.0f)))
+					if (pev->weapons & (1 << WEAPON_FBGRENADE) && (m_enemy->v.speed >= m_enemy->v.maxspeed || distance < squaredf(384.0f)))
 						ThrowFrostNade();
 					else
 						ThrowFireNade();
 				}
 				else
 				{
-					if (pev->weapons & (1 << WEAPON_FBGRENADE) && CRandomInt(1, 2) == 1)
+					if (pev->weapons & (1 << WEAPON_FBGRENADE) && crandomint(1, 2) == 1)
 						ThrowFrostNade();
 					else
 						ThrowFireNade();
 				}
 			}
 
-			if (baseDistance > 0.0f && distance < SquaredF(baseDistance))
+			if (baseDistance > 0.0f && distance < squaredf(baseDistance))
 			{
 				DeleteSearchNodes();
 				m_destOrigin = destOrigin;
 				m_moveSpeed = -pev->maxspeed;
 
-				Vector directionOld = m_destOrigin - (pev->origin + pev->velocity * m_frameInterval);
-				Vector directionNormal = directionOld.Normalize();
-				Vector direction = directionNormal;
-				directionNormal.z = 0.0f;
+				const Vector directionOld = m_destOrigin - (pev->origin + pev->velocity * m_frameInterval);
+				const Vector directionNormal = directionOld.Normalize2D();
 				SetStrafeSpeed(directionNormal, pev->maxspeed);
 
 				m_moveAngles = directionOld.ToAngles();
@@ -1189,18 +1049,11 @@ void Bot::CombatFight(void)
 
 	if (m_currentWeapon == WEAPON_KNIFE)
 	{
-		if (distance > SquaredF(128.0f))
+		if (distance > squaredf(128.0f))
 		{
-			if (!(g_mapType & MAP_KA) && CRandomFloat(1.0f, pev->health) < 20.0f)
-			{
-				const int seekindex = FindCoverWaypoint(99999.0f);
-				if (IsValidWaypoint(seekindex))
-					PushTask(TASK_SEEKCOVER, TASKPRI_SEEKCOVER, seekindex, 8.0f, true);
-			}
-
 			if (m_navNode.IsEmpty())
 			{
-				const int nearest = g_waypoint->FindNearest(m_enemyOrigin, 99999999.0f, -1, m_enemy);
+				int nearest = g_waypoint->FindNearest(m_enemy->v.origin, 99999999.0f, -1, m_enemy);
 				if (IsValidWaypoint(nearest))
 					FindPath(m_currentWaypointIndex, nearest);
 			}
@@ -1208,20 +1061,16 @@ void Bot::CombatFight(void)
 			return;
 		}
 	}
-	else if (distance < SquaredF(256.0f)) // don't get knifed!!!
+	else if (distance < squaredf(256.0f)) // don't get knifed!!!
 	{
 		DeleteSearchNodes();
-		m_destOrigin = m_enemyOrigin;
+		m_destOrigin = m_enemy->v.origin;
 		m_moveSpeed = -pev->maxspeed;
 
-		Vector directionOld = m_destOrigin - (pev->origin + pev->velocity * m_frameInterval);
-		Vector directionNormal = directionOld.Normalize();
-		Vector direction = directionNormal;
-		directionNormal.z = 0.0f;
+		const Vector directionOld = m_destOrigin - (pev->origin + pev->velocity * m_frameInterval);
+		const Vector directionNormal = directionOld.Normalize2D();
 		SetStrafeSpeed(directionNormal, pev->maxspeed);
-
 		m_moveAngles = directionOld.ToAngles();
-
 		m_moveAngles.ClampAngles();
 		m_moveAngles.x *= -1.0f; // invert for engine
 
@@ -1243,7 +1092,7 @@ void Bot::CombatFight(void)
 		approach = 100;
 	else
 	{
-		approach = static_cast <int> (pev->health * m_agressionLevel);
+		approach = static_cast<int>(pev->health * m_agressionLevel);
 
 		if (UsesSniper() && approach > 49)
 			approach = 49;
@@ -1252,23 +1101,13 @@ void Bot::CombatFight(void)
 	if (UsesPistol() && !((m_enemy->v.weapons & WeaponBits_Secondary) || (m_enemy->v.weapons & (1 << WEAPON_SG550))) && !g_bombPlanted)
 	{
 		m_fearLevel += 0.5f;
-
 		CheckGrenades();
 		CheckThrow(EyePosition(), m_throw);
-
-		if ((m_states & STATE_SEEINGENEMY) && !m_isBomber)
-			PushTask(TASK_SEEKCOVER, TASKPRI_SEEKCOVER, -1, CRandomFloat(10.0f, 20.0f), true);
 	}
 
 	// only take cover when bomb is not planted and enemy can see the bot or the bot is VIP
 	if (approach < 30 && !g_bombPlanted && (IsInViewCone(m_enemy->v.origin) || m_isVIP))
-	{
 		m_moveSpeed = -pev->maxspeed;
-		TaskItem* task = GetCurrentTask();
-		task->id = TASK_SEEKCOVER;
-		task->resume = true;
-		task->desire = TASKPRI_FIGHTENEMY + 1.0f;
-	}
 	else if (approach < 50)
 		m_moveSpeed = 0.0f;
 	else
@@ -1283,11 +1122,11 @@ void Bot::CombatFight(void)
 	{
 		if (m_lastFightStyleCheck + 3.0 < engine->GetTime())
 		{
-			const int rand = CRandomInt(1, 100);
+			const int rand = crandomint(1, 100);
 
-			if (distance < SquaredF(450.0f))
+			if (distance < squaredf(450.0f))
 				m_fightStyle = 0;
-			else if (distance < SquaredF(1024.0f))
+			else if (distance < squaredf(1024.0f))
 			{
 				if (rand < (UsesSubmachineGun() ? 50 : 30))
 					m_fightStyle = 0;
@@ -1309,7 +1148,7 @@ void Bot::CombatFight(void)
 	{
 		if (m_lastFightStyleCheck + 3.0f < engine->GetTime())
 		{
-			if (ChanceOf(50))
+			if (chanceof(50))
 				m_fightStyle = 1;
 			else
 				m_fightStyle = 0;
@@ -1318,25 +1157,25 @@ void Bot::CombatFight(void)
 		}
 	}
 
-	if (m_fightStyle == 0 || ((pev->button & IN_RELOAD) || m_isReloading) || (UsesPistol() && distance < SquaredF(400.0f)))
+	if (m_fightStyle == 0 || ((pev->button & IN_RELOAD) || m_isReloading) || (UsesPistol() && distance < squaredf(400.0f)))
 	{
 		if (m_strafeSetTime < engine->GetTime())
 		{
 			// to start strafing, we have to first figure out if the target is on the left side or right side
 			MakeVectors(m_enemy->v.v_angle);
 
-			const Vector& dirToPoint = (pev->origin - m_enemy->v.origin).Normalize2D();
-			const Vector& rightSide = g_pGlobals->v_right.Normalize2D();
+			const Vector dirToPoint = (pev->origin - m_enemy->v.origin).Normalize2D();
+			const Vector rightSide = g_pGlobals->v_right.Normalize2D();
 
 			if ((dirToPoint | rightSide) < 0)
 				m_combatStrafeDir = 1;
 			else
 				m_combatStrafeDir = 0;
 
-			if (ChanceOf(30))
+			if (chanceof(30))
 				m_combatStrafeDir ^= 1;
 
-			m_strafeSetTime = engine->GetTime() + CRandomFloat(0.5f, 3.0f);
+			m_strafeSetTime = engine->GetTime() + crandomfloat(0.5f, 3.0f);
 		}
 
 		if (m_combatStrafeDir == 0)
@@ -1346,7 +1185,7 @@ void Bot::CombatFight(void)
 			else
 			{
 				m_combatStrafeDir ^= 1;
-				m_strafeSetTime = engine->GetTime() + CRandomFloat(0.5f, 1.5f);
+				m_strafeSetTime = engine->GetTime() + crandomfloat(0.5f, 1.5f);
 			}
 		}
 		else
@@ -1356,14 +1195,14 @@ void Bot::CombatFight(void)
 			else
 			{
 				m_combatStrafeDir ^= 1;
-				m_strafeSetTime = engine->GetTime() + CRandomFloat(0.5f, 1.5f);
+				m_strafeSetTime = engine->GetTime() + crandomfloat(0.5f, 1.5f);
 			}
 		}
 
-		if (m_difficulty >= 3 && !UsesSniper() && (m_jumpTime + 5.0f < engine->GetTime() && IsOnFloor() && CRandomInt(0, 1000) < (m_isReloading ? 8 : 2) && pev->velocity.GetLength2D() > 150.0f))
+		if (m_difficulty >= 3 && !UsesSniper() && (m_jumpTime + 5.0f < engine->GetTime() && IsOnFloor() && crandomint(0, 1000) < (m_isReloading ? 8 : 2) && pev->velocity.GetLength2D() > 150.0f))
 			pev->button |= IN_JUMP;
 
-		if (m_moveSpeed > 0.0f && distance > SquaredF(100.0f) && m_currentWeapon != WEAPON_KNIFE)
+		if (m_moveSpeed > 0.0f && distance > squaredf(100.0f) && m_currentWeapon != WEAPON_KNIFE)
 			m_moveSpeed = 0.0f;
 
 		if (m_currentWeapon == WEAPON_KNIFE)
@@ -1377,7 +1216,7 @@ void Bot::CombatFight(void)
 		// check center/feet
 		if (!IsVisible(m_enemy->v.origin, GetEntity()) && !IsVisible(m_enemy->v.origin + Vector(0.0f, 0.0f, -enemyHalfHeight), GetEntity()))
 		{
-			if (GetCurrentTaskID() != TASK_SEEKCOVER && GetCurrentTaskID() != TASK_HUNTENEMY && (m_visibility & VISIBILITY_BODY) && !(m_visibility & VISIBILITY_OTHER))
+			if (GetCurrentTaskID() != TASK_HUNTENEMY && (m_visibility & VISIBILITY_BODY) && !(m_visibility & VISIBILITY_OTHER))
 				m_duckTime = engine->GetTime() + 5.0f;
 		}
 
@@ -1564,13 +1403,13 @@ bool Bot::UsesBadPrimary(void)
 void Bot::ThrowFireNade(void)
 {
 	if (pev->weapons & (1 << WEAPON_HEGRENADE))
-		PushTask(TASK_THROWHEGRENADE, TASKPRI_THROWGRENADE, -1, CRandomFloat(0.6f, 0.9f), false);
+		PushTask(TASK_THROWHEGRENADE, TASKPRI_THROWGRENADE, -1, crandomfloat(0.6f, 0.9f), false);
 }
 
 void Bot::ThrowFrostNade(void)
 {
 	if (pev->weapons & (1 << WEAPON_FBGRENADE))
-		PushTask(TASK_THROWFBGRENADE, TASKPRI_THROWGRENADE, -1, CRandomFloat(0.6f, 0.9f), false);
+		PushTask(TASK_THROWFBGRENADE, TASKPRI_THROWGRENADE, -1, crandomfloat(0.6f, 0.9f), false);
 }
 
 int Bot::CheckGrenades(void)
@@ -1599,7 +1438,7 @@ void Bot::SelectKnife(void)
 	if (m_currentWeapon == WEAPON_KNIFE)
 		return;
 
-	auto task = GetCurrentTaskID();
+	const auto task = GetCurrentTaskID();
 	if (task == TASK_THROWFBGRENADE)
 		return;
 
@@ -1669,7 +1508,7 @@ void Bot::SelectBestWeapon(void)
 				return;
 			}
 
-			if (!FNullEnt(m_enemy) && GetCurrentTaskID() == TASK_FIGHTENEMY && (pev->origin - m_enemyOrigin).GetLengthSquared() <= SquaredF(96.0f))
+			if (!FNullEnt(m_enemy) && GetCurrentTaskID() == TASK_FIGHTENEMY && (pev->origin - m_enemyOrigin).GetLengthSquared() <= squaredf(96.0f))
 			{
 				if (m_currentWeapon != WEAPON_KNIFE)
 					SelectWeaponByName("weapon_knife");
@@ -1687,33 +1526,31 @@ void Bot::SelectBestWeapon(void)
 
 	int selectIndex = -1;
 	int chosenWeaponIndex = -1;
+	int id;
+	bool ammoLeft;
 
 	while (selectTab[selectIndex].id)
 	{
-		if (!(pev->weapons & (1 << selectTab[selectIndex].id)))
+		id = selectTab[selectIndex].id;
+		if (!(pev->weapons & (1 << id)))
 		{
 			selectIndex++;
 			continue;
 		}
 
-		int id = selectTab[selectIndex].id;
-
 		// cannot be used in water...
-		if (pev->waterlevel == 3 && g_weaponDefs[id].flags & ITEM_FLAG_NOFIREUNDERWATER)
-			continue;
+		// if (pev->waterlevel == 3 && g_weaponDefs[id].flags & ITEM_FLAG_NOFIREUNDERWATER)
+		//	continue;
 
 		if (g_gameVersion == HALFLIFE)
 			chosenWeaponIndex = selectIndex;
 		else
 		{
-			bool ammoLeft = false;
+			ammoLeft = false;
 
 			if (id == m_currentWeapon)
 			{
-				// dont be fool
-				if (m_isReloading)
-					ammoLeft = false;
-				else if (GetAmmoInClip() > 0)
+				if (GetAmmoInClip() > 0)
 					ammoLeft = true;
 			}
 			else if (m_ammo[g_weaponDefs[id].ammo1] > 0)
@@ -1749,8 +1586,7 @@ void Bot::SelectPistol(void)
 	if (m_isReloading)
 		return;
 
-	int oldWeapons = pev->weapons;
-
+	const int oldWeapons = pev->weapons;
 	pev->weapons &= ~WeaponBits_Primary;
 	SelectBestWeapon();
 
@@ -1789,67 +1625,9 @@ void Bot::SelectWeaponbyNumber(int num)
 	FakeClientCommand(GetEntity(), g_weaponSelect[num].weaponName);
 }
 
-void Bot::CommandTeam(void)
+bool Bot::IsGroupOfEnemies(const Vector& location, const int numEnemies, const float radius)
 {
-	if (GetGameMode() != MODE_BASE && GetGameMode() != MODE_TDM)
-		return;
-
-	// prevent spamming
-	if (m_timeTeamOrder > engine->GetTime())
-		return;
-
-	bool memberNear = false;
-	bool memberExists = false;
-
-	// search teammates seen by this bot
-	for (const auto& client : g_clients)
-	{
-		if (client.index < 0)
-			continue;
-
-		if (FNullEnt(client.ent))
-			continue;
-
-		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != m_team || client.ent == GetEntity())
-			continue;
-
-		memberExists = true;
-
-		if (EntityIsVisible(client.origin))
-		{
-			memberNear = true;
-			break;
-		}
-	}
-
-	if (memberNear && ChanceOf(50)) // has teammates ?
-	{
-		if (m_personality == PERSONALITY_RUSHER)
-			RadioMessage(Radio_StormTheFront);
-		else if (m_personality == PERSONALITY_NORMAL)
-			RadioMessage(Radio_StickTogether);
-		else
-			RadioMessage(Radio_Fallback);
-	}
-	else if (memberExists)
-	{
-		if (ChanceOf(25))
-			RadioMessage(Radio_NeedBackup);
-		else if (ChanceOf(25))
-			RadioMessage(Radio_EnemySpotted);
-		else if (ChanceOf(25))
-			RadioMessage(Radio_TakingFire);
-	}
-
-	m_timeTeamOrder = engine->GetTime() + CRandomFloat(10.0f, 30.0f);
-}
-
-bool Bot::IsGroupOfEnemies(Vector location, int numEnemies, float radius)
-{
-	if (m_numEnemiesLeft <= 0)
-		return false;
-
-	if (location == nullvec)
+	if (!m_numEnemiesLeft)
 		return false;
 
 	int numPlayers = 0;
@@ -1857,16 +1635,10 @@ bool Bot::IsGroupOfEnemies(Vector location, int numEnemies, float radius)
 	// search the world for enemy players...
 	for (const auto& client : g_clients)
 	{
-		if (client.index < 0)
-			continue;
-
-		if (FNullEnt(client.ent))
-			continue;
-
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team == m_team)
 			continue;
 
-		if ((client.origin - location).GetLengthSquared() < SquaredF(radius))
+		if ((client.origin - location).GetLengthSquared() < squaredf(radius))
 		{
 			if (numPlayers++ > numEnemies)
 				return true;
@@ -1940,10 +1712,11 @@ void Bot::CheckReload(void)
 	}
 }
 
-int Bot::CheckMaxClip(int weaponId, int* weaponIndex)
+int Bot::CheckMaxClip(const int weaponId, int* weaponIndex)
 {
+	int i;
 	int maxClip = -1;
-	for (int i = 1; i < Const_MaxWeapons; i++)
+	for (i = 1; i < Const_MaxWeapons; i++)
 	{
 		if (weaponId & (1 << i))
 		{
@@ -1955,17 +1728,20 @@ int Bot::CheckMaxClip(int weaponId, int* weaponIndex)
 	switch (*weaponIndex)
 	{
 	case WEAPON_M249:
+	{
 		maxClip = 100;
 		break;
-
+	}
 	case WEAPON_P90:
+	{
 		maxClip = 50;
 		break;
-
+	}
 	case WEAPON_GALIL:
+	{
 		maxClip = 35;
 		break;
-
+	}
 	case WEAPON_ELITE:
 	case WEAPON_MP5:
 	case WEAPON_TMP:
@@ -1975,41 +1751,50 @@ int Bot::CheckMaxClip(int weaponId, int* weaponIndex)
 	case WEAPON_SG552:
 	case WEAPON_AUG:
 	case WEAPON_SG550:
+	{
 		maxClip = 30;
 		break;
-
+	}
 	case WEAPON_UMP45:
 	case WEAPON_FAMAS:
+	{
 		maxClip = 25;
 		break;
-
+	}
 	case WEAPON_GLOCK18:
 	case WEAPON_FN57:
 	case WEAPON_G3SG1:
+	{
 		maxClip = 20;
 		break;
-
+	}
 	case WEAPON_P228:
+	{
 		maxClip = 13;
 		break;
-
+	}
 	case WEAPON_USP:
+	{
 		maxClip = 12;
 		break;
-
+	}
 	case WEAPON_AWP:
 	case WEAPON_SCOUT:
+	{
 		maxClip = 10;
 		break;
-
+	}
 	case WEAPON_M3:
+	{
 		maxClip = 8;
 		break;
-
+	}
 	case WEAPON_DEAGLE:
 	case WEAPON_XM1014:
+	{
 		maxClip = 7;
 		break;
+	}
 	}
 
 	return maxClip;
