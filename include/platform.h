@@ -25,6 +25,8 @@
 #ifndef PLATFORM_INCLUDED
 #define PLATFORM_INCLUDED
 
+#include <glibc.h>
+
 // detects the build platform
 #if defined (__linux__) || defined (__debian__) || defined (__linux) || (__x86_64__) || defined (__amd64__)
 #define PLATFORM_LINUX

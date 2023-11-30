@@ -41,7 +41,6 @@ extern bool g_leaderChoosen[2];
 extern bool g_analyzewaypoints;
 extern bool g_analyzeputrequirescrouch;
 extern bool g_expanded[Const_MaxWaypoints];
-extern bool g_sendMessage;
 extern bool g_isXash;
 
 extern bool g_sgdWaypoint;
@@ -50,24 +49,20 @@ extern int m_sautoRadius;
 
 extern float g_autoPathDistance;
 extern float g_timeBombPlanted;
-extern float g_timeNextBombUpdate;
 extern float g_lastChatTime;
 extern float g_timeRoundEnd;
 extern float g_timeRoundMid;
-extern float g_timeNextBombUpdate;
 extern float g_timeRoundStart;
 extern float g_lastRadioTime[2];
-extern float g_audioTime;
 extern float g_fakePingUpdate;
 extern float g_pathTimer;
-
+extern float g_audioTime;
 extern float g_DelayTimer;
 
 extern int g_mapType;
 extern int g_numWaypoints;
 extern int g_gameVersion;
 extern int g_fakeArgc;
-extern unsigned short g_killHistory;
 
 extern int g_normalWeaponPrefs[Const_NumWeapons];
 extern int g_rusherWeaponPrefs[Const_NumWeapons];
@@ -81,7 +76,7 @@ extern int g_modelIndexLaser;
 extern int g_modelIndexArrow;
 extern char g_fakeArgv[256];
 
-const int entityNum = 256;
+constexpr int entityNum = 254;
 extern int g_entityId[entityNum];
 extern int g_entityTeam[entityNum];
 extern int g_entityAction[entityNum];
@@ -89,9 +84,9 @@ extern int g_entityWpIndex[entityNum];
 extern Vector g_entityGetWpOrigin[entityNum];
 extern float g_entityGetWpTime[entityNum];
 
-extern Array <Array <String> > g_chatFactory;
-extern Array <NameItem> g_botNames;
-extern Array <KwChat> g_replyFactory;
+extern MiniArray <Array <String>> g_chatFactory;
+extern MiniArray <NameItem> g_botNames;
+extern MiniArray <KwChat> g_replyFactory;
 
 extern FireDelay g_fireDelay[Const_NumWeapons + 1];
 extern WeaponSelect g_weaponSelect[Const_NumWeapons + 1];

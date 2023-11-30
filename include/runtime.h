@@ -70,7 +70,7 @@ typedef unsigned short uint16_t;
 //
 // This macro is a null vector.
 //
-#define nullvec Vector::GetNull ()
+#define nullvec Vector::GetNull()
 
 //
 // Function: FormatBuffer
@@ -88,11 +88,9 @@ inline char* FormatBuffer(char* format, ...)
 {
     static char buffer[1024];
     va_list ap;
-
     va_start(ap, format);
     vsprintf(buffer, format, ap);
     va_end(ap);
-
     return &buffer[0];
 }
 
@@ -182,17 +180,17 @@ public:
 //
 namespace Math
 {
-    const float MATH_ONEPSILON = 0.01f;
-    const float MATH_EQEPSILON = 0.001f;
-    const float MATH_FLEPSILON = 1.192092896e-07f;
+    constexpr float MATH_ONEPSILON = 0.01f;
+    constexpr float MATH_EQEPSILON = 0.001f;
+    constexpr float MATH_FLEPSILON = 1.192092896e-07f;
 
     //
     // Constant: MATH_PI
     // Mathematical PI value.
     //
-    const float MATH_PI = 3.14159265358979323846f;
-    const float MATH_D2R = 0.017453292519943295f;
-    const float MATH_R2D = 57.295779513082320876f;
+    constexpr float MATH_PI = 3.14159265358979323846f;
+    constexpr float MATH_D2R = 0.017453292519943295f;
+    constexpr float MATH_R2D = 57.295779513082320876f;
 
     //
     // Function: FltZero
@@ -211,7 +209,7 @@ namespace Math
     // Remarks:
     //   This eliminates Intel C++ Compiler's warning about float equality/inquality.
     //
-    inline bool FltZero(float entry)
+    inline bool FltZero(const float entry)
     {
         return cabsf(entry) < MATH_ONEPSILON;
     }
@@ -234,7 +232,7 @@ namespace Math
     // Remarks:
     //   This eliminates Intel C++ Compiler's warning about float equality/inquality.
     //
-    inline bool FltEqual(float entry1, float entry2)
+    inline bool FltEqual(const float entry1, const float entry2)
     {
         return cabsf(entry1 - entry2) < MATH_EQEPSILON;
     }
@@ -253,7 +251,7 @@ namespace Math
     // See Also:
     //   <DegreeToRadian>
     //
-    inline float RadianToDegree(float radian)
+    inline float RadianToDegree(const float radian)
     {
         return radian * MATH_R2D;
     }
@@ -272,7 +270,7 @@ namespace Math
     // See Also:
     //   <RadianToDegree>
     //
-    inline float DegreeToRadian(float degree)
+    inline float DegreeToRadian(const float degree)
     {
         return degree * MATH_D2R;
     }
@@ -288,9 +286,9 @@ namespace Math
     // Returns:
     //   Resulting angle.
     //
-    inline float AngleMod(float angle)
+    inline float AngleMod(const float angle)
     {
-        return 360.0f / 65536.0f * (static_cast <int> (angle * (65536.0f / 360.0f)) & 65535);
+        return 0.00549316406f * (static_cast<int>(angle * 182.044444444f) & 65535);
     }
 
     //
@@ -306,9 +304,11 @@ namespace Math
     //
     inline float AngleNormalize(float angle)
     {
-        angle = angle - 360.0f * croundf(angle / 360.0f);
-        while (angle > 180.0f) angle -= 360.0f;
-        while (angle < -180.0f) angle += 360.0f;
+        angle -= 360.0f * croundf(angle * 0.00277777777f);
+        if (angle > 180.0f)
+            angle -= 360.0f;
+        else if (angle < -180.0f)
+            angle += 360.0f;
         return angle;
     }
 }
@@ -784,9 +784,9 @@ template <typename T> class Array
 {
 private:
     T* m_elements;
-    int m_resizeStep;
-    int m_itemSize;
-    int m_itemCount;
+    uint16_t m_resizeStep;
+    uint16_t m_itemSize;
+    uint16_t m_itemCount;
 
     //
     // Group: (Con/De)structors
@@ -800,7 +800,7 @@ public:
     // Parameters:
     //  resizeStep - Array resize step, when new items added, or old deleted.
     //
-    Array(const int resizeStep = 0)
+    Array(const uint16_t resizeStep = 0)
     {
         m_elements = nullptr;
         m_itemSize = 0;
@@ -844,12 +844,7 @@ public:
     //
     void Destroy(void)
     {
-        if (m_elements != nullptr)
-        {
-            delete[] m_elements;
-            m_elements = nullptr;
-        }
-
+        safedel(m_elements);
         m_itemSize = 0;
         m_itemCount = 0;
     }
@@ -865,7 +860,7 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool SetSize(const int newSize, const bool keepData = true)
+    bool SetSize(const uint16_t newSize, const bool keepData = true)
     {
         if (!newSize)
         {
@@ -873,8 +868,7 @@ public:
             return true;
         }
 
-        int checkSize = 0;
-
+        uint16_t checkSize = 0;
         if (m_resizeStep != 0)
             checkSize = m_itemCount + m_resizeStep;
         else
@@ -893,16 +887,13 @@ public:
         if (newSize > checkSize)
             checkSize = newSize;
 
-        T* buffer = new(std::nothrow) T[checkSize];
-        if (buffer == nullptr)
-            return false;
-
+        T* buffer = safeloc<T>(checkSize);
         if (keepData && m_elements != nullptr)
         {
             if (checkSize < m_itemCount)
                 m_itemCount = checkSize;
 
-            int i;
+            uint16_t i;
             for (i = 0; i < m_itemCount; i++)
                 buffer[i] = m_elements[i];
 
@@ -911,6 +902,7 @@ public:
 
         m_elements = buffer;
         m_itemSize = checkSize;
+        buffer = nullptr;
         return true;
     }
 
@@ -921,7 +913,7 @@ public:
     // Returns:
     //  Number of allocated items.
     //
-    int GetSize(void) const
+    uint16_t GetSize(void) const
     {
         return m_itemSize;
     }
@@ -933,7 +925,7 @@ public:
     // Returns:
     //  Number of elements.
     //
-    int GetElementNumber(void) const
+    uint16_t GetElementNumber(void) const
     {
         return m_itemCount;
     }
@@ -1003,7 +995,7 @@ public:
     T& GetAt(const int index)
     {
         if (index < 0 || index >= m_itemCount)
-            return m_elements[CRandomInt(0, m_itemCount - 1)];
+            return m_elements[crandomint(0, m_itemCount - 1)];
 
         return m_elements[index];
     }
@@ -1249,10 +1241,7 @@ public:
             return;
         }
 
-        T* buffer = new(std::nothrow) T[m_itemCount];
-        if (buffer == nullptr)
-            return;
-
+        T* buffer = safeloc<T>(m_itemCount);
         if (m_elements != nullptr)
         {
             int i;
@@ -1264,6 +1253,7 @@ public:
 
         m_elements = buffer;
         m_itemSize = m_itemCount;
+        buffer = nullptr;
     }
 
     //
@@ -1339,10 +1329,7 @@ public:
     //
     T& GetRandomElement(void) const
     {
-        if (m_itemCount < 2)
-            return m_elements[0];
-
-        return m_elements[CRandomInt(0, m_itemCount - 1)];
+        return m_elements[crandomint(0, m_itemCount - 1)];
     }
 
     Array <T>& operator = (const Array <T>& other)
@@ -1403,10 +1390,7 @@ private:
             return;
 
         m_allocatedSize = size + 16;
-        char* tempBuffer = new(std::nothrow) char[size + 1];
-        if (tempBuffer == nullptr)
-            return;
-
+        char* tempBuffer = safeloc<char>(size + 1);
         if (m_bufferPtr != nullptr)
         {
             cstrcpy(tempBuffer, m_bufferPtr);
@@ -1416,6 +1400,7 @@ private:
 
         m_bufferPtr = tempBuffer;
         m_allocatedSize = size;
+        tempBuffer = nullptr;
     }
 
     //
@@ -1510,11 +1495,7 @@ public:
         m_stringLength = 0;
     }
 
-    ~String(void)
-    {
-        if (m_bufferPtr)
-            delete[] m_bufferPtr;
-    }
+    ~String(void) { safedel(m_bufferPtr); }
 
     String(const char* bufferPtr)
     {
@@ -1740,9 +1721,9 @@ public:
     // Parameters:
     //  input - Character to assign.
     //
-    void Assign(char input)
+    void Assign(const char input)
     {
-        char psz[2] = { input, 0 };
+        const char psz[2] = { input, 0 };
         Assign(psz);
     }
 
@@ -1869,7 +1850,6 @@ public:
     {
         String result(s1);
         result += s2;
-
         return result;
     }
 
@@ -1877,7 +1857,6 @@ public:
     {
         String result(holder);
         result += ch;
-
         return result;
     }
 
@@ -1885,7 +1864,6 @@ public:
     {
         String result(ch);
         result += holder;
-
         return result;
     }
 
@@ -1893,7 +1871,6 @@ public:
     {
         String result(holder);
         result += str;
-
         return result;
     }
 
@@ -1901,7 +1878,6 @@ public:
     {
         String result(const_cast <char*> (str));
         result += holder;
-
         return result;
     }
 
@@ -1996,7 +1972,7 @@ public:
     //
     String Mid(const int startIndex, int count = -1)
     {
-        if (startIndex >= m_stringLength || !m_bufferPtr)
+        if (startIndex >= m_stringLength || m_bufferPtr == nullptr)
             return nullptr;
 
         if (count == -1)
@@ -2005,10 +1981,7 @@ public:
             count = m_stringLength - startIndex;
 
         int i = 0, j = 0;
-        char* holder = new(std::nothrow) char[m_stringLength + 1];
-        if (holder == nullptr)
-            return nullptr;
-
+        char* holder = safeloc<char>(m_stringLength + 1);
         for (i = startIndex; i < startIndex + count; i++)
             holder[j++] = m_bufferPtr[i];
 
@@ -2016,7 +1989,7 @@ public:
         holder[j] = 0;
         result.Assign(holder);
 
-        delete[] holder;
+        safedel(holder);
         return result;
     }
 
@@ -2311,9 +2284,9 @@ public:
         if (!string.m_stringLength)
             return startIndex;
 
+        int j;
         for (; startIndex < m_stringLength; startIndex++)
         {
-            int j;
             for (j = 0; j < string.m_stringLength && startIndex + j < m_stringLength; j++)
             {
                 if (m_bufferPtr[startIndex + j] != string.m_bufferPtr[j])
@@ -2717,7 +2690,7 @@ public:
     // See Also:
     //  <Array>
     //
-    Array <String> Split(const char* separator)
+    Array <String> Split(char* separator)
     {
         Array <String> holder;
         int tokenLength, index = 0;
@@ -2751,7 +2724,7 @@ public:
     //
     Array <String> Split(const char separator)
     {
-        const char sep[2] = { separator, 0x0 };
+        char sep[2] = { separator, 0x0 };
         return Split(sep);
     }
 };
@@ -3298,10 +3271,4 @@ template <typename T1, typename T2> inline Pair <T1, T2> MakePair(T1 first, T2 s
 {
     return Pair <T1, T2>(first, second);
 }
-
-
-// @DEPRECATEME@
-#define ITERATE_ARRAY(arrayName, iteratorName) \
-   for (int iteratorName = 0; iteratorName != arrayName.GetElementNumber (); iteratorName++)
-
 #endif // RUNTIME_INCLUDED

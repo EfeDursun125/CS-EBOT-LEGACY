@@ -107,7 +107,7 @@ public:
 
     void OnEntitySpawned(const Entity& ent);
 
-    void OnRunCommand(const Entity& client, const String& command, const Array <const String&>& args);
+    void OnRunCommand(const Entity& client, const String& command, const MiniArray <const String&>& args);
 
     void OnBombPlanted(const Entity& bombEntity, const Vector& bombPos);
 
