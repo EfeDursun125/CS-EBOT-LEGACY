@@ -33,10 +33,10 @@
 
 #ifndef EBOT_INCLUDED
 #define EBOT_INCLUDED
+
 #include <glibc.h>
 #include <stdio.h>
 #include <clib.h>
-
 #include <engine.h>
 
 using namespace Math;
@@ -181,62 +181,18 @@ enum RadioList
 // voice system (extending enum above, messages 30-39 is reserved)
 enum class ChatterMessage
 {
-	SpotTheBomber = 1,
-	FriendlyFire,
-	DiePain,
-	GotBlinded,
-	GoingToPlantBomb,
-	RescuingHostages,
-	GoingToCamp,
-	HearSomething,
-	TeamKill,
-	ReportingIn,
-	GuardDroppedC4,
-	Camp,
-	PlantingC4,
-	DefusingC4,
-	InCombat,
-	SeeksEnemy,
-	Nothing,
-	EnemyDown,
-	UseHostage,
-	FoundC4,
-	WonTheRound,
-	ScaredEmotion,
-	HeardEnemy,
-	SniperWarning,
-	SniperKilled,
-	VIPSpotted,
-	GuardingVipSafety,
-	GoingToGuardVIPSafety,
-	QuicklyWonTheRound,
-	OneEnemyLeft,
-	TwoEnemiesLeft,
-	ThreeEnemiesLeft,
-	NoEnemiesLeft,
-	FoundBombPlace,
-	WhereIsTheBomb,
-	DefendingBombSite,
-	BarelyDefused,
-	NiceshotCommander,
-	NiceshotPall,
-	GoingToGuardHostages,
-	GoingToGuardDoppedBomb,
-	OnMyWay,
-	LeadOnSir,
-	Pinned_Down,
-	GottaFindTheBomb,
-	You_Heard_The_Man,
-	Lost_The_Commander,
-	NewRound,
-	CoverMe,
-	BehindSmoke,
-	BombSiteSecured,
-	Clear,
+	Nothing = 1,
 	Yes,
 	No,
 	Happy,
-	Total
+	SeeksEnemy,
+	EnemyDown,
+	CoverMe,
+	Clear,
+	Camp,
+	ReportingIn,
+	ReportTeam,
+	FallBack
 };
 
 // counter-strike weapon id's
@@ -567,11 +523,9 @@ public:
 		if (waypoint < 0)
 			return;
 
+		// we're in limit
 		if (m_length >= m_capacity)
-		{
-			m_capacity = m_length + 2;
-			safereloc(m_path, m_length, m_capacity);
-		}
+			return;
 
 		m_path[m_length] = static_cast<uint16_t>(waypoint);
 		m_length++;
@@ -588,6 +542,7 @@ public:
 	{
 		safeloc(m_path, length);
 		m_capacity = length;
+		m_capacity--;
 	}
 };
 
@@ -756,7 +711,6 @@ private:
 	float m_minSpeed; // minimum speed in normal mode
 	float m_oldCombatDesire; // holds old desire for filtering
 
-	bool m_isLeader; // bot is leader of his team
 	bool m_checkTerrain; // check for terrain
 	bool m_moveToC4; // ct is moving to bomb
 
@@ -816,7 +770,6 @@ private:
 
 	unsigned int m_aimFlags; // aiming conditions
 	Vector m_lookAt; // vector bot should look at
-	Vector m_lookAtCache; // cache for look at
 	Vector m_throw; // origin of waypoint to throw grenades
 	Vector m_idealAngles; // ideal aim angles
 	float m_lookYawVel; // look yaw velocity
@@ -839,7 +792,7 @@ private:
 	bool m_isStuck; // bot is stuck
 	bool m_isReloading; // bot is reloading a gun
 	int m_reloadState; // current reload state
-	int m_voicePitch; // bot voice pitch
+	int m_voicePitch; // bot's voice pitch
 	bool m_isZombieBot; // checks bot if zombie
 
 	float m_msecInterval; // used for leon hartwig's method for msec calculation
@@ -890,7 +843,7 @@ private:
 
 	bool CanDuckUnder(const Vector normal);
 	bool CanJumpUp(const Vector normal);
-	bool CantMoveForward(Vector normal, TraceResult* tr);
+	bool CantMoveForward(const Vector normal, TraceResult* tr);
 
 	void CheckMessageQueue(void);
 	void CheckRadioCommands(void);
@@ -964,7 +917,6 @@ private:
 	bool IsDeadlyDrop(const Vector targetOriginPos);
 	bool CampingAllowed(void);
 	bool OutOfBombTimer(void);
-	void SelectLeaderEachTeam(const int team);
 	void IgnoreCollisionShortly(void);
 	void SetWaypointOrigin(void);
 
@@ -1010,6 +962,7 @@ private:
 public:
 	entvars_t* pev;
 
+	int m_numSpawns; // used for path randomizing
 	int m_wantedTeam; // player team bot wants select
 	int m_wantedClass; // player model bot wants to select
 	int m_difficulty; // bot difficulty
@@ -1021,14 +974,14 @@ public:
 	Personality m_personality;
 	float m_spawnTime; // time this bot spawned
 
+	bool m_isLeader; // bot is leader of his team
 	bool m_isVIP; // bot is vip?
 	bool m_isBomber; // bot is bomber?
-	bool m_bIsDefendingTeam; // bot in defending team on this map
 
 	edict_t* m_avoid; // higher priority player we need to make way for
 
 	int m_startAction; // team/class selection state
-	int m_retryJoin;
+	int m_retryJoin; // retry try
 	int m_team; // bot's team
 	int m_index; // bot's index
 	bool m_isAlive; // has the player been killed or has he just respawned
@@ -1131,7 +1084,7 @@ public:
 	edict_t* m_checkEnemy[checkEnemyNum];
 	float m_checkEnemyDistance[checkEnemyNum];
 
-	Bot(edict_t* bot, int skill, int personality, int team, int member);
+	Bot(edict_t* bot, const int skill, const int personality, const int team, const int member);
 	~Bot(void);
 
 	int GetAmmo(void);
@@ -1210,7 +1163,7 @@ private:
 	int m_roundCount; // rounds passed
 	bool m_economicsGood[2]; // is team able to buy anything
 protected:
-	int CreateBot(String name, int skill, int personality, int team, int member);
+	int CreateBot(const String name, int skill, int personality, const int team, const int member);
 public:
 	Bot* m_bots[32]; // all available bots
 	MiniArray <String> m_savedBotNames; // storing the bot names
@@ -1241,22 +1194,22 @@ public:
 	void CheckBotNum(void);
 
 	void AddRandom(void) { AddBot("", -1, -1, -1, -1); }
-	void AddBot(const String& name, int skill, int personality, int team, int member);
-	void FillServer(int selection, int personality = PERSONALITY_NORMAL, int skill = -1, int numToAdd = -1);
+	void AddBot(const String& name, const int skill, const int personality, const int team, const int member);
+	void FillServer(int selection, const int personality = PERSONALITY_NORMAL, const int skill = -1, const  int numToAdd = -1);
 
 	void RemoveAll(void);
 	void RemoveRandom(void);
-	void RemoveFromTeam(Team team, bool removeAll = false);
-	void RemoveMenu(edict_t* ent, int selection);
-	void KillAll(int team = -1);
+	void RemoveFromTeam(const Team team, const bool removeAll = false);
+	void RemoveMenu(edict_t* ent, const int selection);
+	void KillAll(const int team = -1);
 	void MaintainBotQuota(void);
 	void InitQuota(void);
 
 	void ListBots(void);
 	void SetWeaponMode(int selection);
-	void CheckTeamEconomics(int team);
+	void CheckTeamEconomics(const int team);
 
-	int AddBotAPI(const String& name, int skill, int team);
+	int AddBotAPI(const String& name, const int skill, const int team);
 
 	static void CallGameEntity(entvars_t* vars);
 };
@@ -1294,14 +1247,14 @@ private:
 	int m_facingAtIndex;
 	char m_infoBuffer[256];
 
-	MiniArray <size_t> m_terrorPoints;
-	MiniArray <size_t> m_ctPoints;
-	MiniArray <size_t> m_goalPoints;
-	MiniArray <size_t> m_campPoints;
-	MiniArray <size_t> m_sniperPoints;
-	MiniArray <size_t> m_rescuePoints;
-	MiniArray <size_t> m_zmHmPoints;
-	MiniArray <size_t> m_hmMeshPoints;
+	MiniArray <uint16_t> m_terrorPoints;
+	MiniArray <uint16_t> m_ctPoints;
+	MiniArray <uint16_t> m_goalPoints;
+	MiniArray <uint16_t> m_campPoints;
+	MiniArray <uint16_t> m_sniperPoints;
+	MiniArray <uint16_t> m_rescuePoints;
+	MiniArray <uint16_t> m_zmHmPoints;
+	MiniArray <uint16_t> m_hmMeshPoints;
 public:
 	MiniArray <Path> m_paths;
 	AStar* m_waypoints;
@@ -1313,27 +1266,28 @@ public:
 
 	void Analyze(void);
 	void AnalyzeDeleteUselessWaypoints(void);
-	void InitTypes();
-	void AddPath(int addIndex, int pathIndex, int type = 0);
+	//bool OptimizeWaypoints(void);
+	void InitTypes(void);
+	void AddPath(const int addIndex, const int pathIndex, const int type = 0);
 
 	int GetFacingIndex(void);
-	int FindFarest(const Vector& origin, float maxDistance = 99999.0f);
-	int FindNearestInCircle(const Vector& origin, float maxDistance = 99999.0f);
-	int FindNearest(Vector origin, float minDistance = 99999.0f, int flags = -1, edict_t* entity = nullptr, int* findWaypointPoint = (int*)-2, int mode = -1);
-	void FindInRadius(Vector origin, float radius, int* holdTab, int* count);
+	int FindFarest(const Vector& origin, const float maxDistance = 99999.0f);
+	int FindNearestInCircle(const Vector& origin, const float maxDistance = 99999.0f);
+	int FindNearest(const Vector origin, const float minDistance = 99999.0f, const int flags = -1, edict_t* entity = nullptr, int* findWaypointPoint = (int*)-2, const int mode = -1);
+	void FindInRadius(const Vector origin, const float radius, int* holdTab, int* count);
 	void FindInRadius(MiniArray <int>& queueID, const float radius, const Vector origin);
 
-	void ChangeZBCampPoint(Vector origin);
-	bool IsZBCampPoint(int pointID, bool checkMesh = true);
+	void ChangeZBCampPoint(const Vector origin);
+	bool IsZBCampPoint(const int pointID, const bool checkMesh = true);
 
-	void Add(int flags, Vector waypointOrigin = nullvec);
+	void Add(const int flags, const Vector waypointOrigin = nullvec);
 	void Delete(void);
 	void DeleteByIndex(const int index);
 	void ToggleFlags(const int toggleFlag);
 	void SetRadius(const int radius);
-	bool IsConnected(const int pointA, const int16 pointB);
+	bool IsConnected(const int pointA, const int16_t pointB);
 	bool IsConnected(const int num);
-	void CreatePath(char dir);
+	void CreatePath(const char dir);
 	void DeletePath(void);
 	void CacheWaypoint(void);
 
@@ -1360,14 +1314,14 @@ public:
 	float GetPathDistance(const int srcIndex, const int destIndex);
 
 	Path* GetPath(const int id);
-	char* GetWaypointInfo(int id);
-	char* GetInfo(void) { return m_infoBuffer; }
+	char* GetWaypointInfo(const int id);
+	inline char* GetInfo(void) { return m_infoBuffer; }
 
-	void SetFindIndex(int index);
-	void SetLearnJumpWaypoint(int mod = -1);
+	void SetFindIndex(const int index);
+	void SetLearnJumpWaypoint(const int mod = -1);
 
-	Vector GetBombPosition(void) { return m_foundBombOrigin; }
-	void SetBombPosition(bool shouldReset = false);
+	inline Vector GetBombPosition(void) { return m_foundBombOrigin; }
+	void SetBombPosition(const bool shouldReset = false);
 	char* CheckSubfolderFile(void);
 };
 
@@ -1411,7 +1365,7 @@ extern char* GetEntityName(edict_t* entity);
 extern char* GetMapName(void);
 extern char* GetWaypointDir(void);
 extern char* GetModName(void);
-extern const char* GetField(const char* string, int fieldId, bool endLine = false);
+extern const char* GetField(const char* string, int fieldId, const bool endLine = false);
 
 extern Vector GetEntityOrigin(edict_t* ent);
 extern Vector GetTopOrigin(edict_t* ent);

@@ -120,10 +120,16 @@ extern void csincosf(const float radians, float& sine, float& cosine);
 extern float catan2f(const float x, const float y);
 extern float ctanf(const float value);
 
-// http://wurstcaptures.untergrund.net/assembler_tricks.html
-__forceinline float cpowf(const float a, const float b)
+// https://martin.ankerl.com/2012/01/25/optimized-approximative-pow-in-c-and-cpp/
+inline float cpowf(const float a, const float b)
 {
-	return a / (b - a * b + a);
+	union
+	{
+		float d;
+		int x;
+	} u = {a};
+	u.x = static_cast<int>(b * (u.x - 1064866805) + 1064866805);
+	return u.d;
 }
 
 inline double cabsd(const double value)
@@ -643,6 +649,7 @@ inline int cvsnprintf(char* buf, const int size, const char* format, ...)
 		{
 			const char* value = va_arg(args, const char*);
 			cstrncpy(ptr, value, size - len - 1);
+			// crashes while cstrncpy running...
 			ptr += cstrlen(value);
 			len += cstrlen(value);
 			break;
@@ -737,7 +744,7 @@ inline void cswap(T& a, T& b)
 template <typename T1, typename T2>
 inline T1* safeloc(const T2 size)
 {
-	T1* any = new(std::nothrow) T1[size];
+	T1* any = nullptr;
 	while (any == nullptr)
 	{
 		any = new(std::nothrow) T1[size];
@@ -751,7 +758,6 @@ inline T1* safeloc(const T2 size)
 template <typename T1, typename T2>
 inline void safeloc(T1*& any, const T2 size)
 {
-	any = new(std::nothrow) T1[size];
 	while (any == nullptr)
 	{
 		any = new(std::nothrow) T1[size];
@@ -765,7 +771,7 @@ inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
 {
 	if (any != nullptr)
 	{
-		T1* new_array = new(std::nothrow) T1[newSize];
+		T1* new_array = nullptr;
 		while (new_array == nullptr)
 		{
 			new_array = new(std::nothrow) T1[newSize];
@@ -773,8 +779,14 @@ inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
 				break;
 		}
 
+		T2 max;
+		if (oldSize > newSize)
+			max = newSize;
+		else
+			max = oldSize;
+
 		T2 i;
-		for (i = 0; i < oldSize; i++)
+		for (i = 0; i < max; i++)
 			new_array[i] = any[i];
 
 		delete[] any;
@@ -783,7 +795,6 @@ inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
 	}
 	else
 	{
-		any = new(std::nothrow) T1[newSize];
 		while (any == nullptr)
 		{
 			any = new(std::nothrow) T1[newSize];
@@ -811,7 +822,7 @@ private:
 	uint16_t m_size;
 	uint16_t m_capacity;
 public:
-	MiniArray(const uint16_t size = 0) : m_size(size), m_capacity(size) { m_array = new(std::nothrow) T[size]; }
+	MiniArray(const size_t size = 0) : m_size(size), m_capacity(size) { safeloc(m_array, size); }
 	virtual ~MiniArray(void) { Destroy(); }
 public:
 	inline bool Resize(const uint16_t size, const bool reset = false)
@@ -819,48 +830,26 @@ public:
 		if (reset)
 		{
 			Destroy();
-
-			m_array = new(std::nothrow) T[size];
-			if (m_array == nullptr)
-				return false;
-
+			safeloc(m_array, size);
 			m_capacity = size;
 			return true;
 		}
 
 		if (m_array == nullptr)
 		{
-			m_array = new(std::nothrow) T[size];
-			if (m_array == nullptr)
-				return false;
-
+			safeloc(m_array, size);
 			m_capacity = size;
 			return true;
 		}
 
-		T* new_array = new(std::nothrow) T[size];
-		if (new_array == nullptr)
-			return false;
-
-		uint16_t i;
-		for (i = 0; i < m_size; i++)
-			new_array[i] = m_array[i];
-
-		delete[] m_array;
-		m_array = new_array;
-		new_array = nullptr;
+		safereloc(m_array, m_size, size);
 		m_capacity = size;
 		return true;
 	}
 
 	inline void Destroy(void)
 	{
-		if (m_array != nullptr)
-		{
-			delete[] m_array;
-			m_array = nullptr;
-		}
-
+		safedel(m_array);
 		m_size = 0;
 		m_capacity = 0;
 	}
@@ -960,7 +949,7 @@ public:
 	{
 		RemoveAt(m_size - 1);
 	}
-	
+
 	inline T& Last(void)
 	{
 		return m_array[m_size - 1];

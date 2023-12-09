@@ -1694,11 +1694,9 @@ public:
     {
         va_list ap;
         char buffer[1024];
-
         va_start(ap, fmt);
         vsprintf(buffer, fmt, ap);
         va_end(ap);
-
         Append(buffer);
     }
 
@@ -1765,11 +1763,9 @@ public:
     {
         va_list ap;
         char buffer[1024];
-
         va_start(ap, fmt);
         vsprintf(buffer, fmt, ap);
         va_end(ap);
-
         Assign(buffer);
     }
 
