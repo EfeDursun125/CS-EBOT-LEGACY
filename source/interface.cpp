@@ -770,7 +770,7 @@ void InitConfig(void)
 	if (!g_botNames.IsEmpty())
 	{
 		uint16_t i;
-		for (i = 0; g_botNames.Size(); i++)
+		for (i = 0; i < g_botNames.Size(); i++)
 			g_botNames[i].isUsed = false;
 	}
 
@@ -1933,9 +1933,9 @@ void ClientCommand(edict_t* ent)
 			{
 				DisplayMenuToClient(ent, nullptr); // reset menu display
 
-				const float autoDistanceValue[] = { 0.0f, 100.0f, 130.0f, 160.0f, 190.0f, 220.0f, 250.0f };
+				const float autoDistanceValue[] = { 4.0f, 100.0f, 130.0f, 160.0f, 190.0f, 220.0f, 256.0f };
 
-				if (selection >= 1 && selection <= 7)
+				if (selection > 0 && selection < 8)
 					g_autoPathDistance = autoDistanceValue[selection - 1];
 
 				if (g_autoPathDistance == 0)
@@ -3289,7 +3289,7 @@ int pfnRegUserMsg(const char* name, int size)
 	// "Hey, you have to know that I use a network message whose name is pszName and it is size
 	// packets long". The engine books it, and returns the ID number under which he recorded that
 	// custom message. Thus every time the MOD DLL will be wanting to send a message named pszName
-	// using pfnMessageBegin (), it will know what message ID number to send, and the engine will
+	// using pfnMessageBegin(), it will know what message ID number to send, and the engine will
 	// know what to do, only for non-metamod version
 
 	if (g_isMetamod)
@@ -3332,8 +3332,6 @@ int pfnRegUserMsg(const char* name, int size)
 	else if (cstrcmp(name, "SayText") == 0)
 		g_netMsg->SetId(NETMSG_SAYTEXT, message);
 	else if (cstrcmp(name, "BotVoice") == 0)
-		g_netMsg->SetId(NETMSG_BOTVOICE, message);
-	else if (cstrcmp(name, "ResetHUD") == 0)
 		g_netMsg->SetId(NETMSG_BOTVOICE, message);
 
 	return message;
@@ -3657,9 +3655,15 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 			return; // we should stop the attempt for loading the real gamedll, since metamod handle this for us
 
 		sprintf(gameDLLName, "%s/dlls/%s", knownMod->name, !IsLinux() ? knownMod->winLib : knownMod->linuxLib);
-		g_gameLib = new(std::nothrow) Library(gameDLLName);
+		do
+		{
+			if (g_gameLib != nullptr)
+				break;
 
-		if ((g_gameLib == nullptr || (g_gameLib != nullptr && !g_gameLib->IsLoaded())))
+			g_gameLib = new(std::nothrow) Library(gameDLLName);
+		} while (g_gameLib == nullptr);
+
+		if (g_gameLib != nullptr && !g_gameLib->IsLoaded())
 		{
 			// try to extract the game dll out of the steam cache
 			AddLogEntry(LOG_WARNING | LOG_IGNORE, "Trying to extract dll '%s' out of the steam cache", gameDLLName);
@@ -3682,19 +3686,22 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 				FREE_FILE(buffer);
 			}
 
-			g_gameLib = new(std::nothrow) Library(gameDLLName);
+			do
+			{
+				if (g_gameLib != nullptr)
+					break;
+
+				g_gameLib = new(std::nothrow) Library(gameDLLName);
+			} while (g_gameLib == nullptr);
 		}
 	}
 	else
 		AddLogEntry(LOG_FATAL | LOG_IGNORE, "Mod that you has started, not supported by this bot (gamedir: %s)", GetModName());
 
-	if (g_gameLib == nullptr)
-		return;
-
-	g_funcPointers = (FuncPointers_t)g_gameLib->GetFunctionAddr("GiveFnptrsToDll");
-	g_entityAPI = (EntityAPI_t)g_gameLib->GetFunctionAddr("GetEntityAPI");
-	g_getNewEntityAPI = (NewEntityAPI_t)g_gameLib->GetFunctionAddr("GetNewDLLFunctions");
-	g_serverBlendingAPI = (BlendAPI_t)g_gameLib->GetFunctionAddr("Server_GetBlendingInterface");
+	g_funcPointers = reinterpret_cast<FuncPointers_t>(g_gameLib->GetFunctionAddr("GiveFnptrsToDll"));
+	g_entityAPI = reinterpret_cast<EntityAPI_t>(g_gameLib->GetFunctionAddr("GetEntityAPI"));
+	g_getNewEntityAPI = reinterpret_cast<NewEntityAPI_t>(g_gameLib->GetFunctionAddr("GetNewDLLFunctions"));
+	g_serverBlendingAPI = reinterpret_cast<BlendAPI_t>(g_gameLib->GetFunctionAddr("Server_GetBlendingInterface"));
 
 	if (g_funcPointers == nullptr || g_entityAPI == nullptr || g_getNewEntityAPI == nullptr || g_serverBlendingAPI == nullptr)
 		return;
@@ -3733,7 +3740,7 @@ void entityFunction (entvars_t *pev) \
 	static EntityPtr_t funcPtr = nullptr; \
 	\
 	if (funcPtr == nullptr) \
-		funcPtr = (EntityPtr_t) g_gameLib->GetFunctionAddr (#entityFunction); \
+		funcPtr = reinterpret_cast<EntityPtr_t>(g_gameLib->GetFunctionAddr(#entityFunction)); \
 	\
 	if (funcPtr == nullptr) \
 		return; \

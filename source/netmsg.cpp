@@ -63,7 +63,7 @@ void NetworkMsg::Execute(void* p)
     case NETMSG_VGUI:
     {
         // this message is sent when a VGUI menu is displayed
-        if (!m_state)
+        if (m_state == 0 && m_bot != nullptr)
         {
             switch (PTR_TO_INT(p))
             {
@@ -135,7 +135,7 @@ void NetworkMsg::Execute(void* p)
         case 8:
         {
             weaponProp.flags = PTR_TO_INT(p); // flags for weapon (WTF???)
-            if (weaponProp.id > 0 && weaponProp.id < 33)
+            if (weaponProp.id > -1 && weaponProp.id < Const_MaxWeapons)
                 g_weaponDefs[weaponProp.id] = weaponProp; // store away this weapon with it's ammo information...
             break;
         }
@@ -160,7 +160,7 @@ void NetworkMsg::Execute(void* p)
         case 2:
         {
             clip = PTR_TO_INT(p); // ammo currently in the clip for this weapon
-            if (id > 0 && id < 32)
+            if (id > -1 && id < Const_MaxWeapons)
             {
                 if (state != 0)
                     m_bot->m_currentWeapon = id;
@@ -182,7 +182,7 @@ void NetworkMsg::Execute(void* p)
         }
         case 1:
         {
-            if (index > 0 && index < 32)
+            if (index > -1 && index < Const_MaxWeapons)
                 m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
             break;
         }
@@ -203,7 +203,7 @@ void NetworkMsg::Execute(void* p)
         }
         case 1:
         {
-            if (index > 0 && index < 32)
+            if (index > -1 && index < Const_MaxWeapons)
                 m_bot->m_ammo[index] = PTR_TO_INT(p);
             break;
         }
@@ -239,7 +239,7 @@ void NetworkMsg::Execute(void* p)
     case NETMSG_MONEY:
     {
         // this message gets sent when the bots money amount changes
-        if (!m_state)
+        if (m_state == 0 && m_bot != nullptr)
             m_bot->m_moneyAmount = PTR_TO_INT(p); // amount of money
         break;
     }
@@ -257,16 +257,16 @@ void NetworkMsg::Execute(void* p)
             if (m_bot != nullptr && g_gameVersion != HALFLIFE)
             {
                 const char* x = PTR_TO_STR(p);
-                if (cstrcmp(x, "defuser") == 0)
+                if (cstrncmp(x, "defuser", 8) == 0)
                     m_bot->m_hasDefuser = (enabled != 0);
-                else if (cstrcmp(x, "buyzone") == 0)
+                else if (cstrncmp(x, "buyzone", 8) == 0)
                 {
                     m_bot->m_inBuyZone = (enabled != 0);
                     m_bot->EquipInBuyzone(0);
                 }
-                else if (cstrcmp(x, "vipsafety") == 0)
+                else if (cstrncmp(x, "vipsafety", 10) == 0)
                     m_bot->m_inVIPZone = (enabled != 0);
-                else if (cstrcmp(x, "c4") == 0)
+                else if (cstrncmp(x, "c4", 3) == 0)
                     m_bot->m_inBombZone = (enabled == 2);
             }
             break;
@@ -349,7 +349,7 @@ void NetworkMsg::Execute(void* p)
     }
     case NETMSG_TEXTMSG:
     {
-        if (m_state)
+        if (m_state == 1)
         {
             const auto search = HUDMAP.find(PTR_TO_STR(p));
             if (search != HUDMAP.end())
@@ -415,7 +415,7 @@ void NetworkMsg::Execute(void* p)
     }
     case NETMSG_BARTIME:
     {
-        if (!m_state && m_bot != nullptr)
+        if (m_state == 0 && m_bot != nullptr)
         {
             if (GetGameMode() == MODE_BASE)
             {

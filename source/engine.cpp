@@ -162,15 +162,12 @@ bool Engine::IsFriendlyFireOn(void)
 
 void Engine::PrintServer(const char* format, ...)
 {
-    static char buffer[1024];
+    char buffer[1024];
     va_list ap;
-
     va_start(ap, format);
     vsprintf(buffer, format, ap);
     va_end(ap);
-
     cstrcat(buffer, "\n");
-
     g_engfuncs.pfnServerPrint(buffer);
 }
 

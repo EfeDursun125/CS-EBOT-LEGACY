@@ -383,7 +383,7 @@ void FakeClientCommand(edict_t* fakeClient, const char* format, ...)
 		return;
 
 	va_list ap;
-	static char command[256];
+	char command[256];
 	int stop, i, stringIndex = 0;
 
 	va_start(ap, format);
@@ -394,7 +394,7 @@ void FakeClientCommand(edict_t* fakeClient, const char* format, ...)
 		return;
 
 	g_isFakeCommand = true;
-	const size_t length = cstrlen(command);
+	const int length = cstrlen(command);
 
 	while (stringIndex < length)
 	{
@@ -521,9 +521,8 @@ const char* GetField(const char* string, int fieldId, bool endLine)
 char* GetModName(void)
 {
 	static char modName[256];
-
 	GET_GAME_DIR(modName); // ask the engine for the MOD directory path
-	int length = static_cast<int>(cstrlen(modName)); // get the length of the returned string
+	int length = cstrlen(modName); // get the length of the returned string
 
 	// format the returned string to get the last directory name
 	int stop = length - 1;
@@ -579,6 +578,9 @@ void RoundInit(void)
 
 	for (const auto& client : g_clients)
 	{
+		if (client.index < 0)
+			continue;
+
 		if (g_botManager->GetBot(client.index) != nullptr)
 			g_botManager->GetBot(client.index)->NewRound();
 
@@ -621,6 +623,33 @@ void RoundInit(void)
 
 		SetGameMode(MODE_DM);
 		g_mapType |= MAP_DE;
+	}
+
+	Bot* botLeader;
+	if (!g_leaderChoosen[TEAM_TERRORIST])
+	{
+		botLeader = g_botManager->GetHighestSkillBot(TEAM_TERRORIST);
+		if (botLeader != nullptr)
+		{
+			botLeader->m_isLeader = true;
+			if (chanceof(10))
+				botLeader->PlayChatterMessage(ChatterMessage::Happy);
+			else if (chanceof(40))
+				botLeader->RadioMessage(Radio_FollowMe);
+		}
+	}
+
+	if (!g_leaderChoosen[TEAM_COUNTER])
+	{
+		botLeader = g_botManager->GetHighestSkillBot(TEAM_COUNTER);
+		if (botLeader != nullptr)
+		{
+			botLeader->m_isLeader = true;
+			if (chanceof(10))
+				botLeader->PlayChatterMessage(ChatterMessage::Happy);
+			else if (chanceof(40))
+				botLeader->RadioMessage(Radio_FollowMe);
+		}
 	}
 }
 
@@ -1178,11 +1207,9 @@ void ServerPrint(const char* format, ...)
 {
 	va_list ap;
 	char string[3072];
-
 	va_start(ap, format);
 	vsprintf(string, format, ap);
 	va_end(ap);
-
 	SERVER_PRINT(FormatBuffer("[%s] %s\n", PRODUCT_LOGTAG, string));
 }
 
@@ -1190,11 +1217,9 @@ void ServerPrintNoTag(const char* format, ...)
 {
 	va_list ap;
 	char string[3072];
-
 	va_start(ap, format);
 	vsprintf(string, format, ap);
 	va_end(ap);
-
 	SERVER_PRINT(FormatBuffer("%s\n", string));
 }
 
@@ -1202,7 +1227,6 @@ void CenterPrint(const char* format, ...)
 {
 	va_list ap;
 	char string[2048];
-
 	va_start(ap, format);
 	vsprintf(string, format, ap);
 	va_end(ap);
@@ -1223,7 +1247,6 @@ void ChartPrint(const char* format, ...)
 {
 	va_list ap;
 	char string[2048];
-
 	va_start(ap, format);
 	vsprintf(string, format, ap);
 	va_end(ap);
@@ -1235,7 +1258,6 @@ void ChartPrint(const char* format, ...)
 	}
 
 	cstrcat(string, "\n");
-
 	MESSAGE_BEGIN(MSG_BROADCAST, g_netMsg->GetId(NETMSG_TEXTMSG));
 	WRITE_BYTE(HUD_PRINTTALK);
 	WRITE_STRING(string);
@@ -1249,7 +1271,6 @@ void ClientPrint(edict_t* ent, int dest, const char* format, ...)
 
 	va_list ap;
 	char string[2048];
-
 	va_start(ap, format);
 	vsprintf(string, format, ap);
 	va_end(ap);
@@ -1287,7 +1308,7 @@ bool IsLinux(void)
 void ServerCommand(const char* format, ...)
 {
 	va_list ap;
-	static char string[1024];
+	char string[1024];
 
 	// concatenate all the arguments in one string
 	va_start(ap, format);
@@ -1650,23 +1671,31 @@ unsigned int GetPlayerPriority(edict_t* player)
 
 ChatterMessage GetEqualChatter(const int message)
 {
-	ChatterMessage mine = ChatterMessage::Nothing;
-	if (message == Radio_Affirmative)
-		mine = ChatterMessage::Yes;
-	else if (message == Radio_Negative)
-		mine = ChatterMessage::No;
-	else if (message == Radio_EnemySpotted)
-		mine = ChatterMessage::SeeksEnemy;
-	else if (message == Radio_NeedBackup)
-		mine = ChatterMessage::SeeksEnemy;
-	else if (message == Radio_TakingFire)
-		mine = ChatterMessage::SeeksEnemy;
-	else if (message == Radio_CoverMe)
-		mine = ChatterMessage::CoverMe;
-	else if (message == Radio_SectorClear)
-		mine = ChatterMessage::Clear;
+	switch (message)
+	{
+	case Radio_Affirmative:
+		return ChatterMessage::Yes;
+	case Radio_Negative:
+		return ChatterMessage::No;
+	case Radio_EnemySpotted:
+	case Radio_NeedBackup:
+	case Radio_TakingFire:
+		return ChatterMessage::SeeksEnemy;
+	case Radio_EnemyDown:
+		return ChatterMessage::EnemyDown;
+	case Radio_CoverMe:
+		return ChatterMessage::CoverMe;
+	case Radio_SectorClear:
+		return ChatterMessage::Clear;
+	case Radio_InPosition:
+		return ChatterMessage::Camp;
+	case Radio_ReportingIn:
+		return ChatterMessage::ReportingIn;
+	case Radio_ReportTeam:
+		return ChatterMessage::ReportTeam;
+	}
 
-	return mine;
+	return ChatterMessage::Nothing;
 }
 
 char* GetVoice(const ChatterMessage message)
@@ -1675,7 +1704,7 @@ char* GetVoice(const ChatterMessage message)
 	{
 	case ChatterMessage::Yes:
 	{
-		const int rV = crandomint(1, 12);
+		const int rV = crandomint(1, 17);
 		switch (rV)
 		{
 		case 1:
@@ -1702,12 +1731,22 @@ char* GetVoice(const ChatterMessage message)
 			return "yea_ok";
 		case 12:
 			return "you_heard_the_man_lets_go";
+		case 13:
+			return "hang_on_im_coming";
+		case 14:
+			return "im_coming";
+		case 15:
+			return "sounds_like_a_plan";
+		case 16:
+			return "be_right_there";
+		case 17:
+			return "good_idea";
 		}
 		break;
 	}
 	case ChatterMessage::No:
 	{
-		const int rV = crandomint(1, 12);
+		const int rV = crandomint(1, 13);
 		switch (rV)
 		{
 		case 1:
@@ -1734,12 +1773,14 @@ char* GetVoice(const ChatterMessage message)
 			return "i_dont_think_so";
 		case 12:
 			return "noo";
+		case 13:
+			return "do_not_mess_with_me";
 		}
 		break;
 	}
 	case ChatterMessage::SeeksEnemy:
 	{
-		const int rV = crandomint(1, 15);
+		const int rV = crandomint(1, 19);
 		switch (rV)
 		{
 		case 1:
@@ -1772,12 +1813,20 @@ char* GetVoice(const ChatterMessage message)
 			return "target_spotted";
 		case 15:
 			return "i_see_our_target";
+		case 16:
+			return "i_could_use_some_help";
+		case 17:
+			return "i_could_use_some_help_over_here";
+		case 18:
+			return "returning_fire";
+		case 19:
+			return "they_got_me_pinned_down_here";
 		}
 		break;
 	}
 	case ChatterMessage::Clear:
 	{
-		const int rV = crandomint(1, 17);
+		const int rV = crandomint(1, 24);
 		switch (rV)
 		{
 		case 1:
@@ -1842,6 +1891,27 @@ char* GetVoice(const ChatterMessage message)
 			}
 			return "anyone_see_them";
 		}
+		case 18:
+		{
+			for (const auto& otherBot : g_botManager->m_bots)
+			{
+				if (otherBot != nullptr)
+					otherBot->m_radioOrder = Radio_ReportTeam;
+			}
+			return "report_in_team";
+		}
+		case 19:
+			return "they_will_not_escape";
+		case 20:
+			return "they_wont_get_away";
+		case 21:
+			return "they_wont_get_away2";
+		case 22:
+			return "come_out_and_fight_like_a_man";
+		case 23:
+			return "come_out_wherever_you_are";
+		case 24:
+			return "come_to_papa";
 		}
 		break;
 	}
@@ -1859,7 +1929,7 @@ char* GetVoice(const ChatterMessage message)
 	}
 	case ChatterMessage::Happy:
 	{
-		const int rV = crandomint(1, 10);
+		const int rV = crandomint(1, 21);
 		switch (rV)
 		{
 		case 1:
@@ -1882,6 +1952,126 @@ char* GetVoice(const ChatterMessage message)
 			return "i_am_on_fire";
 		case 10:
 			return "whoo2";
+		case 11:
+			return "i_got_more_where_that_came_from";
+		case 12:
+			return "i_wasnt_worried_for_a_minute";
+		case 13:
+			return "its_a_party";
+		case 14:
+			return "thats_the_way_this_is_done";
+		case 15:
+			return "they_never_knew_what_hit_them";
+		case 16:
+			return "well_done";
+		case 17:
+			return "and_thats_how_its_done";
+		case 18:
+			return "good_idea_team";
+		case 19:
+			return "good_one";
+		case 20:
+			return "good_one2";
+		case 21:
+			return "great";
+		}
+		break;
+	}
+	case ChatterMessage::Camp:
+	{
+		const int rV = crandomint(1, 4);
+		switch (rV)
+		{
+		case 1:
+			return "im_going_to_camp";
+		case 2:
+			return "im_going_to_wait_here";
+		case 3:
+			return "weve_got_the_situation";
+		case 4:
+			return "lets_wait_here";
+		}
+		break;
+	}
+	case ChatterMessage::EnemyDown:
+	{
+		const int rV = crandomint(1, 19);
+		switch (rV)
+		{
+		case 1:
+			return "took_him_down";
+		case 2:
+			return "took_him_out";
+		case 3:
+			return "took_him_out2";
+		case 4:
+			return "enemy_down";
+		case 5:
+			return "enemy_down2";
+		case 6:
+			return "got_him";
+		case 7:
+			return "hes_done";
+		case 8:
+			return "hes_dead";
+		case 9:
+			return "hes_down";
+		case 10:
+			return "i_got_more_where_that_came_from";
+		case 11:
+			return "i_wasnt_worried_for_a_minute";
+		case 12:
+			return "killed_him";
+		case 13:
+			return "neutralized";
+		case 14:
+			return "owned";
+		case 15:
+			return "tag_them_and_bag_them";
+		case 16:
+			return "thats_the_way_this_is_done";
+		case 17:
+			return "and_thats_how_its_done";
+		case 18:
+			return "do_not_mess_with_me";
+		case 19:
+			return "dropped_him";
+		}
+		break;
+	}
+	case ChatterMessage::ReportingIn:
+		return "reporting_in";
+	case ChatterMessage::FallBack:
+	{
+		const int rV = crandomint(1, 4);
+		switch (rV)
+		{
+		case 1:
+			return "im_gonna_hang_back";
+		case 2:
+			return "thats_not_good";
+		case 3:
+			return "aw_hell";
+		case 4:
+			return "aww_man";
+		}
+		break;
+	}
+	case ChatterMessage::ReportTeam:
+	{
+		const int rV = crandomint(1, 5);
+		switch (rV)
+		{
+		case 1:
+			return "report_in_team";
+		case 2:
+			return "where_could_they_be";
+		case 3:
+			return "anyone_see_them";
+		case 4:
+			return "anyone_see_anything";
+		case 5:
+			return "where_is_it";
 		}
 		break;
 	}

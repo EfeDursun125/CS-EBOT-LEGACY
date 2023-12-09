@@ -172,45 +172,61 @@ void AnalyzeThread(void)
                 switch (dir)
                 {
                 case 1:
+                {
                     Next.x = WayVec.x + range;
                     Next.y = WayVec.y;
                     Next.z = WayVec.z;
                     break;
+                }
                 case 2:
+                {
                     Next.x = WayVec.x - range;
                     Next.y = WayVec.y;
                     Next.z = WayVec.z;
                     break;
+                }
                 case 3:
+                {
                     Next.x = WayVec.x;
                     Next.y = WayVec.y + range;
                     Next.z = WayVec.z;
                     break;
+                }
                 case 4:
+                {
                     Next.x = WayVec.x;
                     Next.y = WayVec.y - range;
                     Next.z = WayVec.z;
                     break;
+                }
                 case 5:
+                {
                     Next.x = WayVec.x + range;
                     Next.y = WayVec.y;
                     Next.z = WayVec.z + 128.0f;
                     break;
+                }
                 case 6:
+                {
                     Next.x = WayVec.x - range;
                     Next.y = WayVec.y;
                     Next.z = WayVec.z + 128.0f;
                     break;
+                }
                 case 7:
+                {
                     Next.x = WayVec.x;
                     Next.y = WayVec.y + range;
                     Next.z = WayVec.z + 128.0f;
                     break;
+                }
                 case 8:
+                {
                     Next.x = WayVec.x;
                     Next.y = WayVec.y - range;
                     Next.z = WayVec.z + 128.0f;
                     break;
+                }
                 }
                 CreateWaypoint(Next, range);
             }
@@ -223,7 +239,15 @@ void AnalyzeThread(void)
             g_analyzewaypoints = false;
             g_waypointOn = false;
             g_editNoclip = false;
-            g_hostEntity->v.movetype = MOVETYPE_WALK;
+            g_autoPathDistance = 256.0f;
+            g_waypoint->AnalyzeDeleteUselessWaypoints();
+            /*bool optimized = g_waypoint->OptimizeWaypoints();
+            while (optimized)
+            {
+                optimized = g_waypoint->OptimizeWaypoints();
+                if (!optimized)
+                    break;
+            }*/
             g_waypoint->AnalyzeDeleteUselessWaypoints();
             SetGoals();
             g_waypoint->Save();
@@ -235,16 +259,15 @@ void AnalyzeThread(void)
     else
     {
         int i;
+        Vector WayVec, Start;
+        float ran;
         for (i = 0; i < g_numWaypoints; i++)
         {
-            const Vector WayVec = g_waypoint->GetPath(i)->origin;
-            const float ran = ebot_analyze_distance.GetFloat();
-
-            Vector Start;
+            WayVec = g_waypoint->GetPath(i)->origin;
+            ran = ebot_analyze_distance.GetFloat();
             Start.x = WayVec.x + crandomfloat(((-ran) - 5.0f), (ran + 5.0f));
             Start.y = WayVec.y + crandomfloat(((-ran) - 5.0f), (ran + 5.0f));
             Start.z = WayVec.z + crandomfloat(1, ran);
-
             CreateWaypoint(Start, ran);
         }
     }
@@ -300,6 +323,171 @@ void Waypoint::AnalyzeDeleteUselessWaypoints(void)
     CenterPrint("Waypoints are saved!");
 }
 
+// this function tries to reduce waypoint count
+/*bool Waypoint::OptimizeWaypoints(void)
+{
+    // cache values over here, to do not recreate values for each loop
+    Vector temp;
+    int i, j, coni;
+    bool optimized = false;
+
+    // loop the waypoints
+    for (i = 0; i < g_numWaypoints; i++)
+    {
+        temp = m_paths[i].origin;
+        coni = -1;
+
+        for (j = 0; j < Const_MaxPathIndex; j++)
+        {
+            // not valid connection
+            if (!IsValidWaypoint(m_paths[i].index[j]))
+                continue;
+
+            // not even reachable
+            if (!IsNodeReachable(m_paths[i].origin, m_paths[m_paths[i].index[j]].origin) && !IsNodeReachableWithJump(m_paths[i].origin, m_paths[m_paths[i].index[j]].origin, 0))
+                continue;
+
+            temp += m_paths[m_paths[i].index[j]].origin;
+            coni = m_paths[i].index[j];
+            break;
+        }
+
+        if (!IsValidWaypoint(coni))
+            continue;
+
+        temp *= 0.5f;
+        temp = GetWalkablePosition(temp, g_hostEntity, true);
+        //g_analyzeputrequirescrouch = CheckCrouchRequirement(temp);
+        temp += Vector(0.0f, 0.0f, 36.0f);
+
+        // center is solid
+        if (POINT_CONTENTS(temp) == CONTENTS_SOLID)
+            continue;
+
+        for (j = 0; j < Const_MaxPathIndex; j++)
+        {
+            // not valid connection
+            if (!IsValidWaypoint(m_paths[coni].index[j]))
+                continue;
+
+            // add connection if reachable
+            if (IsNodeReachable(temp, m_paths[m_paths[coni].index[j]].origin) || IsNodeReachableWithJump(temp, m_paths[m_paths[coni].index[j]].origin, 0))
+                AddPath(i, m_paths[coni].index[j]);
+
+            // add connection if reachable
+            if (IsNodeReachable(m_paths[m_paths[coni].index[j]].origin, temp) || IsNodeReachableWithJump(m_paths[m_paths[coni].index[j]].origin, temp, 0))
+                AddPath(m_paths[coni].index[j], i);
+
+            DeleteByIndex(coni);
+        }
+
+        m_paths[i].origin = temp;
+        optimized = true;
+        break;
+    }
+
+    return optimized;
+}*/
+
+// this function tries to reduce waypoint count
+/*bool Waypoint::OptimizeWaypoints(void)
+{
+    // cache values over here, to do not recreate values for each loop
+    MiniArray <int> conList;
+    MiniArray <int> mergeList;
+    Vector temp;
+    int i, j;
+    uint16_t k;
+    bool optimized = false;
+
+    // loop the waypoints
+    for (i = 0; i < g_numWaypoints; i++)
+    {
+        conList.Destroy();
+        temp = m_paths[i].origin;
+
+        // loop through connections
+        for (j = 0; j < Const_MaxPathIndex; j++)
+        {
+            // not valid connection
+            if (!IsValidWaypoint(m_paths[i].index[j]))
+                continue;
+
+            // not even reachable
+            if (!IsNodeReachable(m_paths[i].origin, m_paths[m_paths[i].index[j]].origin) && !IsNodeReachableWithJump(m_paths[i].origin, m_paths[m_paths[i].index[j]].origin, 0))
+                continue;
+
+            temp += m_paths[m_paths[i].index[j]].origin;
+            conList.Push(m_paths[i].index[j]);
+        }
+
+        // we failed man...
+        if (conList.IsEmpty())
+            continue;
+
+        // get the center
+        temp /= conList.Size();
+
+        // put origin to the ground
+        temp = GetWalkablePosition(temp, g_hostEntity, true);
+
+        // nullvec... not walkable
+        if (temp == nullvec)
+            continue;
+
+        //g_analyzeputrequirescrouch = CheckCrouchRequirement(temp);
+        temp += Vector(0.0f, 0.0f, 36.0f);
+
+        // center is solid
+        if (POINT_CONTENTS(temp) == CONTENTS_SOLID)
+            continue;
+
+        mergeList.Destroy();
+
+        // loop connections in the mini array
+        for (k = 0; k < conList.Size(); k++)
+        {
+            // not even reachable
+            if (!IsNodeReachable(temp, m_paths[conList[k]].origin) && !IsNodeReachableWithJump(temp, m_paths[conList[k]].origin, 0))
+                continue;
+
+            mergeList.Push(conList[k]);
+        }
+
+        // we failed again :(
+        if (mergeList.IsEmpty())
+            continue;
+
+        // that's what exactly we want...
+        m_paths[i].origin = temp;
+
+        // loop connections in the mini array
+        for (k = 0; k < mergeList.Size(); k++)
+        {
+            for (j = 0; j < Const_MaxPathIndex; j++)
+            {
+                // not valid connection
+                if (!IsValidWaypoint(m_paths[mergeList[k]].index[j]))
+                    continue;
+
+                // add connection if reachable
+                if (IsNodeReachable(temp, m_paths[m_paths[mergeList[k]].index[j]].origin) || IsNodeReachableWithJump(temp, m_paths[m_paths[mergeList[k]].index[j]].origin, 0))
+                    AddPath(i, m_paths[mergeList[k]].index[j]);
+
+                // add connection if reachable
+                if (IsNodeReachable(m_paths[m_paths[mergeList[k]].index[j]].origin, temp) || IsNodeReachableWithJump(m_paths[m_paths[mergeList[k]].index[j]].origin, temp, 0))
+                    AddPath(m_paths[mergeList[k]].index[j], i);
+
+                DeleteByIndex(mergeList[k]);
+            }
+        }
+        
+        optimized = true;
+    }
+
+    return optimized;
+}*/
+
 void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
 {
     if (!IsValidWaypoint(addIndex) || !IsValidWaypoint(pathIndex) || addIndex == pathIndex)
@@ -322,7 +510,7 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
     {
         if (path->index[i] == -1)
         {
-            path->index[i] = static_cast<int16>(pathIndex);
+            path->index[i] = static_cast<int16_t>(pathIndex);
             if (type == 1)
             {
                 path->connectionFlags[i] |= PATHFLAG_JUMP;
@@ -356,7 +544,7 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
 
     if (slotID != -1)
     {
-        path->index[slotID] = static_cast<int16>(pathIndex);
+        path->index[slotID] = static_cast<int16_t>(pathIndex);
         if (type == 1)
         {
             path->connectionFlags[slotID] |= PATHFLAG_JUMP;
@@ -417,7 +605,7 @@ void Waypoint::ChangeZBCampPoint(const Vector origin)
     int point[2] = { -1, -1 };
     if (!m_zmHmPoints.IsEmpty())
     {
-        size_t i, wpIndex;
+        uint16_t i, wpIndex;
         for (i = 0; i < m_zmHmPoints.Size(); i++)
         {
             wpIndex = m_zmHmPoints.Get(i);
@@ -449,7 +637,7 @@ bool Waypoint::IsZBCampPoint(const int pointID, const bool checkMesh)
     if (g_waypoint->m_zmHmPoints.IsEmpty())
         return false;
 
-    size_t i, wpIndex;
+    uint16_t i, wpIndex;
     for (i = 0; i < m_zmHmPoints.Size(); i++)
     {
         wpIndex = m_zmHmPoints.Get(i);

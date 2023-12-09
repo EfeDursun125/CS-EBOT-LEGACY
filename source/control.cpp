@@ -87,7 +87,7 @@ void BotControl::CallGameEntity(entvars_t* vars)
 
 // this function completely prepares bot entity (edict) for creation, creates team, skill, sets name etc, and
 // then sends result to bot constructor
-int BotControl::CreateBot(String name, int skill, int personality, const int team, const int member)
+int BotControl::CreateBot(const String name, int skill, int personality, const int team, const int member)
 {
 	if (g_numWaypoints < 1) // don't allow creating bots with no waypoints loaded
 	{
@@ -148,7 +148,7 @@ int BotControl::CreateBot(String name, int skill, int personality, const int tea
 		sprintf(outputName, "%s", (char*)m_savedBotNames.Pop());
 		addTag = false;
 	}
-	else if (name.GetLength() < 1)
+	else if (IsNullString(name))
 	{
 		bool getName = false;
 		if (!g_botNames.IsEmpty())
@@ -175,7 +175,7 @@ int BotControl::CreateBot(String name, int skill, int personality, const int tea
 				{
 					nameUse = false;
 					botName.isUsed = true;
-					sprintf(outputName, "%s", (char*)botName.name);
+					cvsnprintf(outputName, sizeof(outputName), "%s", (char*)botName.name);
 				}
 			}
 		}
@@ -183,7 +183,7 @@ int BotControl::CreateBot(String name, int skill, int personality, const int tea
 			sprintf(outputName, "e-bot %i", crandomint(1, 9999)); // just pick ugly random name
 	}
 	else
-		sprintf(outputName, "%s", (char*)name);
+		sprintf(outputName, "%s", (const char*)name);
 
 	char botName[64];
 	if (ebot_nametag.GetInt() == 2 && addTag)
@@ -534,7 +534,7 @@ void BotControl::RemoveFromTeam(const Team team, const bool removeAll)
 	}
 }
 
-void BotControl::RemoveMenu(edict_t* ent, int selection)
+void BotControl::RemoveMenu(edict_t* ent, const int selection)
 {
 	if ((selection > 4) || (selection < 1))
 		return;
@@ -593,7 +593,7 @@ void BotControl::RemoveMenu(edict_t* ent, int selection)
 }
 
 // this function kills all bots on server (only this dll controlled bots)
-void BotControl::KillAll(int team)
+void BotControl::KillAll(const int team)
 {
 	for (const auto& bot : m_bots)
 	{
@@ -720,7 +720,7 @@ int BotControl::GetHumansNum(void)
 }
 
 // this function returns bot with highest frag
-Bot* BotControl::GetHighestSkillBot(int team)
+Bot* BotControl::GetHighestSkillBot(const int team)
 {
 	Bot* highFragBot = nullptr;
 
@@ -746,7 +746,7 @@ Bot* BotControl::GetHighestSkillBot(int team)
 // this function decides is players on specified team is able to buy primary weapons by calculating players
 // that have not enough money to buy primary (with economics), and if this result higher 80%, player is can't
 // buy primary weapons.
-void BotControl::CheckTeamEconomics(int team)
+void BotControl::CheckTeamEconomics(const int team)
 {
 	if (GetGameMode() != MODE_BASE)
 	{
@@ -816,7 +816,7 @@ void BotControl::Free(const int index)
 }
 
 // this function controls the bot entity
-Bot::Bot(edict_t* bot, int skill, int personality, int team, int member)
+Bot::Bot(edict_t* bot, const int skill, const int personality, const int team, const int member)
 {
 	if (bot == nullptr)
 		return;
@@ -960,7 +960,7 @@ Bot::~Bot(void)
 	ResetTasks();
 
 	const char* name = GetEntityName(GetEntity());
-	if (name == nullptr)
+	if (IsNullString(name))
 		return;
 
 	char botName[64];
@@ -997,6 +997,8 @@ void Bot::NewRound(void)
 		Kick();
 		return;
 	}
+
+	m_numSpawns++;
 
 	// delete all allocated path nodes
 	DeleteSearchNodes();
@@ -1137,22 +1139,24 @@ void Bot::NewRound(void)
 	m_pushMessageIndex = 0;
 	
 	SetEntityWaypoint(GetEntity(), -2);
+	PushTask(TASK_NORMAL, TASKPRI_NORMAL, -1, 1.0f, true);
 
 	// and put buying into its message queue
 	if (g_gameVersion == HALFLIFE)
 	{
+		m_inBuyZone = false;
 		m_buyState = 7;
 		m_buyingFinished = true;
 		m_startAction = CMENU_IDLE;
 	}
 	else
 	{
+		// we always spawn in buyzone in cs
+		m_inBuyZone = true;
 		m_buyingFinished = false;
 		m_buyState = 0;
 		PushMessageQueue(CMENU_BUY);
 	}
-
-	PushTask(TASK_NORMAL, TASKPRI_NORMAL, -1, 1.0f, true);
 
 	m_moveSpeed = pev->maxspeed;
 	m_tempstrafeSpeed = crandomint(1, 2) == 1 ? pev->maxspeed : -pev->maxspeed;
@@ -1182,7 +1186,6 @@ void Bot::Kill(void)
 	kv.fHandled = false;
 
 	MDLL_KeyValue(hurtEntity, &kv);
-
 	MDLL_Spawn(hurtEntity);
 	MDLL_Touch(hurtEntity, GetEntity());
 

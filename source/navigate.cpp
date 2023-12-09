@@ -308,7 +308,26 @@ bool Bot::DoWaypointNav(void)
 		}
 	}
 
-	if (m_waypoint.flags & WAYPOINT_WAITUNTIL)
+	if (m_waypoint.flags & WAYPOINT_FALLCHECK)
+	{
+		TraceResult tr{};
+		const Vector origin = g_waypoint->m_paths[m_currentWaypointIndex].origin;
+		TraceLine(origin, origin - Vector(0.0f, 0.0f, 60.0f), false, false, GetEntity(), &tr);
+		if (tr.flFraction == 1.0f)
+		{
+			DeleteSearchNodes();
+			m_currentWaypointIndex = -1;
+			FindWaypoint(false);
+			SetWaypointOrigin();
+			IgnoreCollisionShortly();
+			m_moveSpeed = 0.0f;
+			m_strafeSpeed = 0.0f;
+			m_jumpFinished = false;
+			m_checkTerrain = false;
+			return false;
+		}
+	}
+	else if (m_waypoint.flags & WAYPOINT_WAITUNTIL)
 	{
 		TraceResult tr{};
 		const Vector origin = g_waypoint->m_paths[m_currentWaypointIndex].origin;
@@ -372,9 +391,10 @@ bool Bot::DoWaypointNav(void)
 
 		m_jumpFinished = true;
 		m_checkTerrain = false;
+		m_duckTime = 0.0f;
 	}
 	else if (m_waypoint.flags & WAYPOINT_CROUCH && !(m_waypoint.flags & WAYPOINT_CAMP))
-		pev->button |= IN_DUCK;
+		m_duckTime = engine->GetTime() + 1.0f;
 
 	const float inter = (m_frameInterval + g_pGlobals->frametime) * 0.54f;
 	float waypointDistance = 0.0f;
@@ -387,7 +407,7 @@ bool Bot::DoWaypointNav(void)
 		waypointDistance = (origin - wpOrigin).GetLengthSquared();
 		waypointDistance2 = (pev->origin - m_destOrigin).GetLengthSquared();
 		m_aimStopTime = 0.0f;
-		if (m_destOrigin.z >= (origin.z + 16.0f))
+		if (m_destOrigin.z > (origin.z + 16.0f))
 			m_destOrigin = m_waypoint.origin + Vector(0, 0, 16.0f);
 		else if (m_destOrigin.z < origin.z + 16.0f && !IsOnLadder() && IsOnFloor())
 		{
@@ -396,6 +416,9 @@ bool Bot::DoWaypointNav(void)
 				m_moveSpeed = 150.0f;
 			else if (m_moveSpeed > pev->maxspeed)
 				m_moveSpeed = pev->maxspeed;
+
+			// never stop/stuck in ladder...
+			pev->speed = m_moveSpeed;
 		}
 	}
 	else if (!(pev->flags & FL_ONGROUND) && m_jumpTime > engine->GetTime()) // jumping
@@ -430,6 +453,24 @@ bool Bot::DoWaypointNav(void)
 
 	if (waypointDistance < desiredDistance || waypointDistance2 < desiredDistance)
 	{
+		// use button waypoints
+		if (m_waypoint.flags & WAYPOINT_USEBUTTON)
+		{
+			if (g_isXash)
+			{
+				if (!(pev->button & IN_USE) && !(pev->oldbuttons & IN_USE))
+					pev->button |= IN_USE;
+			}
+			else
+			{
+				edict_t* button = FindButton();
+				if (button != nullptr)
+					MDLL_Use(button, GetEntity());
+				else if (!(pev->button & IN_USE) && !(pev->oldbuttons & IN_USE))
+					pev->button |= IN_USE;
+			}
+		}
+
 		// did we reach a destination waypoint?
 		if (GetCurrentGoalID() == m_currentWaypointIndex)
 			return true;
@@ -493,6 +534,7 @@ PriorityQueue::PriorityQueue(void)
 	m_size = 0;
 	m_heapSize = static_cast<uint16_t>((g_numWaypoints / 2) + 2);
 	safeloc(m_heap, m_heapSize);
+	m_heapSize--;
 }
 
 PriorityQueue::~PriorityQueue(void)
@@ -685,7 +727,7 @@ inline const float GF_CostHuman(const uint16_t index, const uint16_t parent, con
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(path.radius + 64))
+			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
 				return 65355.0f;
 		}
 	}
@@ -698,8 +740,8 @@ inline const float GF_CostHuman(const uint16_t index, const uint16_t parent, con
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team == client.team || !IsZombieEntity(client.ent))
 			continue;
 
-		distance = ((client.ent->v.origin + client.ent->v.velocity * g_pGlobals->frametime) - path.origin).GetLength();
-		if (distance < (path.radius + 128))
+		distance = ((client.ent->v.origin + client.ent->v.velocity * g_pGlobals->frametime) - path.origin).GetLengthSquared();
+		if (distance < squaredi(static_cast<int>(path.radius) + 128))
 			count++;
 
 		totalDistance += distance;
@@ -746,7 +788,7 @@ inline const float GF_CostCareful(const uint16_t index, const uint16_t parent, c
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(path.radius + 64))
+			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
 				return 65355.0f;
 		}
 	}
@@ -762,7 +804,7 @@ inline const float GF_CostCareful(const uint16_t index, const uint16_t parent, c
 				if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != team)
 					continue;
 
-				if ((client.origin - path.origin).GetLengthSquared() < squaredi(512 + path.radius))
+				if ((client.origin - path.origin).GetLengthSquared() < squaredi(512 + static_cast<int>(path.radius)))
 					count++;
 				else if (IsVisible(path.origin, client.ent))
 					count++;
@@ -811,7 +853,7 @@ inline const float GF_CostNormal(const uint16_t index, const uint16_t parent, co
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(path.radius + 64))
+			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
 				return 65355.0f;
 		}
 	}
@@ -827,7 +869,7 @@ inline const float GF_CostNormal(const uint16_t index, const uint16_t parent, co
 				if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != team)
 					continue;
 
-				if ((client.origin - path.origin).GetLengthSquared() < squaredi(512 + path.radius))
+				if ((client.origin - path.origin).GetLengthSquared() < squaredi(512 + static_cast<int>(path.radius)))
 					count++;
 				else if (IsVisible(path.origin, client.ent))
 					count++;
@@ -919,6 +961,11 @@ inline const float GF_CostNoHostage(const uint16_t index, const uint16_t parent,
 	return HF_Distance2D(index, parent);
 }
 
+inline float RandomSeed(const float value)
+{
+	return (cabsf(ccosf(value)) * 2.0f) + 1.0f;
+}
+
 // this function finds a path from srcIndex to destIndex
 void Bot::FindPath(int& srcIndex, int& destIndex)
 {
@@ -993,7 +1040,7 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 
 	AStar& srcWaypoint = g_waypoint->m_waypoints[srcIndex];
 	srcWaypoint.g = gcalc(srcIndex, destIndex, 0, m_team, pev->gravity, m_isZombieBot);
-	srcWaypoint.f = srcWaypoint.g + HF_Distance(srcIndex, destIndex);
+	srcWaypoint.f = srcWaypoint.g + HF_DistanceSquared(srcIndex, destIndex); // we hate the first waypoint
 
 	// loop cache
 	AStar* currWaypoint;

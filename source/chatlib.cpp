@@ -39,7 +39,7 @@ void StripTags(char* buffer)
     constexpr char* tagClose[] = { "]", "]", "]", "=-", "]-", "[-", "{-", "}-", "]>", "[>", "-]", "-[", "-}", "-{", "]]", "]", "}", "[", "{", ">", "<", "-", "|", "=", "+" };
 
     int index, fieldStart, fieldStop, i;
-    const int length = static_cast<int>(cstrlen(buffer)); // get length of string
+    const int length = cstrlen(buffer); // get length of string
     int closeSize;
 
     // foreach known tag...
@@ -76,9 +76,9 @@ void StripTags(char* buffer)
             fieldStart = cstrstr(buffer, tagOpen[index]) - buffer; // look for a tag start
 
             // have we found a tag start?
-            if (fieldStart >= 0 && fieldStart < 32)
+            if (fieldStart > -1 && fieldStart < 32)
             {
-                closeSize = static_cast<int>(cstrlen(tagOpen[index]));
+                closeSize = cstrlen(tagOpen[index]);
                 fieldStop = fieldStart + closeSize; // set the tag stop
 
                 for (i = fieldStart; i < length - closeSize; i++)
@@ -89,9 +89,9 @@ void StripTags(char* buffer)
                 fieldStart = cstrstr(buffer, tagClose[index]) - buffer; // look for a tag stop
 
                 // have we found a tag stop ?
-                if (fieldStart >= 0 && fieldStart < 32)
+                if (fieldStart > -1 && fieldStart < 32)
                 {
-                    closeSize = static_cast<int>(cstrlen(tagClose[index]));
+                    closeSize = cstrlen(tagClose[index]);
                     fieldStop = fieldStart + closeSize; // set the tag stop
 
                     for (i = fieldStart; i < length - closeSize; i++)
@@ -110,9 +110,9 @@ void StripTags(char* buffer)
 char* HumanizeName(char* name)
 {
     static char outputName[256]; // create return name buffer
-    strncpy(outputName, name, sizeof(name)); // copy name to new buffer
+    cstrncpy(outputName, name, sizeof(outputName)); // copy name to new buffer
 
-    // drop tag marks, 80 percent of time
+    // drop tag marks, 75 percent of time
     if (chanceof(75))
         StripTags(outputName);
     else
@@ -121,8 +121,8 @@ char* HumanizeName(char* name)
     // sometimes switch name to lower characters
     if (chanceof(50))
     {
-        size_t i;
-        const size_t maxLength = cstrlen(outputName);
+        int i;
+        const int maxLength = cstrlen(outputName);
         for (i = 0; i < maxLength; i++)
             outputName[i] = static_cast<char>(ctolower(outputName[i])); // to lower case
     }
@@ -134,7 +134,7 @@ char* HumanizeName(char* name)
 void HumanizeChat(char* buffer)
 {
     int i;
-    int length = static_cast<int>(cstrlen(buffer)); // get length of string
+    int length = cstrlen(buffer); // get length of string
 
     // sometimes switch text to lowercase
     if (chanceof(50))
@@ -448,8 +448,8 @@ bool Bot::ParseChat(char* reply)
     char tempMessage[512];
     cstrcpy(tempMessage, m_sayTextBuffer.sayText); // copy to safe place
 
-    size_t i;
-    const size_t maxLength = cstrlen(tempMessage);
+    int i;
+    const int maxLength = cstrlen(tempMessage);
 
     // text to uppercase for keyword parsing
     for (i = 0; i < maxLength; i++)
