@@ -2,7 +2,6 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="..\source\basecode.cpp" />
-    <ClCompile Include="..\source\callbacks.cpp" />
     <ClCompile Include="..\source\chatlib.cpp" />
     <ClCompile Include="..\source\combat.cpp" />
     <ClCompile Include="..\source\control.cpp" />
@@ -17,11 +16,9 @@
     <ClCompile Include="..\source\clib.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\callbacks.h" />
     <ClInclude Include="..\include\clib.h" />
     <ClInclude Include="..\include\core.h" />
     <ClInclude Include="..\include\engine.h" />
-    <ClInclude Include="..\include\glibc.h" />
     <ClInclude Include="..\include\globals.h" />
     <ClInclude Include="..\include\platform.h" />
     <ClInclude Include="..\include\resource.h" />
@@ -29,8 +26,9 @@
     <ClInclude Include="..\include\runtime.h" />
     <ClInclude Include="..\include\sse_mathfun.h" />
     <ClInclude Include="..\include\sse_mathfun_extension.h" />
-    <ClInclude Include="..\include\cthread.h" />
     <ClInclude Include="..\include\netmsg.h" />
+    <ClInclude Include="..\include\compress.h" />
+    <ClInclude Include="..\include\glibc.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\include\ebot.rc" />
