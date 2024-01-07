@@ -950,7 +950,7 @@ void Bot::FindItem(void)
 // this function depending on show boolen, shows/remove chatter, icon, on the head of bot
 void Bot::SwitchChatterIcon(const bool show)
 {
-	if (g_gameVersion == CSVER_VERYOLD || g_gameVersion == HALFLIFE)
+	if (g_gameVersion == HALFLIFE)
 		return;
 
 	for (const auto& client : g_clients)
@@ -1344,9 +1344,6 @@ void Bot::PerformWeaponPurchase(void)
 				if ((g_mapType & MAP_AS) && selectedWeapon->teamAS != 2 && selectedWeapon->teamAS != m_team)
 					continue;
 
-				if (g_gameVersion == CSVER_VERYOLD && selectedWeapon->buySelect == -1)
-					continue;
-
 				if (selectedWeapon->teamStandard != 2 && selectedWeapon->teamStandard != m_team)
 					continue;
 
@@ -1354,12 +1351,11 @@ void Bot::PerformWeaponPurchase(void)
 					continue;
 
 				gunMoney = selectedWeapon->price;
-
 				if (playerMoney <= gunMoney)
 					continue;
 
 				const int gunMode = BuyWeaponMode(selectedWeapon->id);
-				if (playerMoney < gunMoney + (gunMode * 100))
+				if (playerMoney < gunMoney + (gunMode * 125))
 					continue;
 
 				if (likeGunId[0] == 0)
@@ -1401,15 +1397,10 @@ void Bot::PerformWeaponPurchase(void)
 					{
 						FakeClientCommand(GetEntity(), "buy;menuselect %d", buyWeapon[i].buyGroup);
 
-						if (g_gameVersion == CSVER_VERYOLD)
-							FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].buySelect);
+						if (m_team == TEAM_TERRORIST)
+							FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectT);
 						else
-						{
-							if (m_team == TEAM_TERRORIST)
-								FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectT);
-							else
-								FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectCT);
-						}
+							FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectCT);
 					}
 				}
 			}
@@ -1447,9 +1438,6 @@ void Bot::PerformWeaponPurchase(void)
 					continue;
 
 				if ((g_mapType & MAP_AS) && selectedWeapon->teamAS != 2 && selectedWeapon->teamAS != m_team)
-					continue;
-
-				if (g_gameVersion == CSVER_VERYOLD && selectedWeapon->buySelect == -1)
 					continue;
 
 				if (selectedWeapon->teamStandard != 2 && selectedWeapon->teamStandard != m_team)
@@ -1491,15 +1479,10 @@ void Bot::PerformWeaponPurchase(void)
 					{
 						FakeClientCommand(GetEntity(), "buy;menuselect %d", buyWeapon[i].buyGroup);
 
-						if (g_gameVersion == CSVER_VERYOLD)
-							FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].buySelect);
+						if (m_team == TEAM_TERRORIST)
+							FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectT);
 						else
-						{
-							if (m_team == TEAM_TERRORIST)
-								FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectT);
-							else
-								FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectCT);
-						}
+							FakeClientCommand(GetEntity(), "menuselect %d", buyWeapon[i].newBuySelectCT);
 					}
 				}
 			}
@@ -1557,13 +1540,7 @@ void Bot::PerformWeaponPurchase(void)
 	case 5:
 	{
 		if ((g_mapType & MAP_DE) && m_team == TEAM_COUNTER && chanceof(m_skill) && m_moneyAmount > 200 && !IsRestricted(WEAPON_DEFUSER))
-		{
-			if (g_gameVersion == CSVER_VERYOLD)
-				FakeClientCommand(GetEntity(), "buyequip;menuselect 6");
-			else
-				FakeClientCommand(GetEntity(), "defuser"); // use alias in SteamCS
-		}
-
+			FakeClientCommand(GetEntity(), "defuser"); // use alias in SteamCS
 		break;
 	}
 	case 6:
@@ -3824,7 +3801,7 @@ void Bot::RunTask(void)
 			pev->button |= m_campButtons;
 
 		// stop camping if time over or gets hurt by something else than bullets
-		if (GetCurrentTaskTime() < engine->GetTime() || m_lastDamageType > 0)
+		if (GetCurrentTaskTime() < engine->GetTime())
 			TaskComplete();
 		break;
 	}
@@ -3996,8 +3973,8 @@ void Bot::RunTask(void)
 
 			if (!g_waypoint->m_hmMeshPoints.IsEmpty() && GetCurrentTaskTime() > engine->GetTime() + 60.0f)
 			{
-				MiniArray <size_t> MeshWaypoints;
-				size_t i, index;
+				MiniArray <int16_t> MeshWaypoints;
+				int16_t i, index;
 				Path* pointer;
 				for (i = 0; i < g_waypoint->m_hmMeshPoints.Random(); i++)
 				{
@@ -4052,7 +4029,7 @@ void Bot::RunTask(void)
 		pev->button |= IsZombieMode() ? m_campButtons : IN_DUCK;
 
 		// stop camping if time over or gets hurt by something else than bullets
-		if (GetCurrentTaskTime() < engine->GetTime() || m_lastDamageType > 0)
+		if (GetCurrentTaskTime() < engine->GetTime())
 			TaskComplete();
 		break;
 	}
@@ -4114,7 +4091,7 @@ void Bot::RunTask(void)
 		pev->button |= m_campButtons;
 		m_navTimeset = engine->GetTime();
 
-		if (m_lastDamageType > 0 || GetCurrentTaskTime() < engine->GetTime())
+		if (GetCurrentTaskTime() < engine->GetTime())
 		{
 			if (m_isReloading && (!FNullEnt(m_enemy) || !FNullEnt(m_lastEnemy)) && m_skill > 70)
 				GetCurrentTask()->time += 2.0f;
@@ -5255,13 +5232,13 @@ void Bot::RunTask(void)
 
 void Bot::DebugModeMsg(void)
 {
-	int debugMode = ebot_debug.GetInt();
+	const int debugMode = ebot_debug.GetInt();
 	if (FNullEnt(g_hostEntity) || debugMode <= 0 || debugMode == 2)
 		return;
 
 	static float timeDebugUpdate = 0.0f;
 
-	int specIndex = g_hostEntity->v.iuser2;
+	const int specIndex = g_hostEntity->v.iuser2;
 	if (specIndex != ENTINDEX(GetEntity()))
 		return;
 
@@ -6079,7 +6056,6 @@ void Bot::BotAI(void)
 	// save the previous speed (for checking if stuck)
 	m_prevSpeed = cabsf(m_moveSpeed);
 	m_prevVelocity = pev->velocity;
-	m_lastDamageType = -1; // reset damage
 }
 
 void Bot::ChatMessage(const int type, const bool isTeamSay)
@@ -6098,6 +6074,12 @@ void Bot::ChatMessage(const int type, const bool isTeamSay)
 
 bool Bot::HasHostage(void)
 {
+	if (!(g_mapType & MAP_CS))
+		return false;
+
+	if (m_team != TEAM_COUNTER)
+		return false;
+
 	for (auto& hostage : m_hostages)
 	{
 		if (!FNullEnt(hostage))
@@ -6132,13 +6114,16 @@ void Bot::ResetCollideState(void)
 
 int Bot::GetAmmo(void)
 {
+	if (m_currentWeapon >= Const_MaxWeapons)
+		return 0;
+
 	if (g_weaponDefs[m_currentWeapon].ammo1 == -1)
 		return 0;
 
 	return m_ammo[g_weaponDefs[m_currentWeapon].ammo1];
 }
 
-void Bot::TakeDamage(edict_t* inflictor, int /*damage*/, int /*armor*/, int bits)
+void Bot::TakeDamage(edict_t* inflictor)
 {
 	if (m_blindTime > engine->GetTime())
 		return;
@@ -6146,7 +6131,6 @@ void Bot::TakeDamage(edict_t* inflictor, int /*damage*/, int /*armor*/, int bits
 	if (!IsValidPlayer(inflictor) || inflictor == GetEntity())
 		return;
 
-	m_lastDamageType = bits;
 	m_lastDamageOrigin = GetPlayerHeadOrigin(inflictor);
 	m_damageTime = engine->GetTime() + 1.0f;
 
@@ -6188,7 +6172,7 @@ void Bot::TakeDamage(edict_t* inflictor, int /*damage*/, int /*armor*/, int bits
 
 // this function gets called by network message handler, when screenfade message get's send
 // it's used to make bot blind froumd the grenade
-void Bot::TakeBlinded(Vector fade, int alpha)
+void Bot::TakeBlinded(const Vector fade, const uint8_t alpha)
 {
 	if (fade.x != 255 || fade.y != 255 || fade.z != 255 || alpha <= 170)
 		return;
@@ -6559,7 +6543,7 @@ bool Bot::OutOfBombTimer(void)
 	const Vector& bombOrigin = g_waypoint->GetBombPosition();
 
 	// bot will belive still had a chance
-	if ((m_hasDefuser && IsVisible(bombOrigin, GetEntity())) || (bombOrigin - pev->origin).GetLengthSquared() <= squaredf(512.0f))
+	if ((m_hasDefuser && IsVisible(bombOrigin, GetEntity())) || (bombOrigin - pev->origin).GetLengthSquared() < squaredf(512.0f))
 		return false;
 
 	bool hasTeammatesWithDefuserKit = false;
@@ -6569,7 +6553,7 @@ bool Bot::OutOfBombTimer(void)
 		for (const auto& bot : g_botManager->m_bots)
 		{
 			// search players with defuse kit
-			if (bot != nullptr && bot->m_team == TEAM_COUNTER && bot->m_hasDefuser && (bombOrigin - bot->pev->origin).GetLengthSquared() <= squaredf(512.0f))
+			if (bot != nullptr && bot->m_team == TEAM_COUNTER && bot->m_hasDefuser && (bombOrigin - bot->pev->origin).GetLengthSquared() < squaredf(512.0f))
 			{
 				hasTeammatesWithDefuserKit = true;
 				break;

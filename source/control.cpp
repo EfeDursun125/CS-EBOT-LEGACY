@@ -1,4 +1,4 @@
-//
+﻿//
 // Copyright (c) 2003-2009, by Yet Another POD-Bot Development Team.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -63,7 +63,7 @@ BotControl::~BotControl(void)
 		if (bot == nullptr)
 			continue;
 
-		delete bot;
+		free(bot);
 		bot = nullptr;
 	}
 }
@@ -71,18 +71,7 @@ BotControl::~BotControl(void)
 // this function calls gamedll player() function, in case to create player entity in game
 void BotControl::CallGameEntity(entvars_t* vars)
 {
-	if (g_isMetamod)
-	{
-		CALL_GAME_ENTITY(PLID, "player", vars);
-		return;
-	}
-
-	static EntityPtr_t playerFunction = nullptr;
-	if (playerFunction == nullptr)
-		playerFunction = reinterpret_cast<EntityPtr_t>(g_gameLib->GetFunctionAddr("player"));
-
-	if (playerFunction != nullptr)
-		(*playerFunction) (vars);
+	CALL_GAME_ENTITY(PLID, "player", vars);
 }
 
 // this function completely prepares bot entity (edict) for creation, creates team, skill, sets name etc, and
@@ -200,10 +189,14 @@ int BotControl::CreateBot(const String name, int skill, int personality, const i
 		return -2;
 	}
 
-	const int index = ENTINDEX(bot) - 1;
-	m_bots[index] = new(std::nothrow) Bot(bot, skill, personality, team, member);
-	if (m_bots[index] == nullptr)
+	Bot* new_bot = static_cast<Bot*>(malloc(sizeof(Bot)));
+	if (new_bot == nullptr)
 		return -1;
+
+	const int index = ENTINDEX(bot) - 1;
+	new (new_bot) Bot(bot, skill, personality, team, member);
+	m_bots[index] = new_bot;
+	new_bot = nullptr;
 
 	ServerPrint("Connecting E-Bot - %s | Skill %d", botName, skill);
 	return index;
@@ -797,7 +790,7 @@ void BotControl::Free(void)
 		if (ebot_save_bot_names.GetBool())
 			m_savedBotNames.Push(STRING(bot->GetEntity()->v.netname));
 
-		delete bot;
+		free(bot);
 		bot = nullptr;
 	}
 }
@@ -811,7 +804,7 @@ void BotControl::Free(const int index)
 	if (m_bots[index] == nullptr)
 		return;
 
-	delete m_bots[index];
+	free(m_bots[index]);
 	m_bots[index] = nullptr;
 }
 
@@ -859,7 +852,7 @@ Bot::Bot(edict_t* bot, const int skill, const int personality, const int team, c
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "_cl_autowepswitch", "0");
 	}
 
-	if (g_gameVersion != CSVER_VERYOLD && !ebot_ping.GetBool())
+	if (!ebot_ping.GetBool())
 		SET_CLIENT_KEYVALUE(clientIndex, buffer, "*bot", "1");
 
 	rejectReason[0] = 0; // reset the reject reason template string
@@ -888,7 +881,6 @@ Bot::Bot(edict_t* bot, const int skill, const int personality, const int team, c
 
 	m_startAction = CMENU_IDLE;
 	m_moneyAmount = 0;
-	m_logotypeIndex = crandomint(0, 5);
 
 	// initialize msec value
 	m_msecInterval = engine->GetTime();
@@ -1059,7 +1051,6 @@ void Bot::NewRound(void)
 	m_seeEnemyTime = 0.0f;
 	m_oldCombatDesire = 0.0f;
 
-	m_lastDamageType = -1;
 	m_voteMap = 0;
 	m_aimFlags = 0;
 

@@ -357,7 +357,7 @@ void Bot::PrepareChatMessage(char* text)
                     else
                         cstrcat(m_tempStrings, "Condition Zero");
                 }
-                else if (g_gameVersion == CSVER_CSTRIKE || g_gameVersion == CSVER_VERYOLD)
+                else if (g_gameVersion == CSVER_CSTRIKE)
                 {
                     if (crandomint(1, 10) < 4)
                         cstrcat(m_tempStrings, "cs 1.6");
@@ -503,11 +503,6 @@ void Bot::ChatSay(const bool teamSay, const char* text, ...)
     if (m_lastChatEnt == me)
         return;
 
-    // block looping same message
-    if (!IsNullString(m_lastStrings) && cstricmp(m_lastStrings, text) == 0)
-        return;
-
     FakeClientCommand(me, "%s \"%s\"", teamSay ? "say_team" : "say", text);
-    cstrncpy(m_lastStrings, text, sizeof(m_lastStrings));
     m_lastChatEnt = me;
 }

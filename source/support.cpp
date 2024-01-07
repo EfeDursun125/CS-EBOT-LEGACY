@@ -395,11 +395,11 @@ void FakeClientCommand(edict_t* fakeClient, const char* format, ...)
 
 	g_isFakeCommand = true;
 	const int length = cstrlen(command);
+	int start, index;
 
 	while (stringIndex < length)
 	{
-		const int start = stringIndex;
-
+		start = stringIndex;
 		while (stringIndex < length && command[stringIndex] != ';')
 			stringIndex++;
 
@@ -413,8 +413,7 @@ void FakeClientCommand(edict_t* fakeClient, const char* format, ...)
 
 		g_fakeArgv[i - start] = 0;
 		stringIndex++;
-
-		int index = 0;
+		index = 0;
 		g_fakeArgc = 0;
 
 		while (index < i - start)
@@ -425,7 +424,6 @@ void FakeClientCommand(edict_t* fakeClient, const char* format, ...)
 			if (g_fakeArgv[index] == '"')
 			{
 				index++;
-
 				while (index < i - start && g_fakeArgv[index] != '"')
 					index++;
 
@@ -655,9 +653,6 @@ void RoundInit(void)
 
 void AutoLoadGameMode(void)
 {
-	if (!g_isMetamod)
-		return;
-
 	if (!ebot_auto_gamemode.GetBool())
 		return;
 
@@ -891,14 +886,6 @@ bool IsDeathmatchMode(void)
 	return (ebot_gamemod.GetInt() == MODE_DM || ebot_gamemod.GetInt() == MODE_TDM);
 }
 
-bool IsValidWaypoint(const uint16_t index)
-{
-	if (index >= g_numWaypoints)
-		return false;
-
-	return true;
-}
-
 int GetGameMode(void)
 {
 	return ebot_gamemod.GetInt();
@@ -910,7 +897,7 @@ bool IsBreakable(edict_t* ent)
 		return false;
 
 	extern ConVar ebot_breakable_health_limit;
-	if ((FClassnameIs(ent, "func_breakable") || (FClassnameIs(ent, "func_pushable") && (ent->v.spawnflags & SF_PUSH_BREAKABLE)) || FClassnameIs(ent, "func_wall")) && ent->v.health <= ebot_breakable_health_limit.GetFloat())
+	if ((FClassnameIs(ent, "func_breakable") || (FClassnameIs(ent, "func_pushable") && (ent->v.spawnflags & SF_PUSH_BREAKABLE)) || FClassnameIs(ent, "func_wall")) && ent->v.health < ebot_breakable_health_limit.GetFloat())
 	{
 		if (ent->v.takedamage != DAMAGE_NO && ent->v.impulse <= 0 && !(ent->v.flags & FL_WORLDBRUSH) && !(ent->v.spawnflags & SF_BREAK_TRIGGER_ONLY))
 			return (ent->v.movetype == MOVETYPE_PUSH || ent->v.movetype == MOVETYPE_PUSHSTEP);
@@ -1397,25 +1384,10 @@ void DetectCSVersion(void)
 	// switch version returned by dll loader
 	switch (g_gameVersion)
 	{
-	case CSVER_VERYOLD:
-	{
-		ServerPrint(infoBuffer, "CS 1.x (WON)", sizeof(Bot));
-		break;
-	}
 	case CSVER_CSTRIKE:
 	{
-		uint8_t* detection = (*g_engfuncs.pfnLoadFileForMe) ("events/galil.sc", nullptr);
-		if (detection != nullptr)
-		{
-			ServerPrint(infoBuffer, "CS 1.6 (Steam)", sizeof(Bot));
-			g_gameVersion = CSVER_CSTRIKE; // just to be sure
-			(*g_engfuncs.pfnFreeFile) (detection);
-		}
-		else
-		{
-			ServerPrint(infoBuffer, "CS 1.5 (WON)", sizeof(Bot));
-			g_gameVersion = CSVER_VERYOLD; // reset it to WON
-		}
+		ServerPrint(infoBuffer, "CS 1.6 (Steam)", sizeof(Bot));
+		g_gameVersion = CSVER_CSTRIKE; // just to be sure
 		break;
 	}
 	case CSVER_CZERO:

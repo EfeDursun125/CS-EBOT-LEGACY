@@ -150,6 +150,15 @@ void AnalyzeThread(void)
         else if (!IsDedicatedServer())
             return;
 
+        // guarantee to have it
+        if (g_expanded == nullptr)
+        {
+            int i;
+            safeloc(g_expanded, g_numWaypoints);
+            for (i = 0; i < g_numWaypoints; i++)
+                g_expanded[i] = false;
+        }
+
         static float magicTimer;
         float range;
         Vector WayVec, Next;
@@ -254,6 +263,7 @@ void AnalyzeThread(void)
             g_waypoint->Load();
             ServerCommand("exec addons/ebot/ebot.cfg");
             ServerCommand("ebot wp mdl off");
+            safedel(g_expanded);
         }
     }
     else
@@ -787,7 +797,7 @@ int Waypoint::FindNearest(const Vector origin, const float minDistance, const in
 }
 
 // returns all waypoints within radius from position
-void Waypoint::FindInRadius(Vector origin, float radius, int* holdTab, int* count)
+void Waypoint::FindInRadius(const Vector origin, const float radius, int* holdTab, int* count)
 {
     const int maxCount = *count;
     const float rad = squaredf(radius);
@@ -979,7 +989,8 @@ void Waypoint::Add(const int flags, const Vector waypointOrigin)
     }
 
     // set the time that this waypoint was originally displayed...
-    m_waypointDisplayTime[index] = 0;
+    if (m_waypointDisplayTime != nullptr)
+        m_waypointDisplayTime[index] = 0;
 
     if (flags == 9)
         m_lastJumpWaypoint = index;
@@ -1226,9 +1237,9 @@ void Waypoint::DeleteByIndex(const int index)
     }
 
     m_paths.RemoveAt(index);
-
     g_numWaypoints--;
-    m_waypointDisplayTime[index] = 0;
+    if (m_waypointDisplayTime != nullptr)
+        m_waypointDisplayTime[index] = 0;
 
     PlaySound(g_hostEntity, "weapons/mine_activate.wav");
 }
@@ -1697,9 +1708,11 @@ bool Waypoint::Download(void)
     return false;
 }
 
+static uint8_t g_numTry;
 bool Waypoint::Load(void)
 {
     safedel(m_waypoints);
+    safedel(m_waypointDisplayTime);
 
     int i;
     const char* path = CheckSubfolderFile();
@@ -1832,24 +1845,24 @@ bool Waypoint::Load(void)
         else
             sprintf(m_infoBuffer, "Using Waypoint File By: %s", header.author);
 
+        g_numTry = 0;
         fp.Close();
     }
-    else if (ebot_download_waypoints.GetBool() && Download())
+    else if (ebot_download_waypoints.GetBool() && g_numTry < 5)
     {
-        Load();
-        sprintf(m_infoBuffer, "%s.ewp is downloaded from the internet", GetMapName());
+        Download();
+        if (Load())
+            sprintf(m_infoBuffer, "%s.ewp is downloaded from the internet", GetMapName());
+        
+        g_numTry++;
     }
     else
     {
         if (ebot_analyze_auto_start.GetBool())
         {
             g_waypoint->CreateBasic();
-
-            // no expand
-            for (i = 0; i < (Const_MaxWaypoints - 1); i++)
-                g_expanded[i] = false;
-
             g_analyzewaypoints = true;
+            g_numTry = 0;
         }
         else
         {
@@ -1860,13 +1873,15 @@ bool Waypoint::Load(void)
         return false;
     }
 
-    for (i = 0; i < g_numWaypoints; i++)
-        m_waypointDisplayTime[i] = 0.0f;
-
     InitTypes();
-
     if (g_numWaypoints > 0)
+    {
         safeloc(m_waypoints, g_numWaypoints);
+
+        // only in lan game
+        if (!IsDedicatedServer())
+            safeloc(m_waypointDisplayTime, g_numWaypoints);
+    }
 
     g_waypointsChanged = false;
 
@@ -2191,7 +2206,7 @@ char* Waypoint::GetWaypointInfo(const int id)
         }
     }
 
-    static char messageBuffer[1024];
+    char messageBuffer[1024];
     sprintf(messageBuffer, "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s", 
         (path->flags == 0 && !jumpPoint) ? "(none)" : "", 
         path->flags & WAYPOINT_LIFT ? "LIFT " : "", 
@@ -2447,102 +2462,105 @@ void Waypoint::ShowWaypointMsg(void)
                     }
                 }
 
-                if (m_waypointDisplayTime[i] + 1.0f < engine->GetTime())
+                if (m_waypointDisplayTime != nullptr)
                 {
-                    float nodeHeight = (m_paths[i].flags & WAYPOINT_CROUCH) ? 36.0f : 72.0f; // check the node height
-                    float nodeHalfHeight = nodeHeight * 0.5f;
-
-                    // all waypoints are by default are green
-                    Color nodeColor = Color(ebot_waypoint_r.GetFloat(), ebot_waypoint_g.GetFloat(), ebot_waypoint_b.GetFloat(), 255);
-
-                    // colorize all other waypoints
-                    if (m_paths[i].flags & WAYPOINT_CAMP)
-                        nodeColor = Color(0, 255, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_GOAL)
-                        nodeColor = Color(128, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_LADDER)
-                        nodeColor = Color(128, 64, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_RESCUE)
-                        nodeColor = Color(255, 255, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_AVOID)
-                        nodeColor = Color(255, 0, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_FALLCHECK)
-                        nodeColor = Color(128, 128, 128, 255);
-                    else if (m_paths[i].flags & WAYPOINT_USEBUTTON)
-                        nodeColor = Color(0, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ZMHMCAMP)
-                        nodeColor = Color(199, 69, 209, 255);
-                    else if (m_paths[i].flags & WAYPOINT_HMCAMPMESH)
-                        nodeColor = Color(50, 125, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ZOMBIEONLY)
-                        nodeColor = Color(255, 0, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_HUMANONLY)
-                        nodeColor = Color(0, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ZOMBIEPUSH)
-                        nodeColor = Color(250, 75, 150, 255);
-                    else if (m_paths[i].flags & WAYPOINT_FALLRISK)
-                        nodeColor = Color(128, 128, 128, 255);
-                    else if (m_paths[i].flags & WAYPOINT_SPECIFICGRAVITY)
-                        nodeColor = Color(128, 128, 128, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ONLYONE)
-                        nodeColor = Color(255, 255, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_WAITUNTIL)
-                        nodeColor = Color(0, 0, 255, 255);
-
-                    // colorize additional flags
-                    Color nodeFlagColor = Color(-1, -1, -1, 0);
-
-                    // check the colors
-                    if (m_paths[i].flags & WAYPOINT_SNIPER)
-                        nodeFlagColor = Color(130, 87, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_TERRORIST)
-                        nodeFlagColor = Color(255, 0, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_COUNTER)
-                        nodeFlagColor = Color(0, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ZMHMCAMP)
-                        nodeFlagColor = Color(0, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_HMCAMPMESH)
-                        nodeFlagColor = Color(0, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ZOMBIEONLY)
-                        nodeFlagColor = Color(255, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_HUMANONLY)
-                        nodeFlagColor = Color(255, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_ZOMBIEPUSH)
-                        nodeFlagColor = Color(255, 0, 0, 255);
-                    else if (m_paths[i].flags & WAYPOINT_FALLRISK)
-                        nodeFlagColor = Color(250, 75, 150, 255);
-                    else if (m_paths[i].flags & WAYPOINT_SPECIFICGRAVITY)
-                        nodeFlagColor = Color(128, 0, 255, 255);
-                    else if (m_paths[i].flags & WAYPOINT_WAITUNTIL)
-                        nodeFlagColor = Color(250, 75, 150, 255);
-
-                    nodeColor.alpha = 255;
-                    nodeFlagColor.alpha = 255;
-
-                    // draw node without additional flags
-                    if (nodeFlagColor.red == -1)
-                        engine->DrawLine(g_hostEntity, m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight), m_paths[i].origin + Vector(0.0f, 0.0f, nodeHalfHeight), nodeColor, ebot_waypoint_size.GetFloat(), 0, 0, 10);
-                    else // draw node with flags
+                    if (m_waypointDisplayTime[i] + 1.0f < engine->GetTime())
                     {
-                        engine->DrawLine(g_hostEntity, m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight), m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight - nodeHeight * 0.75f), nodeColor, ebot_waypoint_size.GetFloat(), 0, 0, 10); // draw basic path
-                        engine->DrawLine(g_hostEntity, m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight - nodeHeight * 0.75f), m_paths[i].origin + Vector(0.0f, 0.0f, nodeHalfHeight), nodeFlagColor, ebot_waypoint_size.GetFloat(), 0, 0, 10); // draw additional path
+                        float nodeHeight = (m_paths[i].flags & WAYPOINT_CROUCH) ? 36.0f : 72.0f; // check the node height
+                        float nodeHalfHeight = nodeHeight * 0.5f;
+
+                        // all waypoints are by default are green
+                        Color nodeColor = Color(ebot_waypoint_r.GetFloat(), ebot_waypoint_g.GetFloat(), ebot_waypoint_b.GetFloat(), 255);
+
+                        // colorize all other waypoints
+                        if (m_paths[i].flags & WAYPOINT_CAMP)
+                            nodeColor = Color(0, 255, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_GOAL)
+                            nodeColor = Color(128, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_LADDER)
+                            nodeColor = Color(128, 64, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_RESCUE)
+                            nodeColor = Color(255, 255, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_AVOID)
+                            nodeColor = Color(255, 0, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_FALLCHECK)
+                            nodeColor = Color(128, 128, 128, 255);
+                        else if (m_paths[i].flags & WAYPOINT_USEBUTTON)
+                            nodeColor = Color(0, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ZMHMCAMP)
+                            nodeColor = Color(199, 69, 209, 255);
+                        else if (m_paths[i].flags & WAYPOINT_HMCAMPMESH)
+                            nodeColor = Color(50, 125, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ZOMBIEONLY)
+                            nodeColor = Color(255, 0, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_HUMANONLY)
+                            nodeColor = Color(0, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ZOMBIEPUSH)
+                            nodeColor = Color(250, 75, 150, 255);
+                        else if (m_paths[i].flags & WAYPOINT_FALLRISK)
+                            nodeColor = Color(128, 128, 128, 255);
+                        else if (m_paths[i].flags & WAYPOINT_SPECIFICGRAVITY)
+                            nodeColor = Color(128, 128, 128, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ONLYONE)
+                            nodeColor = Color(255, 255, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_WAITUNTIL)
+                            nodeColor = Color(0, 0, 255, 255);
+
+                        // colorize additional flags
+                        Color nodeFlagColor = Color(-1, -1, -1, 0);
+
+                        // check the colors
+                        if (m_paths[i].flags & WAYPOINT_SNIPER)
+                            nodeFlagColor = Color(130, 87, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_TERRORIST)
+                            nodeFlagColor = Color(255, 0, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_COUNTER)
+                            nodeFlagColor = Color(0, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ZMHMCAMP)
+                            nodeFlagColor = Color(0, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_HMCAMPMESH)
+                            nodeFlagColor = Color(0, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ZOMBIEONLY)
+                            nodeFlagColor = Color(255, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_HUMANONLY)
+                            nodeFlagColor = Color(255, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_ZOMBIEPUSH)
+                            nodeFlagColor = Color(255, 0, 0, 255);
+                        else if (m_paths[i].flags & WAYPOINT_FALLRISK)
+                            nodeFlagColor = Color(250, 75, 150, 255);
+                        else if (m_paths[i].flags & WAYPOINT_SPECIFICGRAVITY)
+                            nodeFlagColor = Color(128, 0, 255, 255);
+                        else if (m_paths[i].flags & WAYPOINT_WAITUNTIL)
+                            nodeFlagColor = Color(250, 75, 150, 255);
+
+                        nodeColor.alpha = 255;
+                        nodeFlagColor.alpha = 255;
+
+                        // draw node without additional flags
+                        if (nodeFlagColor.red == -1)
+                            engine->DrawLine(g_hostEntity, m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight), m_paths[i].origin + Vector(0.0f, 0.0f, nodeHalfHeight), nodeColor, ebot_waypoint_size.GetFloat(), 0, 0, 10);
+                        else // draw node with flags
+                        {
+                            engine->DrawLine(g_hostEntity, m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight), m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight - nodeHeight * 0.75f), nodeColor, ebot_waypoint_size.GetFloat(), 0, 0, 10); // draw basic path
+                            engine->DrawLine(g_hostEntity, m_paths[i].origin - Vector(0.0f, 0.0f, nodeHalfHeight - nodeHeight * 0.75f), m_paths[i].origin + Vector(0.0f, 0.0f, nodeHalfHeight), nodeFlagColor, ebot_waypoint_size.GetFloat(), 0, 0, 10); // draw additional path
+                        }
+
+                        if (m_paths[i].flags & WAYPOINT_FALLCHECK || m_paths[i].flags & WAYPOINT_WAITUNTIL)
+                        {
+                            TraceResult tr{};
+                            TraceLine(m_paths[i].origin, m_paths[i].origin - Vector(0.0f, 0.0f, 60.0f), false, false, g_hostEntity, &tr);
+
+                            if (tr.flFraction == 1.0f)
+                                engine->DrawLine(g_hostEntity, m_paths[i].origin, m_paths[i].origin - Vector(0.0f, 0.0f, 60.0f), Color(255, 0, 0, 255), ebot_waypoint_size.GetFloat() - 1.0f, 0, 0, 10);
+                            else
+                                engine->DrawLine(g_hostEntity, m_paths[i].origin, m_paths[i].origin - Vector(0.0f, 0.0f, 60.0f), Color(0, 0, 255, 255), ebot_waypoint_size.GetFloat() - 1.0f, 0, 0, 10);
+                        }
+
+                        m_waypointDisplayTime[i] = engine->GetTime();
                     }
-
-                    if (m_paths[i].flags & WAYPOINT_FALLCHECK || m_paths[i].flags & WAYPOINT_WAITUNTIL)
-                    {
-                        TraceResult tr{};
-                        TraceLine(m_paths[i].origin, m_paths[i].origin - Vector(0.0f, 0.0f, 60.0f), false, false, g_hostEntity, &tr);
-
-                        if (tr.flFraction == 1.0f)
-                            engine->DrawLine(g_hostEntity, m_paths[i].origin, m_paths[i].origin - Vector(0.0f, 0.0f, 60.0f), Color(255, 0, 0, 255), ebot_waypoint_size.GetFloat() - 1.0f, 0, 0, 10);
-                        else
-                            engine->DrawLine(g_hostEntity, m_paths[i].origin, m_paths[i].origin - Vector(0.0f, 0.0f, 60.0f), Color(0, 0, 255, 255), ebot_waypoint_size.GetFloat() - 1.0f, 0, 0, 10);
-                    }
-
-                    m_waypointDisplayTime[i] = engine->GetTime();
+                    else if (m_waypointDisplayTime[i] + 2.0f > engine->GetTime()) // what???
+                        m_waypointDisplayTime[i] = 0.0f;
                 }
-                else if (m_waypointDisplayTime[i] + 2.0f > engine->GetTime()) // what???
-                    m_waypointDisplayTime[i] = 0.0f;
             }
         };
 
@@ -3085,6 +3103,7 @@ Waypoint::Waypoint(void)
     m_arrowDisplayTime = 0.0f;
 
     safedel(m_waypoints);
+    safedel(m_waypointDisplayTime);
     m_paths.Destroy();
     m_terrorPoints.Destroy();
     m_ctPoints.Destroy();
@@ -3097,6 +3116,7 @@ Waypoint::Waypoint(void)
 Waypoint::~Waypoint(void)
 {
     safedel(m_waypoints);
+    safedel(m_waypointDisplayTime);
     m_paths.Destroy();
     m_terrorPoints.Destroy();
     m_ctPoints.Destroy();

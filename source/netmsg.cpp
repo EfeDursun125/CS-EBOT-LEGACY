@@ -49,12 +49,10 @@ void NetworkMsg::Execute(void* p)
     static uint8_t r, g, b;
     static uint8_t enabled;
 
-    static int damageArmor, damageTaken, damageBits;
-    static int killerIndex, victimIndex, playerIndex;
+    static int killerIndex, victimIndex;
     static int index, numPlayers;
-    static int state, id, clip;
+    static int state, id;
 
-    static Vector damageOrigin;
     static WeaponProperty weaponProp;
 
     // now starts of netmessage execution
@@ -159,12 +157,11 @@ void NetworkMsg::Execute(void* p)
         }
         case 2:
         {
-            clip = PTR_TO_INT(p); // ammo currently in the clip for this weapon
             if (id > -1 && id < Const_MaxWeapons)
             {
                 if (state != 0)
                     m_bot->m_currentWeapon = id;
-                m_bot->m_ammoInClip[id] = clip;
+                m_bot->m_ammoInClip[id] = PTR_TO_INT(p);
             }
             break;
         }
@@ -182,7 +179,7 @@ void NetworkMsg::Execute(void* p)
         }
         case 1:
         {
-            if (index > -1 && index < Const_MaxWeapons)
+            if (m_bot != nullptr && index > -1 && index < Const_MaxWeapons)
                 m_bot->m_ammo[index] = PTR_TO_INT(p); // store it away
             break;
         }
@@ -203,7 +200,7 @@ void NetworkMsg::Execute(void* p)
         }
         case 1:
         {
-            if (index > -1 && index < Const_MaxWeapons)
+            if (m_bot != nullptr && index > -1 && index < Const_MaxWeapons)
                 m_bot->m_ammo[index] = PTR_TO_INT(p);
             break;
         }
@@ -212,27 +209,10 @@ void NetworkMsg::Execute(void* p)
     }
     case NETMSG_DAMAGE:
     {
-        // this message gets sent when the bots are getting damaged
-        switch (m_state)
-        {
-        case 0:
-            damageArmor = PTR_TO_INT(p);
-            break;
-
-        case 1:
-            damageTaken = PTR_TO_INT(p);
-            break;
-
-        case 2:
+        if (m_state == 2)
         {
             if (m_bot != nullptr)
-            {
-                damageBits = PTR_TO_INT(p);
-                if (damageArmor > 0 || damageTaken > 0)
-                    m_bot->TakeDamage(m_bot->pev->dmg_inflictor, damageTaken, damageArmor, damageBits);
-            }
-            break;
-        }
+                m_bot->TakeDamage(m_bot->pev->dmg_inflictor);
         }
         break;
     }
@@ -254,7 +234,7 @@ void NetworkMsg::Execute(void* p)
         }
         case 1:
         {
-            if (m_bot != nullptr && g_gameVersion != HALFLIFE)
+            if (g_gameVersion != HALFLIFE && m_bot != nullptr)
             {
                 const char* x = PTR_TO_STR(p);
                 if (cstrncmp(x, "defuser", 8) == 0)

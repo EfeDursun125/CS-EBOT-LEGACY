@@ -538,10 +538,10 @@ void Bot::FireWeapon(void)
 		return;
 	}
 
-	float distance;
+	const float distance = (m_lookAt - pev->origin).GetLengthSquared();
 
 	// or if friend in line of fire, stop this too but do not update shoot time
-	if (!FNullEnt(m_enemy) && IsFriendInLineOfFire((distance = (m_lookAt - pev->origin).GetLengthSquared()))) // how far away is the enemy?
+	if (!FNullEnt(m_enemy) && IsFriendInLineOfFire(distance)) // how far away is the enemy?
 		return;
 
 	const int melee = g_gameVersion == HALFLIFE ? WEAPON_CROWBAR : WEAPON_KNIFE;
@@ -554,19 +554,19 @@ void Bot::FireWeapon(void)
 	int selectId = melee, selectIndex = 0, chosenWeaponIndex = 0;
 	const int weapons = pev->weapons;
 
-	if (m_isZombieBot || ebot_knifemode.GetBool())
-		goto WeaponSelectEnd;
-	else if (!FNullEnt(enemy) && chanceof(m_skill) && !IsZombieEntity(enemy) && IsOnAttackDistance(enemy, 128.0f) && (enemy->v.health <= 30 || pev->health > enemy->v.health) && !IsOnLadder() && !IsGroupOfEnemies(pev->origin))
+	if (ebot_knifemode.GetBool())
 		goto WeaponSelectEnd;
 
+	int id;
+
 	// loop through all the weapons until terminator is found...
-	while (selectTab[selectIndex].id)
+	while (id = selectTab[selectIndex].id)
 	{
 		// is the bot carrying this weapon?
-		if (weapons & (1 << selectTab[selectIndex].id))
+		if (weapons & (1 << id))
 		{
-			// cannot be used in water...
-			// if (pev->waterlevel == 3 && g_weaponDefs[selectTab[selectIndex].id].flags & ITEM_FLAG_NOFIREUNDERWATER)
+			// cannot be used in water... FIXME: CAUSES CRASH ON SOME MAPS THAT CONTAINS WATER...
+			// if (pev->waterlevel == 3 && g_weaponDefs[id].flags & ITEM_FLAG_NOFIREUNDERWATER)
 			//	continue;
 
 			// is enough ammo available to fire AND check is better to use pistol in our current situation...
@@ -574,10 +574,10 @@ void Bot::FireWeapon(void)
 			{
 				if (selectIndex == WEAPON_SNARK || selectIndex == WEAPON_GAUSS ||selectIndex == WEAPON_EGON || (selectIndex == WEAPON_HANDGRENADE && distance > squaredf(384.0f) && distance < squaredf(768.0f)) || (selectIndex == WEAPON_RPG && distance > squaredf(320.0f)) || (selectIndex == WEAPON_CROSSBOW && distance > squaredf(320.0f)))
 					chosenWeaponIndex = selectIndex;
-				else if (selectIndex != WEAPON_HANDGRENADE && selectIndex != WEAPON_RPG  && selectIndex != WEAPON_CROSSBOW && (m_ammoInClip[selectTab[selectIndex].id] > 0) && !IsWeaponBadInDistance(selectIndex, distance))
+				else if (selectIndex != WEAPON_HANDGRENADE && selectIndex != WEAPON_RPG  && selectIndex != WEAPON_CROSSBOW && m_ammoInClip[id] > 0 && !IsWeaponBadInDistance(selectIndex, distance))
 					chosenWeaponIndex = selectIndex;
 			}
-			else if ((m_ammoInClip[selectTab[selectIndex].id] > 0) && !IsWeaponBadInDistance(selectIndex, distance))
+			else if (m_ammoInClip[id] > 0 && !IsWeaponBadInDistance(selectIndex, distance))
 				chosenWeaponIndex = selectIndex;
 		}
 
@@ -590,13 +590,10 @@ void Bot::FireWeapon(void)
 	if (chosenWeaponIndex == 0)
 	{
 		selectIndex = 0;
-		int id;
 
 		// loop through all the weapons until terminator is found...
-		while (selectTab[selectIndex].id)
+		while (id = selectTab[selectIndex].id)
 		{
-			id = selectTab[selectIndex].id;
-
 			// is the bot carrying this weapon?
 			if (weapons & (1 << id))
 			{
@@ -643,10 +640,7 @@ WeaponSelectEnd:
 	if (m_currentWeapon != selectId)
 	{
 		SelectWeaponByName(g_weaponDefs[selectId].className);
-
-		// reset burst fire variables
 		m_firePause = 0.0f;
-
 		return;
 	}
 
@@ -673,39 +667,43 @@ WeaponSelectEnd:
 		{
 			if ((distance > squaredf(768.0f)) && !IsShieldDrawn())
 				pev->button |= IN_ATTACK2; // draw the shield
-			else if (IsShieldDrawn() || (!FNullEnt(enemy) && (enemy->v.button & IN_RELOAD)))
+			else if (IsShieldDrawn() || (IsValidPlayer(enemy) && enemy->v.button & IN_RELOAD))
 				pev->button |= IN_ATTACK2; // draw out the shield
 
 			m_shieldCheckTime = engine->GetTime() + 2.0f;
 		}
 	}
 
-	if (UsesSniper() && m_zoomCheckTime < engine->GetTime()) // is the bot holding a sniper rifle?
+	if (m_zoomCheckTime < engine->GetTime())
 	{
-		if (distance > squaredf(1500.0f) && pev->fov >= 40.0f) // should the bot switch to the long-range zoom?
-			pev->button |= IN_ATTACK2;
+		if (UsesSniper()) // is the bot holding a sniper rifle?
+		{
+			if (distance > squaredf(1500.0f) && pev->fov >= 40.0f) // should the bot switch to the long-range zoom?
+				pev->button |= IN_ATTACK2;
+			else if (distance > squaredf(150.0f) && pev->fov >= 90.0f) // else should the bot switch to the close-range zoom ?
+				pev->button |= IN_ATTACK2;
+			else if (pev->fov < 90.0f) // else should the bot restore the normal view ?
+				pev->button |= IN_ATTACK2;
 
-		else if (distance > squaredf(150.0f) && pev->fov >= 90.0f) // else should the bot switch to the close-range zoom ?
-			pev->button |= IN_ATTACK2;
+			m_zoomCheckTime = engine->GetTime();
+		}
+		else if (UsesZoomableRifle() && m_skill < 90) // else is the bot holding a zoomable rifle?
+		{
+			if (pev->fov >= 90.0f)
+			{
+				// should the bot switch to zoomed mode?
+				if (distance > squaredf(800.0f))
+					pev->button |= IN_ATTACK2;
+			}
+			else // else should the bot restore the normal view?
+				pev->button |= IN_ATTACK2;
 
-		else if (distance <= squaredf(150.0f) && pev->fov < 90.0f) // else should the bot restore the normal view ?
-			pev->button |= IN_ATTACK2;
-
-		m_zoomCheckTime = engine->GetTime();
-	}
-	else if (UsesZoomableRifle() && m_zoomCheckTime < engine->GetTime() && m_skill < 90) // else is the bot holding a zoomable rifle?
-	{
-		if (distance > squaredf(800.0f) && pev->fov >= 90.0f) // should the bot switch to zoomed mode?
-			pev->button |= IN_ATTACK2;
-
-		else if (distance <= squaredf(800.0f) && pev->fov < 90.0f) // else should the bot restore the normal view?
-			pev->button |= IN_ATTACK2;
-
-		m_zoomCheckTime = engine->GetTime();
+			m_zoomCheckTime = engine->GetTime();
+		}
 	}
 
 	// need to care for burst fire?
-	if (g_gameVersion == HALFLIFE || distance < 256.0f || m_blindTime > engine->GetTime())
+	if (g_gameVersion == HALFLIFE || distance < squaredf(512.0f) || m_blindTime > engine->GetTime())
 	{
 		if (m_currentWeapon == melee && selectId == melee)
 			KnifeAttack();
@@ -725,11 +723,6 @@ WeaponSelectEnd:
 	}
 	else
 	{
-		const int fireDelay = cclamp(cabs((m_skill / 20) - 5), 0, 6);
-		const float baseDelay = delay[chosenWeaponIndex].primaryBaseDelay;
-		const float minDelay = delay[chosenWeaponIndex].primaryMinDelay[fireDelay];
-		const float maxDelay = delay[chosenWeaponIndex].primaryMaxDelay[fireDelay];
-
 		if (DoFirePause(distance))
 			return;
 
@@ -749,11 +742,12 @@ WeaponSelectEnd:
 		else
 		{
 			pev->button |= IN_ATTACK;  // use primary attack
-			delayTime = baseDelay + crandomfloat(minDelay, maxDelay);
+			const int fireDelay = cclamp(cabs((m_skill / 20) - 5), 0, 6);
+			delayTime = delay[chosenWeaponIndex].primaryBaseDelay + crandomfloat(delay[chosenWeaponIndex].primaryMinDelay[fireDelay], delay[chosenWeaponIndex].primaryMaxDelay[fireDelay]);
 			m_zoomCheckTime = engine->GetTime();
 		}
 
-		if (!FNullEnt(enemy) && distance > squaredf(1200.0f))
+		if (distance > squaredf(1200.0f))
 		{
 			if (m_visibility & (VISIBILITY_HEAD | VISIBILITY_BODY))
 				delayTime -= (delayTime == 0.0f) ? 0.0f : 0.02f;
@@ -1529,9 +1523,8 @@ void Bot::SelectBestWeapon(void)
 	int id;
 	bool ammoLeft;
 
-	while (selectTab[selectIndex].id)
+	while (id = selectTab[selectIndex].id)
 	{
-		id = selectTab[selectIndex].id;
 		if (!(pev->weapons & (1 << id)))
 		{
 			selectIndex++;
