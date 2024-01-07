@@ -35,12 +35,11 @@ extern bool g_waypointsChanged;
 extern bool g_autoWaypoint;
 extern bool g_botsCanPause;
 extern bool g_editNoclip;
-extern bool g_isMetamod;
 extern bool g_isFakeCommand;
 extern bool g_leaderChoosen[2];
 extern bool g_analyzewaypoints;
 extern bool g_analyzeputrequirescrouch;
-extern bool g_expanded[Const_MaxWaypoints];
+extern bool* g_expanded;
 extern bool g_isXash;
 
 extern bool g_sgdWaypoint;
@@ -100,12 +99,6 @@ extern TaskItem g_taskFilters[];
 
 extern edict_t* g_hostEntity;
 extern edict_t* g_worldEdict;
-extern Library* g_gameLib;
 
 extern DLL_FUNCTIONS g_functionTable;
-extern EntityAPI_t g_entityAPI;
-extern FuncPointers_t g_funcPointers;
-extern NewEntityAPI_t g_getNewEntityAPI;
-extern BlendAPI_t g_serverBlendingAPI;
-
 #endif // GLOBALS_INCLUDED

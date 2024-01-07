@@ -1,8 +1,6 @@
 #ifndef __HALFLIFE1_INTERFACE__
 #define __HALFLIFE1_INTERFACE__
 
-#include <glibc.h>
-
 #ifdef _WIN32
 #pragma once
 #endif
@@ -2418,7 +2416,6 @@ public:
     cvar_t* m_eptr;
 public:
     ConVar(const char* name, const char* initval, const VarType type = VARTYPE_NORMAL);
-
     inline bool GetBool(void)
     {
         return m_eptr->value > 0.0f;
@@ -2718,7 +2715,6 @@ private:
     int m_team;
     int m_flags;
     Vector m_safeOrigin;
-
 public:
     Client(void)
     {
@@ -2776,9 +2772,7 @@ public:
     {
         return m_ent != other.m_ent;
     }
-
 public:
-    inline float GetShootingConeDeviation(const Vector& pos) const;
     inline bool IsInViewCone(const Vector& pos) const;
     inline bool IsVisible(const Vector& pos) const;
     inline void Print(const PrintType printType, const char* format, ...) const
@@ -2794,20 +2788,23 @@ public:
         va_end(ap);
 
         int enginePrintType = 0;
-
         switch (printType)
         {
         case PRINT_CENTER:
+        {
             enginePrintType = 1;
             break;
-
+        }
         case PRINT_CHAT:
+        {
             enginePrintType = 2;
             break;
-
+        }
         case PRINT_CONSOLE:
+        {
             enginePrintType = 0;
             break;
+        }
         }
 
         cstrcat(buffer, "\n");

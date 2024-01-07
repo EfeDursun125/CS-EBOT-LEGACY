@@ -33,8 +33,8 @@
 
 #ifndef EBOT_INCLUDED
 #define EBOT_INCLUDED
-
 #include <glibc.h>
+
 #include <stdio.h>
 #include <clib.h>
 #include <engine.h>
@@ -79,8 +79,7 @@ enum GameVersion
 {
 	CSVER_CSTRIKE = 1, // Counter-Strike 1.6 and Above
 	CSVER_CZERO = 2, // Counter-Strike: Condition Zero
-	CSVER_VERYOLD = 3, // Counter-Strike 1.3-1.5 with/without Steam
-	HALFLIFE = 4
+	HALFLIFE = 3
 };
 
 // log levels
@@ -452,10 +451,10 @@ constexpr int WeaponBits_Secondary = ((1 << WEAPON_P228) | (1 << WEAPON_ELITE) |
 class PathNode
 {
 private:
-	uint16_t m_cursor = 0;
-	uint16_t m_length = 0;
-	uint16_t m_capacity = 0;
-	uint16_t* m_path = nullptr;
+	int16_t m_cursor = 0;
+	int16_t m_length = 0;
+	int16_t m_capacity = 0;
+	int16_t* m_path = nullptr;
 public:
 	explicit PathNode(void) = default;
 	~PathNode(void)
@@ -466,22 +465,22 @@ public:
 		m_capacity = 0;
 	}
 public:
-	inline uint16_t& Next(void)
+	inline int16_t& Next(void)
 	{
 		return Get(1);
 	}
 
-	inline uint16_t& First(void)
+	inline int16_t& First(void)
 	{
 		return Get(0);
 	}
 
-	inline uint16_t& Last(void)
+	inline int16_t& Last(void)
 	{
 		return Get(Length() - 1);
 	}
 
-	inline uint16_t& Get(const uint16_t index)
+	inline int16_t& Get(const int16_t index)
 	{
 		return m_path[m_cursor + index];
 	}
@@ -493,14 +492,14 @@ public:
 
 	inline void Reverse(void)
 	{
-		uint16_t i;
-		const uint16_t half = m_length / 2;
-		const uint16_t max = m_length - 1;
+		int16_t i;
+		const int16_t half = m_length / 2;
+		const int16_t max = m_length - 1;
 		for (i = 0; i < half; i++)
 			cswap(m_path[i], m_path[max - i]);
 	}
 
-	inline uint16_t Length(void) const
+	inline int16_t Length(void) const
 	{
 		if (m_cursor >= m_length)
 			return 0;
@@ -527,7 +526,7 @@ public:
 		if (m_length >= m_capacity)
 			return;
 
-		m_path[m_length] = static_cast<uint16_t>(waypoint);
+		m_path[m_length] = static_cast<int16_t>(waypoint);
 		m_length++;
 	}
 
@@ -538,11 +537,10 @@ public:
 		m_path[0] = 0;
 	}
 
-	inline void Init(const uint16_t length)
+	inline void Init(const int16_t length)
 	{
 		safeloc(m_path, length);
 		m_capacity = length;
-		m_capacity--;
 	}
 };
 
@@ -721,7 +719,6 @@ private:
 
 	int m_messageQueue[32]; // stack for messages
 	char m_tempStrings[512]; // space for strings (say text...)
-	char m_lastStrings[161]; // for block looping same text
 	edict_t* m_lastChatEnt; // for block looping message from same bot
 	int m_radioSelect; // radio entry
 	float m_chatterTimer; // chatter timer
@@ -956,20 +953,21 @@ private:
 
 	int GetCampAimingWaypoint(void);
 	void FindPath(int& srcIndex, int& destIndex);
+	void FindPathThread(int& srcIndex, int& destIndex);
 	void FindShortestPath(int& srcIndex, int& destIndex);
 	void SecondThink(void);
 	void CalculatePing(void);
 public:
 	entvars_t* pev;
 
-	int m_numSpawns; // used for path randomizing
-	int m_wantedTeam; // player team bot wants select
-	int m_wantedClass; // player model bot wants to select
-	int m_difficulty; // bot difficulty
+	uint16_t m_numSpawns; // used for path randomizing
+	int8_t m_wantedTeam; // player team bot wants select
+	int8_t m_wantedClass; // player model bot wants to select
+	int8_t m_difficulty; // bot difficulty
 	int m_basePingLevel; // base ping level for randomizing
 
-	int m_skill; // bots play skill
-	int m_moneyAmount; // amount of money in bot's bank
+	int8_t m_skill; // bots play skill
+	uint16_t m_moneyAmount; // amount of money in bot's bank
 
 	Personality m_personality;
 	float m_spawnTime; // time this bot spawned
@@ -980,16 +978,14 @@ public:
 
 	edict_t* m_avoid; // higher priority player we need to make way for
 
-	int m_startAction; // team/class selection state
-	int m_retryJoin; // retry try
+	int8_t m_startAction; // team/class selection state
+	int8_t m_retryJoin; // retry try
 	int m_team; // bot's team
 	int m_index; // bot's index
 	bool m_isAlive; // has the player been killed or has he just respawned
 	bool m_notStarted; // team/class not chosen yet
 
 	int m_voteMap; // number of map to vote for
-	int m_logotypeIndex; // index for logotype
-
 	bool m_inBombZone; // bot in the bomb zone or not
 	int m_buyState; // current Count in Buying
 	float m_nextBuyTime; // next buy time
@@ -1073,8 +1069,7 @@ public:
 	float m_shootTime; // time to shoot
 	float m_weaponSelectDelay; // delay for reload
 
-	int m_lastDamageType; // stores last damage
-	unsigned int m_currentWeapon; // one current weapon for each bot
+	int8_t m_currentWeapon; // one current weapon for each bot
 	int m_ammoInClip[Const_MaxWeapons]; // ammo in clip for each weapons
 	int m_ammo[MAX_AMMO_SLOTS]; // total ammo amounts
 
@@ -1122,8 +1117,8 @@ public:
 
 	void RemoveCertainTask(const BotTask taskID);
 	void ResetTasks(void);
-	void TakeDamage(edict_t* inflictor, const int damage, const int armor, const int bits);
-	void TakeBlinded(const Vector fade, const int alpha);
+	void TakeDamage(edict_t* inflictor);
+	void TakeBlinded(const Vector fade, const uint8_t alpha);
 	void PushTask(const BotTask taskID, const float desire, const int data, const float time, const bool canContinue, const bool force = false);
 	void DiscardWeaponForUser(edict_t* user, const bool discardC4);
 
@@ -1160,7 +1155,6 @@ private:
 	MiniArray <CreateItem> m_creationTab; // bot creation tab
 	float m_maintainTime; // time to maintain bot creation quota
 	int m_lastWinner; // the team who won previous round
-	int m_roundCount; // rounds passed
 	bool m_economicsGood[2]; // is team able to buy anything
 protected:
 	int CreateBot(const String name, int skill, int personality, const int team, const int member);
@@ -1242,19 +1236,19 @@ private:
 
 	float m_pathDisplayTime;
 	float m_arrowDisplayTime;
-	float m_waypointDisplayTime[Const_MaxWaypoints];
+	float* m_waypointDisplayTime;
 	int m_findWPIndex;
 	int m_facingAtIndex;
 	char m_infoBuffer[256];
 
-	MiniArray <uint16_t> m_terrorPoints;
-	MiniArray <uint16_t> m_ctPoints;
-	MiniArray <uint16_t> m_goalPoints;
-	MiniArray <uint16_t> m_campPoints;
-	MiniArray <uint16_t> m_sniperPoints;
-	MiniArray <uint16_t> m_rescuePoints;
-	MiniArray <uint16_t> m_zmHmPoints;
-	MiniArray <uint16_t> m_hmMeshPoints;
+	MiniArray <int16_t> m_terrorPoints;
+	MiniArray <int16_t> m_ctPoints;
+	MiniArray <int16_t> m_goalPoints;
+	MiniArray <int16_t> m_campPoints;
+	MiniArray <int16_t> m_sniperPoints;
+	MiniArray <int16_t> m_rescuePoints;
+	MiniArray <int16_t> m_zmHmPoints;
+	MiniArray <int16_t> m_hmMeshPoints;
 public:
 	MiniArray <Path> m_paths;
 	AStar* m_waypoints;
@@ -1338,7 +1332,6 @@ extern bool IsZombieEntity(edict_t* ent);
 extern void SetGameMode(const int gamemode);
 extern bool IsZombieMode(void);
 extern bool IsDeathmatchMode(void);
-extern bool IsValidWaypoint(const uint16_t index);
 extern unsigned int GetPlayerPriority(edict_t* player);
 extern ChatterMessage GetEqualChatter(const int message);
 extern char* GetVoice(const ChatterMessage message);
@@ -1413,7 +1406,6 @@ inline bool IsNullString(const char* input)
 extern ConVar ebot_knifemode;
 extern ConVar ebot_gamemod;
 
-#include <callbacks.h>
 #include <globals.h>
 #include <resource.h>
 #include <netmsg.h>

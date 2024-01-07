@@ -31,7 +31,6 @@
 #include <float.h>
 #include <time.h>
 #include <stdarg.h>
-#include <new>
 
 #pragma warning (disable : 4996) // get rid of this
 
@@ -86,6 +85,7 @@ typedef unsigned short uint16_t;
 //
 inline char* FormatBuffer(char* format, ...)
 {
+    //char* buffer = safeloc<char>(cstrlen(format) + 1);
     static char buffer[1024];
     va_list ap;
     va_start(ap, format);
@@ -653,7 +653,7 @@ public:
     //
     inline static const Vector& GetNull(void)
     {
-        static const Vector& s_null = Vector(0.0, 0.0, 0.0f);
+        static const Vector& s_null = Vector(0.0f, 0.0f, 0.0f);
         return s_null;
     }
 
@@ -670,7 +670,6 @@ public:
         x = Math::AngleNormalize(x);
         y = Math::AngleNormalize(y);
         z = 0.0f;
-
         return *this;
     }
 
@@ -784,9 +783,9 @@ template <typename T> class Array
 {
 private:
     T* m_elements;
-    uint16_t m_resizeStep;
-    uint16_t m_itemSize;
-    uint16_t m_itemCount;
+    int m_resizeStep;
+    int m_itemSize;
+    int m_itemCount;
 
     //
     // Group: (Con/De)structors
@@ -800,7 +799,7 @@ public:
     // Parameters:
     //  resizeStep - Array resize step, when new items added, or old deleted.
     //
-    Array(const uint16_t resizeStep = 0)
+    Array(const int resizeStep = 0)
     {
         m_elements = nullptr;
         m_itemSize = 0;
@@ -860,7 +859,7 @@ public:
     // Returns:
     //  True if operation succeeded, false otherwise.
     //
-    bool SetSize(const uint16_t newSize, const bool keepData = true)
+    bool SetSize(const int newSize, const bool keepData = true)
     {
         if (!newSize)
         {
@@ -868,7 +867,7 @@ public:
             return true;
         }
 
-        uint16_t checkSize = 0;
+        int checkSize = 0;
         if (m_resizeStep != 0)
             checkSize = m_itemCount + m_resizeStep;
         else
@@ -893,7 +892,7 @@ public:
             if (checkSize < m_itemCount)
                 m_itemCount = checkSize;
 
-            uint16_t i;
+            int i;
             for (i = 0; i < m_itemCount; i++)
                 buffer[i] = m_elements[i];
 
@@ -913,7 +912,7 @@ public:
     // Returns:
     //  Number of allocated items.
     //
-    uint16_t GetSize(void) const
+    int GetSize(void) const
     {
         return m_itemSize;
     }
@@ -925,7 +924,7 @@ public:
     // Returns:
     //  Number of elements.
     //
-    uint16_t GetElementNumber(void) const
+    int GetElementNumber(void) const
     {
         return m_itemCount;
     }
@@ -1352,12 +1351,9 @@ template <typename T1, typename T2> struct Pair
 public:
     T1 first;
     T2 second;
-
 public:
     Pair <T1, T2>(void) : first(T1()), second(T2()) {}
-
     Pair(const T1& f, const T2& s) : first(f), second(s) {}
-
     template <typename A1, typename A2> Pair(const Pair <A1, A2>& right) : first(right.first), second(right.second) {}
 };
 

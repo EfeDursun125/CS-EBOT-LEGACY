@@ -7,10 +7,8 @@
 //
 
 #include <stdint.h>
-#include <new>
-
 #include <rng.h>
-#ifndef PLATFORM_WIN32
+#ifndef WIN32
 #include <limits.h>
 #ifndef UINT64_MAX
 #define UINT64_MAX (__UINT64_MAX__)
@@ -18,15 +16,22 @@
 #ifndef SIZE_MAX
 #define SIZE_MAX (~(size_t)0)
 #endif
+#else
+#include <new>
 #endif
-
 #include <stdarg.h>
+
+template <typename T>
+inline bool IsValidWaypoint(const T index)
+{
+	if (index < 0 || index >= static_cast<T>(g_numWaypoints))
+		return false;
+
+	return true;
+}
 
 inline int crandomint(const int min, const int max)
 {
-	if (min > max)
-		return frand() % (min - max + 1) + max;
-
 	return frand() % (max - min + 1) + min;
 }
 
@@ -36,6 +41,13 @@ inline float crandomfloat(const float min, const float max)
 		return fnext() * (min - max) / UINT64_MAX + max;
 
 	return fnext() * (max - min) / UINT64_MAX + min;
+}
+
+// faster, less range because of 32 bit intager, used as a pathfinding seed to randomize every bot's. if all bots goes on same way its not realistic and boring :)
+inline float crandomfloatfast(int& seed, float& min, float& max)
+{
+	seed = (214013 * seed + 2531011);
+	return ((seed >> 16) & 32767) * (max - min) * 0.0000305185f + min;
 }
 
 inline bool chanceof(const int number)
@@ -649,7 +661,7 @@ inline int cvsnprintf(char* buf, const int size, const char* format, ...)
 		{
 			const char* value = va_arg(args, const char*);
 			cstrncpy(ptr, value, size - len - 1);
-			// crashes while cstrncpy running...
+			// crashes here while cstrncpy running...
 			ptr += cstrlen(value);
 			len += cstrlen(value);
 			break;
@@ -747,10 +759,16 @@ inline T1* safeloc(const T2 size)
 	T1* any = nullptr;
 	while (any == nullptr)
 	{
+#ifdef WIN32
 		any = new(std::nothrow) T1[size];
+#else
+		try { any = new T1[size]; }
+		catch (...) {}
+#endif
 		if (any != nullptr)
 			break;
 	}
+
 	return any;
 }
 
@@ -760,7 +778,12 @@ inline void safeloc(T1*& any, const T2 size)
 {
 	while (any == nullptr)
 	{
+#ifdef WIN32
 		any = new(std::nothrow) T1[size];
+#else
+		try { any = new T1[size]; }
+		catch (...) {}
+#endif
 		if (any != nullptr)
 			break;
 	}
@@ -774,7 +797,12 @@ inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
 		T1* new_array = nullptr;
 		while (new_array == nullptr)
 		{
+#ifdef WIN32
 			new_array = new(std::nothrow) T1[newSize];
+#else
+			try { new_array = new T1[newSize]; }
+			catch (...) {}
+#endif
 			if (new_array != nullptr)
 				break;
 		}
@@ -797,7 +825,12 @@ inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
 	{
 		while (any == nullptr)
 		{
+#ifdef WIN32
 			any = new(std::nothrow) T1[newSize];
+#else
+			try { any = new T1[newSize]; }
+			catch (...) {}
+#endif
 			if (any != nullptr)
 				break;
 		}
@@ -819,13 +852,13 @@ class MiniArray
 {
 private:
 	T* m_array;
-	uint16_t m_size;
-	uint16_t m_capacity;
+	int16_t m_size;
+	int16_t m_capacity;
 public:
-	MiniArray(const size_t size = 0) : m_size(size), m_capacity(size) { safeloc(m_array, size); }
+	MiniArray(const int16_t size = 0) : m_size(size), m_capacity(size) { safeloc(m_array, size); }
 	virtual ~MiniArray(void) { Destroy(); }
 public:
-	inline bool Resize(const uint16_t size, const bool reset = false)
+	inline bool Resize(const int16_t size, const bool reset = false)
 	{
 		if (reset)
 		{
@@ -854,7 +887,7 @@ public:
 		m_capacity = 0;
 	}
 
-	inline T& Get(const uint16_t index)
+	inline T& Get(const int16_t index)
 	{
 		if (index >= m_size)
 			return m_array[0];
@@ -887,7 +920,7 @@ public:
 
 	inline bool Has(const T* element)
 	{
-		uint16_t i;
+		int16_t i;
 		for (i = 0; i < m_size; i++)
 		{
 			if (m_array[i] == *element)
@@ -897,12 +930,12 @@ public:
 		return false;
 	}
 
-	inline void RemoveAt(const uint16_t index)
+	inline void RemoveAt(const int16_t index)
 	{
 		if (index >= m_size)
 			return;
 
-		uint16_t i;
+		int16_t i;
 		for (i = index; i < m_size - 1; i++)
 			m_array[i] = m_array[i + 1];
 
@@ -916,7 +949,7 @@ public:
 
 	inline bool Remove(const T* element)
 	{
-		uint16_t i;
+		int16_t i;
 		for (i = 0; i < m_size; i++)
 		{
 			if (m_array[i] == *element)
@@ -931,9 +964,9 @@ public:
 
 	inline void Reverse(void)
 	{
-		uint16_t i;
-		const uint16_t half = m_size / 2;
-		const uint16_t val = m_size - 1;
+		int16_t i;
+		const int16_t half = m_size / 2;
+		const int16_t val = m_size - 1;
 		for (i = 0; i < half; i++)
 			cswap(m_array[i], m_array[val - i]);
 	}
@@ -960,12 +993,12 @@ public:
 		return !m_size;
 	}
 
-	inline uint16_t Size(void) const
+	inline int16_t Size(void) const
 	{
 		return m_size;
 	}
 
-	inline uint16_t Capacity(void) const
+	inline int16_t Capacity(void) const
 	{
 		return m_capacity;
 	}

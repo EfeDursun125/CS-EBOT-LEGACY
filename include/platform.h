@@ -24,14 +24,13 @@
 
 #ifndef PLATFORM_INCLUDED
 #define PLATFORM_INCLUDED
-
-#include <glibc.h>
+#endif
 
 // detects the build platform
-#if defined (__linux__) || defined (__debian__) || defined (__linux) || (__x86_64__) || defined (__amd64__)
-#define PLATFORM_LINUX
-#elif defined (_WIN32)
+#ifdef _WIN32
 #define PLATFORM_WIN32
+#else
+#define PLATFORM_LINUX
 #endif
 
 // detects the compiler
@@ -73,10 +72,6 @@
 #pragma comment (linker, "/SECTION:.data,RW")
 #endif
 
-typedef int (*EntityAPI_t) (DLL_FUNCTIONS*, int);
-typedef int (*NewEntityAPI_t) (NEW_DLL_FUNCTIONS*, int*);
-typedef int (*BlendAPI_t) (int, void**, void*, float(*)[3][4], float(*)[128][3][4]);
-typedef void(__stdcall* FuncPointers_t) (enginefuncs_t*, globalvars_t*);
 typedef void (*EntityPtr_t) (entvars_t*);
 
 #elif defined (PLATFORM_LINUX)
@@ -87,100 +82,22 @@ typedef void (*EntityPtr_t) (entvars_t*);
 #include <sys/stat.h>
 
 #define DLL_ENTRYPOINT __attribute__((destructor))  void _fini (void)
-#define DLL_DETACHING TRUE
+#define DLL_DETACHING true
 #define DLL_RETENTRY return
 #define DLL_GIVEFNPTRSTODLL extern "C" void __attribute__((visibility("default")))
 
-typedef int (*EntityAPI_t) (DLL_FUNCTIONS*, int);
-typedef int (*NewEntityAPI_t) (NEW_DLL_FUNCTIONS*, int*);
-typedef int (*BlendAPI_t) (int, void**, void*, float(*)[3][4], float(*)[128][3][4]);
-typedef void (*FuncPointers_t) (enginefuncs_t*, globalvars_t*);
 typedef void (*EntityPtr_t) (entvars_t*);
 
 #else
 #error "Platform unrecognized."
 #endif
 
+// library wrapper
 #ifdef PLATFORM_WIN32
 #include "urlmon.h"
 #pragma comment(lib, "urlmon.lib")
-
-class Library
-{
-private:
-    HMODULE m_ptr;
-
-public:
-
-    Library(const char* fileName)
-    {
-        if (fileName == nullptr)
-            return;
-
-        m_ptr = LoadLibraryA(fileName);
-    }
-
-    ~Library(void)
-    {
-        if (!IsLoaded())
-            return;
-
-        FreeLibrary(m_ptr);
-    }
-
-public:
-    void* GetFunctionAddr(const char* functionName)
-    {
-        if (!IsLoaded())
-            return nullptr;
-
-        return GetProcAddress(m_ptr, functionName);
-    }
-
-    inline bool IsLoaded(void) const
-    {
-        return m_ptr != nullptr;
-    }
-};
-
 #else
-
-class Library
-{
-private:
-    void* m_ptr;
-
-public:
-
-    Library(const char* fileName)
-    {
-        if (fileName == nullptr)
-            return;
-
-        m_ptr = dlopen(fileName, RTLD_NOW);
-    }
-
-    ~Library(void)
-    {
-        if (!IsLoaded())
-            return;
-
-        dlclose(m_ptr);
-    }
-
-public:
-    void* GetFunctionAddr(const char* functionName)
-    {
-        if (!IsLoaded())
-            return nullptr;
-
-        return dlsym(m_ptr, functionName);
-    }
-
-    inline bool IsLoaded(void) const
-    {
-        return m_ptr != nullptr;
-    }
-};
+#ifdef CURL_AVAILABLE
+#include <curl/curl.h>
 #endif
 #endif

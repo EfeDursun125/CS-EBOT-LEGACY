@@ -1,6 +1,4 @@
 #ifndef WIN32
-#if !defined(SET_GLIBC_LINK_VERSIONS_HEADER) && !defined(__ASSEMBLER__)
-#define SET_GLIBC_LINK_VERSIONS_HEADER
 __asm__(".symver _Exit,_Exit@GLIBC_2.1.1");
 __asm__(".symver _IO_2_1_stderr_,_IO_2_1_stderr_@GLIBC_2.1");
 __asm__(".symver _IO_2_1_stdin_,_IO_2_1_stdin_@GLIBC_2.1");
@@ -3726,5 +3724,4 @@ __asm__(".symver ynf32,ynf32@GLIBC_WRAP_ERROR_SYMBOL_NOT_PRESENT_IN_REQUESTED_VE
 __asm__(".symver ynf32x,ynf32x@GLIBC_WRAP_ERROR_SYMBOL_NOT_PRESENT_IN_REQUESTED_VERSION");
 __asm__(".symver ynf64,ynf64@GLIBC_WRAP_ERROR_SYMBOL_NOT_PRESENT_IN_REQUESTED_VERSION");
 __asm__(".symver ynf64x,ynf64x@GLIBC_WRAP_ERROR_SYMBOL_NOT_PRESENT_IN_REQUESTED_VERSION");
-#endif
 #endif
