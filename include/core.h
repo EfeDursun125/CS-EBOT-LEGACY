@@ -34,22 +34,21 @@
 #ifndef EBOT_INCLUDED
 #define EBOT_INCLUDED
 #include <glibc.h>
-
-#include <stdio.h>
 #include <clib.h>
+#include <memory>
+#include <stdio.h>
 #include <engine.h>
 
 using namespace Math;
 
 #include <platform.h>
-#include <memory>
 #include <runtime.h>
 
-constexpr int checkEntityNum = 20;
-constexpr int checkEnemyNum = 128;
+#define checkEntityNum 20
+#define checkEnemyNum 128
 
 // defines bots tasks
-enum BotTask
+enum BotTask : int8_t
 {
 	TASK_NORMAL,
 	TASK_PAUSE,
@@ -75,7 +74,7 @@ enum BotTask
 };
 
 // supported cs's
-enum GameVersion
+enum GameVersion : int8_t
 {
 	CSVER_CSTRIKE = 1, // Counter-Strike 1.6 and Above
 	CSVER_CZERO = 2, // Counter-Strike: Condition Zero
@@ -83,7 +82,7 @@ enum GameVersion
 };
 
 // log levels
-enum LogLevel
+enum LogLevel : int8_t
 {
 	LOG_DEFAULT = 1, // default log message
 	LOG_WARNING = 2, // warning log message
@@ -93,7 +92,7 @@ enum LogLevel
 };
 
 // chat types id's
-enum ChatType
+enum ChatType : int8_t
 {
 	CHAT_KILL = 0, // id to kill chat array
 	CHAT_DEAD, // id to dead chat array
@@ -106,7 +105,7 @@ enum ChatType
 };
 
 // personalities defines
-enum Personality
+enum Personality : int8_t
 {
 	PERSONALITY_NORMAL = 0,
 	PERSONALITY_RUSHER,
@@ -114,7 +113,7 @@ enum Personality
 };
 
 // collision states
-enum CollisionState
+enum CollisionState : int8_t
 {
 	COSTATE_UNDECIDED,
 	COSTATE_PROBING,
@@ -126,7 +125,7 @@ enum CollisionState
 };
 
 // collision probes
-enum CollisionProbe
+enum CollisionProbe : int8_t
 {
 	COPROBE_JUMP = (1 << 0), // probe jump when colliding
 	COPROBE_DUCK = (1 << 1), // probe duck when colliding
@@ -134,7 +133,7 @@ enum CollisionProbe
 };
 
 // counter-strike team id's
-enum Team
+enum Team : int8_t
 {
 	TEAM_TERRORIST = 0,
 	TEAM_COUNTER,
@@ -144,7 +143,7 @@ enum Team
 };
 
 // client flags
-enum ClientFlags
+enum ClientFlags : int8_t
 {
 	CFLAG_USED = (1 << 0),
 	CFLAG_ALIVE = (1 << 1),
@@ -152,7 +151,7 @@ enum ClientFlags
 };
 
 // radio messages
-enum RadioList
+enum RadioList : int8_t
 {
 	Radio_CoverMe = 1,
 	Radio_YouTakePoint = 2,
@@ -178,7 +177,7 @@ enum RadioList
 };
 
 // voice system (extending enum above, messages 30-39 is reserved)
-enum class ChatterMessage
+enum class ChatterMessage : int8_t
 {
 	Nothing = 1,
 	Yes,
@@ -195,7 +194,7 @@ enum class ChatterMessage
 };
 
 // counter-strike weapon id's
-enum Weapon
+enum Weapon : int8_t
 {
 	WEAPON_P228 = 1,
 	WEAPON_SHIELDGUN = 2,
@@ -233,7 +232,7 @@ enum Weapon
 };
 
 // half-life weapon id's
-enum WeaponHL
+enum WeaponHL : int8_t
 {
 	WEAPON_CROWBAR = 1,
 	WEAPON_GLOCK = 2,
@@ -253,7 +252,7 @@ enum WeaponHL
 };
 
 // defines for pickup items
-enum PickupType
+enum PickupType : int8_t
 {
 	PICKTYPE_NONE,
 	PICKTYPE_WEAPON,
@@ -267,7 +266,7 @@ enum PickupType
 };
 
 // reload state
-enum ReloadState
+enum ReloadState : int8_t
 {
 	RSTATE_NONE = 0, // no reload state currrently
 	RSTATE_PRIMARY = 1, // primary weapon reload state
@@ -275,7 +274,7 @@ enum ReloadState
 };
 
 // vgui menus (since latest steam updates is obsolete, but left for old cs)
-enum GraphicalMenu
+enum GraphicalMenu : int8_t
 {
 	GMENU_TEAM = 2, // menu select team
 	GMENU_TERRORIST = 26, // terrorist select menu
@@ -283,7 +282,7 @@ enum GraphicalMenu
 };
 
 // game start messages for counter-strike...
-enum StartMsg
+enum StartMsg : int16_t
 {
 	CMENU_IDLE = 1,
 	CMENU_TEAM = 2,
@@ -295,7 +294,7 @@ enum StartMsg
 };
 
 // sensing states
-enum SensingState
+enum SensingState : int8_t
 {
 	STATE_SEEINGENEMY = (1 << 0), // seeing an enemy
 	STATE_HEARENEMY = (1 << 1), // hearing an enemy
@@ -306,7 +305,7 @@ enum SensingState
 };
 
 // positions to aim at
-enum AimDest
+enum AimDest : uint8_t
 {
 	AIM_NAVPOINT = (1 << 0), // aim at nav point
 	AIM_CAMP = (1 << 1), // aim at camp vector
@@ -318,14 +317,14 @@ enum AimDest
 };
 
 // famas/glock burst mode status + m4a1/usp silencer
-enum BurstMode
+enum BurstMode : int8_t
 {
 	BURST_ENABLED = 1,
 	BURST_DISABLED = 2
 };
 
 // visibility flags
-enum Visibility
+enum Visibility : int8_t
 {
 	VISIBILITY_NONE = (1 << 0),
 	VISIBILITY_HEAD = (1 << 1),
@@ -334,7 +333,7 @@ enum Visibility
 };
 
 // defines map type
-enum MapType
+enum MapType : int16_t
 {
 	MAP_AS = (1 << 0),
 	MAP_CS = (1 << 1),
@@ -377,14 +376,14 @@ enum WaypointFlag
 };
 
 // defines for waypoint connection flags field (16 bits are available)
-enum PathFlag
+enum PathFlag : int8_t
 {
 	PATHFLAG_JUMP = (1 << 0), // must jump for this connection
 	PATHFLAG_DOUBLE = (1 << 1), // must use friend for this connection
 };
 
 // defines waypoint connection types
-enum PathConnection
+enum PathConnection : int8_t
 {
 	PATHCON_OUTGOING = 0,
 	PATHCON_INCOMING,
@@ -395,7 +394,7 @@ enum PathConnection
 };
 
 // E-BOT Supported Game Modes
-enum GameMode
+enum GameMode : int8_t
 {
 	MODE_DM = 1,
 	MODE_ZP = 2,
@@ -406,46 +405,38 @@ enum GameMode
 };
 
 // bot known file 
-constexpr const char FH_WAYPOINT_NEW[] = "EBOTWP!";
-constexpr uint8_t FV_WAYPOINT = 127;
+#define FH_WAYPOINT_NEW "EBOTWP!"
+#define FV_WAYPOINT 127
 
 // some hardcoded desire defines used to override calculated ones
-constexpr float TASKPRI_NORMAL = 35.0f;
-constexpr float TASKPRI_PAUSE = 36.0f;
-constexpr float TASKPRI_CAMP = 37.0f;
-constexpr float TASKPRI_GOINGFORCAMP = 38.0f;
-constexpr float TASKPRI_FOLLOWUSER = 41.0f;
-constexpr float TASKPRI_MOVETOPOSITION = 50.0f;
-constexpr float TASKPRI_DEFUSEBOMB = 89.0f;
-constexpr float TASKPRI_PLANTBOMB = 89.0f;
-constexpr float TASKPRI_FIGHTENEMY = 90.0f;
-constexpr float TASKPRI_HIDE = 92.0f;
-constexpr float TASKPRI_MOVETOTARGET = 93.0f;
-constexpr float TASKPRI_THROWGRENADE = 99.0f;
-constexpr float TASKPRI_DOUBLEJUMP = 99.0f;
-constexpr float TASKPRI_BLINDED = 100.0f;
-constexpr float TASKPRI_SHOOTBREAKABLE = 100.0f;
-constexpr float TASKPRI_ESCAPEFROMBOMB = 100.0f;
+#define TASKPRI_NORMAL 35.0f
+#define TASKPRI_PAUSE 36.0f
+#define TASKPRI_CAMP 37.0f
+#define TASKPRI_GOINGFORCAMP 38.0f
+#define TASKPRI_FOLLOWUSER 41.0f
+#define TASKPRI_MOVETOPOSITION 50.0f
+#define TASKPRI_DEFUSEBOMB 89.0f
+#define TASKPRI_PLANTBOMB 89.0f
+#define TASKPRI_FIGHTENEMY 90.0f
+#define TASKPRI_HIDE 92.0f
+#define TASKPRI_MOVETOTARGET 93.0f
+#define TASKPRI_THROWGRENADE 99.0f
+#define TASKPRI_DOUBLEJUMP 99.0f
+#define TASKPRI_BLINDED 100.0f
+#define TASKPRI_SHOOTBREAKABLE 100.0f
+#define TASKPRI_ESCAPEFROMBOMB 100.0f
 
-constexpr int Const_GrenadeTimer = 3;
-constexpr int Const_MaxHostages = 8;
-constexpr int Const_MaxPathIndex = 8;
-constexpr int Const_MaxWaypoints = 8192;
-constexpr int Const_MaxWeapons = 32;
-constexpr int Const_NumWeapons = 26;
-constexpr int Const_NumWeaponsHL = 15;
-
-struct AStar
-{
-	float g;
-	float f;
-	int parent;
-	bool is_closed;
-};
+#define Const_GrenadeTimer 3
+#define Const_MaxHostages 8
+#define Const_MaxPathIndex 8
+#define Const_MaxWaypoints 8192
+#define Const_MaxWeapons 32
+#define Const_NumWeapons 26
+#define Const_NumWeaponsHL 15
 
 // weapon masks
-constexpr int WeaponBits_Primary = ((1 << WEAPON_XM1014) | (1 << WEAPON_M3) | (1 << WEAPON_MAC10) | (1 << WEAPON_UMP45) | (1 << WEAPON_MP5) | (1 << WEAPON_TMP) | (1 << WEAPON_P90) | (1 << WEAPON_AUG) | (1 << WEAPON_M4A1) | (1 << WEAPON_SG552) | (1 << WEAPON_AK47) | (1 << WEAPON_SCOUT) | (1 << WEAPON_SG550) | (1 << WEAPON_AWP) | (1 << WEAPON_G3SG1) | (1 << WEAPON_M249) | (1 << WEAPON_FAMAS) | (1 << WEAPON_GALIL));
-constexpr int WeaponBits_Secondary = ((1 << WEAPON_P228) | (1 << WEAPON_ELITE) | (1 << WEAPON_USP) | (1 << WEAPON_GLOCK18) | (1 << WEAPON_DEAGLE) | (1 << WEAPON_FN57));
+#define WeaponBits_Primary ((1 << WEAPON_XM1014) | (1 << WEAPON_M3) | (1 << WEAPON_MAC10) | (1 << WEAPON_UMP45) | (1 << WEAPON_MP5) | (1 << WEAPON_TMP) | (1 << WEAPON_P90) | (1 << WEAPON_AUG) | (1 << WEAPON_M4A1) | (1 << WEAPON_SG552) | (1 << WEAPON_AK47) | (1 << WEAPON_SCOUT) | (1 << WEAPON_SG550) | (1 << WEAPON_AWP) | (1 << WEAPON_G3SG1) | (1 << WEAPON_M249) | (1 << WEAPON_FAMAS) | (1 << WEAPON_GALIL))
+#define WeaponBits_Secondary ((1 << WEAPON_P228) | (1 << WEAPON_ELITE) | (1 << WEAPON_USP) | (1 << WEAPON_GLOCK18) | (1 << WEAPON_DEAGLE) | (1 << WEAPON_FN57))
 
 // this structure links waypoints returned from pathfinder
 class PathNode
@@ -596,10 +587,10 @@ struct SkillDef
 	float aimOffs_X; // X/Y/Z maximum offsets
 	float aimOffs_Y; // X/Y/Z maximum offsets
 	float aimOffs_Z; // X/Y/Z maximum offsets
-	int headshotFrequency; // precent to aiming to player head
-	int heardShootThruProb; // precent to shooting throug wall when seen something
-	int seenShootThruProb; // precent to shooting throug wall when heard something
-	int recoilAmount; // amount of recoil when the bot should pause shooting
+	int8_t headshotFrequency; // precent to aiming to player head
+	int8_t heardShootThruProb; // precent to shooting throug wall when seen something
+	int8_t seenShootThruProb; // precent to shooting throug wall when heard something
+	int8_t recoilAmount; // amount of recoil when the bot should pause shooting
 };
 
 // fire delay definiton
@@ -700,7 +691,7 @@ class Bot
 {
 	friend class BotControl;
 private:
-	unsigned int m_states; // sensing bitstates
+	int8_t m_states; // sensing bitstates
 	MiniArray <TaskItem> m_tasks; // pointer to active tasks/schedules
 
 	float m_moveSpeed; // current speed forward/backward
@@ -720,7 +711,7 @@ private:
 	int m_messageQueue[32]; // stack for messages
 	char m_tempStrings[512]; // space for strings (say text...)
 	edict_t* m_lastChatEnt; // for block looping message from same bot
-	int m_radioSelect; // radio entry
+	int8_t m_radioSelect; // radio entry
 	float m_chatterTimer; // chatter timer
 	ChatterMessage m_lastChatterMessage; // for block looping same line...
 
@@ -746,9 +737,9 @@ private:
 	float m_firstCollideTime; // time of first collision
 	float m_probeTime; // time of probing different moves
 	float m_lastCollTime; // time until next collision check
-	int m_collisionProbeBits; // bits of possible collision moves
-	int m_collideMoves[3]; // sorted array of movements
-	int m_collStateIndex; // index into collide moves
+	int8_t m_collisionProbeBits; // bits of possible collision moves
+	int8_t m_collideMoves[3]; // sorted array of movements
+	int8_t m_collStateIndex; // index into collide moves
 	CollisionState m_collisionState; // collision State
 
 	Path m_waypoint; // current waypoint
@@ -761,11 +752,11 @@ private:
 	int m_prevWptIndex; // previous waypoint indices from waypoint find
 	int m_loosedBombWptIndex; // nearest to loosed bomb waypoint
 
-	unsigned short m_currentTravelFlags; // connection flags like jumping
+	uint16_t m_currentTravelFlags; // connection flags like jumping
 	bool m_jumpFinished; // has bot finished jumping
 	float m_navTimeset; // time waypoint chosen by Bot
 
-	unsigned int m_aimFlags; // aiming conditions
+	uint8_t m_aimFlags; // aiming conditions
 	Vector m_lookAt; // vector bot should look at
 	Vector m_throw; // origin of waypoint to throw grenades
 	Vector m_idealAngles; // ideal aim angles
@@ -788,8 +779,8 @@ private:
 
 	bool m_isStuck; // bot is stuck
 	bool m_isReloading; // bot is reloading a gun
-	int m_reloadState; // current reload state
-	int m_voicePitch; // bot's voice pitch
+	int8_t m_reloadState; // current reload state
+	int8_t m_voicePitch; // bot's voice pitch
 	bool m_isZombieBot; // checks bot if zombie
 
 	float m_msecInterval; // used for leon hartwig's method for msec calculation
@@ -814,9 +805,7 @@ private:
 	float m_strafeSetTime; // time strafe direction was set
 
 	float m_timeCamping; // time to camp
-	int m_campDirection; // camp Facing direction
 	float m_nextCampDirTime; // time next camp direction change
-	int m_campButtons; // buttons to press while camping
 
 	float m_duckTime; // time to duck
 	float m_jumpTime; // time last jump happened
@@ -964,7 +953,7 @@ public:
 	int8_t m_wantedTeam; // player team bot wants select
 	int8_t m_wantedClass; // player model bot wants to select
 	int8_t m_difficulty; // bot difficulty
-	int m_basePingLevel; // base ping level for randomizing
+	uint8_t m_basePingLevel; // base ping level for randomizing
 
 	int8_t m_skill; // bots play skill
 	uint16_t m_moneyAmount; // amount of money in bot's bank
@@ -1006,7 +995,7 @@ public:
 
 	edict_t* m_doubleJumpEntity; // pointer to entity that request double jump
 	edict_t* m_radioEntity; // pointer to entity issuing a radio command
-	int m_radioOrder; // actual command
+	int8_t m_radioOrder; // actual command
 
 	float m_duckForJump; // is bot needed to duck for double jump
 	float m_baseAgressionLevel; // base aggression level (on initializing)
@@ -1035,8 +1024,8 @@ public:
 	SayText m_sayTextBuffer; // holds the index & the actual message of the last unprocessed text message of a player
 	BurstMode m_weaponBurstMode; // bot using burst mode? (famas/glock18, but also silencer mode)
 
-	int m_pingOffset[2]; // offset for faking pings
-	int m_ping[3]; // bots pings in scoreboard
+	uint8_t m_pingOffset[2]; // offset for faking pings
+	uint8_t m_ping[3]; // bots pings in scoreboard
 	float m_trackTime; // more realistic aim
 	Vector m_tempAim;
 
@@ -1055,9 +1044,9 @@ public:
 	float m_aimStopTime; // feel like playing on a phone
 	float m_stayTime; // stay time (for simulate server)
 
-	int m_checkEnemyNum; // check enemy num idk
-	int m_numFriendsLeft; // number of friends alive
-	int m_numEnemiesLeft; // number of enemies alive
+	uint8_t m_checkEnemyNum; // check enemy num idk
+	int8_t m_numFriendsLeft; // number of friends alive
+	int8_t m_numEnemiesLeft; // number of enemies alive
 	bool m_isSlowThink; // bool for check is slow think? (every second)
 
 	edict_t* m_lastEnemy; // pointer to last enemy entity
@@ -1109,12 +1098,11 @@ public:
 
 	void DeleteSearchNodes(void);
 	inline TaskItem* GetCurrentTask(void);
-	inline BotTask GetCurrentTaskID(void);
-	inline int GetCurrentGoalID(void);
-	inline float GetCurrentTaskTime(void);
+	BotTask GetCurrentTaskID(void);
+	int GetCurrentGoalID(void);
+	float GetCurrentTaskTime(void);
 
 	void CheckTouchEntity(edict_t* entity);
-
 	void RemoveCertainTask(const BotTask taskID);
 	void ResetTasks(void);
 	void TakeDamage(edict_t* inflictor);
@@ -1154,7 +1142,7 @@ class BotControl : public Singleton <BotControl>
 private:
 	MiniArray <CreateItem> m_creationTab; // bot creation tab
 	float m_maintainTime; // time to maintain bot creation quota
-	int m_lastWinner; // the team who won previous round
+	int8_t m_lastWinner; // the team who won previous round
 	bool m_economicsGood[2]; // is team able to buy anything
 protected:
 	int CreateBot(const String name, int skill, int personality, const int team, const int member);
@@ -1222,23 +1210,23 @@ private:
 	float m_timeCampWaypoint;
 	bool m_ladderPoint;
 	bool m_fallPoint;
-	int m_lastFallWaypoint;
+	int16_t m_lastFallWaypoint;
 
 	Vector m_learnVelocity;
 	Vector m_learnPosition;
 	Vector m_foundBombOrigin;
 	Vector m_fallPosition;
 
-	int m_cacheWaypointIndex;
-	int m_lastJumpWaypoint;
+	int16_t m_cacheWaypointIndex;
+	int16_t m_lastJumpWaypoint;
 	Vector m_lastWaypoint;
-	int m_lastDeclineWaypoint;
+	int16_t m_lastDeclineWaypoint;
 
 	float m_pathDisplayTime;
 	float m_arrowDisplayTime;
 	float* m_waypointDisplayTime;
-	int m_findWPIndex;
-	int m_facingAtIndex;
+	int16_t m_findWPIndex;
+	int16_t m_facingAtIndex;
 	char m_infoBuffer[256];
 
 	MiniArray <int16_t> m_terrorPoints;
@@ -1251,7 +1239,6 @@ private:
 	MiniArray <int16_t> m_hmMeshPoints;
 public:
 	MiniArray <Path> m_paths;
-	AStar* m_waypoints;
 
 	Waypoint(void);
 	~Waypoint(void);

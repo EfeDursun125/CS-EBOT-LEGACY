@@ -8,22 +8,21 @@
 //
 
 #pragma once
-
-static constexpr int MAXBUF = 4096, PADDING = 18, THRESHOLD = 2, NIL = MAXBUF;
+#define MAXBUF 4096
+#define PADDING 18
+#define THRESHOLD 2
+#define NIL MAXBUF
 
 class Compressor
 {
 protected:
     unsigned long int m_csize;
-
     uint8_t m_buffer[MAXBUF + PADDING - 1];
     int m_matchPos;
     int m_matchLen;
-
     int m_left[MAXBUF + 1];
     int m_right[MAXBUF + 257];
     int m_parent[MAXBUF + 1];
-
 private:
     void InitTrees(void)
     {
@@ -270,11 +269,12 @@ public:
 
         flags = 0;
 
+        int read;
         for (;;)
         {
             if (((flags >>= 1) & 256) == 0)
             {
-                const int read = fp.GetCharacter();
+                read = fp.GetCharacter();
                 if (read == EOF)
                     break;
 
@@ -284,7 +284,7 @@ public:
 
             if (flags & 1)
             {
-                const int read = fp.GetCharacter();
+                read = fp.GetCharacter();
                 if (read == EOF)
                     break;
 

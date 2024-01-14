@@ -16,8 +16,6 @@
 #ifndef SIZE_MAX
 #define SIZE_MAX (~(size_t)0)
 #endif
-#else
-#include <new>
 #endif
 #include <stdarg.h>
 
@@ -753,18 +751,13 @@ inline void cswap(T& a, T& b)
 }
 
 // useful on systems with low/bad memory
-template <typename T1, typename T2>
-inline T1* safeloc(const T2 size)
+template <typename T>
+inline T* safeloc(const size_t size)
 {
-	T1* any = nullptr;
+	T* any = nullptr;
 	while (any == nullptr)
 	{
-#ifdef WIN32
-		any = new(std::nothrow) T1[size];
-#else
-		try { any = new T1[size]; }
-		catch (...) {}
-#endif
+		any = new T[size];
 		if (any != nullptr)
 			break;
 	}
@@ -773,47 +766,37 @@ inline T1* safeloc(const T2 size)
 }
 
 // useful on systems with low/bad memory
-template <typename T1, typename T2>
-inline void safeloc(T1*& any, const T2 size)
+template <typename T>
+inline void safeloc(T*& any, const size_t size)
 {
 	while (any == nullptr)
 	{
-#ifdef WIN32
-		any = new(std::nothrow) T1[size];
-#else
-		try { any = new T1[size]; }
-		catch (...) {}
-#endif
+		any = new T[size];
 		if (any != nullptr)
 			break;
 	}
 }
 
-template <typename T1, typename T2>
-inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
+template <typename T>
+inline void safereloc(T*& any, const size_t oldSize, const size_t newSize)
 {
 	if (any != nullptr)
 	{
-		T1* new_array = nullptr;
+		T* new_array = nullptr;
 		while (new_array == nullptr)
 		{
-#ifdef WIN32
-			new_array = new(std::nothrow) T1[newSize];
-#else
-			try { new_array = new T1[newSize]; }
-			catch (...) {}
-#endif
+			new_array = new T[newSize];
 			if (new_array != nullptr)
 				break;
 		}
 
-		T2 max;
+		size_t max;
 		if (oldSize > newSize)
 			max = newSize;
 		else
 			max = oldSize;
 
-		T2 i;
+		size_t i;
 		for (i = 0; i < max; i++)
 			new_array[i] = any[i];
 
@@ -825,12 +808,7 @@ inline void safereloc(T1*& any, const T2 oldSize, const T2 newSize)
 	{
 		while (any == nullptr)
 		{
-#ifdef WIN32
-			any = new(std::nothrow) T1[newSize];
-#else
-			try { any = new T1[newSize]; }
-			catch (...) {}
-#endif
+			any = new T[newSize];
 			if (any != nullptr)
 				break;
 		}

@@ -1,5 +1,5 @@
 #pragma once
-#include <unordered_map>
+/*#include <unordered_map>
 
 enum RR
 {
@@ -10,7 +10,7 @@ enum RR
     BombPlanted,
     BurstOn,
     BurstOff
-};
+};*/
 
 // netmessage handler class
 class NetworkMsg : public Singleton <NetworkMsg>
@@ -20,7 +20,7 @@ private:
 	int m_state;
 	int m_message;
 	int m_registerdMessages[NETMSG_NUM];
-    std::unordered_map<char*, int> VGUIMAP =
+    /*std::unordered_map<char*, int> VGUIMAP =
     {
         {"#Team_Select", CMENU_TEAM},
         {"#Team_Select_Spect", CMENU_TEAM},
@@ -51,7 +51,7 @@ private:
         {"#Bomb_Planted", RR::BombPlanted},
         {"#Switch_To_BurstFire", RR::BurstOn},
         {"#Switch_To_SemiAuto", RR::BurstOff}
-    };
+    };*/
 public:
 	NetworkMsg(void);
 	~NetworkMsg(void) {};

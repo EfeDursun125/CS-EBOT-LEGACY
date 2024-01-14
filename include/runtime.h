@@ -85,13 +85,12 @@ typedef unsigned short uint16_t;
 //
 inline char* FormatBuffer(char* format, ...)
 {
-    //char* buffer = safeloc<char>(cstrlen(format) + 1);
     static char buffer[1024];
     va_list ap;
     va_start(ap, format);
     vsprintf(buffer, format, ap);
     va_end(ap);
-    return &buffer[0];
+    return buffer;
 }
 
 //
@@ -180,17 +179,17 @@ public:
 //
 namespace Math
 {
-    constexpr float MATH_ONEPSILON = 0.01f;
-    constexpr float MATH_EQEPSILON = 0.001f;
-    constexpr float MATH_FLEPSILON = 1.192092896e-07f;
+    const float MATH_ONEPSILON = 0.01f;
+    const float MATH_EQEPSILON = 0.001f;
+    const float MATH_FLEPSILON = 1.192092896e-07f;
 
     //
     // Constant: MATH_PI
     // Mathematical PI value.
     //
-    constexpr float MATH_PI = 3.14159265358979323846f;
-    constexpr float MATH_D2R = 0.017453292519943295f;
-    constexpr float MATH_R2D = 57.295779513082320876f;
+    const float MATH_PI = 3.14159265358979323846f;
+    const float MATH_D2R = 0.017453292519943295f;
+    const float MATH_R2D = 57.295779513082320876f;
 
     //
     // Function: FltZero
@@ -1629,10 +1628,8 @@ public:
     char* GetBufferSetLength(const int length)
     {
         char* buffer = GetBuffer(length);
-
         m_stringLength = length;
         m_bufferPtr[length] = 0;
-
         return buffer;
     }
 
@@ -1738,7 +1735,6 @@ public:
         }
 
         UpdateBufferSize(cstrlen(bufferPtr));
-
         if (m_bufferPtr != nullptr)
         {
             cstrcpy(m_bufferPtr, bufferPtr);
@@ -1821,6 +1817,11 @@ public:
     operator int(void)
     {
         return ToInt();
+    }
+
+    operator int8_t(void)
+    {
+        return static_cast<int8_t>(ToInt());
     }
 
     operator long(void)

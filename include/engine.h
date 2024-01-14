@@ -1374,12 +1374,6 @@ typedef struct
     void (*pfnCvarValue2) (const edict_t* pEnt, int requestID, const char* cvarName, const char* value);
 } NEW_DLL_FUNCTIONS;
 
-// Pointer operators
-#define PTR_TO_BYTE(in) *reinterpret_cast<uint8_t*>(in)
-#define PTR_TO_FLT(in) *reinterpret_cast<float*>(in)
-#define PTR_TO_INT(in) *reinterpret_cast<int*>(in)
-#define PTR_TO_STR(in) reinterpret_cast<char*>(in)
-
 // Must be provided by user of this code
 extern enginefuncs_t g_engfuncs;
 
@@ -2860,13 +2854,12 @@ private:
         GVAR_NUM
     };
 private:
-    constexpr static int MAX_BOTVARS = 125;
     struct VarPair
     {
         cvar_t reg;
         class ConVar* self;
-    } m_regVars[MAX_BOTVARS];
-    int m_regCount;
+    };
+    MiniArray <VarPair> m_regVars;
     cvar_t* m_gameVars[GVAR_NUM];
 public:
     Engine* operator -> (void)

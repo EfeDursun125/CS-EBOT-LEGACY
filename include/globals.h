@@ -39,7 +39,6 @@ extern bool g_isFakeCommand;
 extern bool g_leaderChoosen[2];
 extern bool g_analyzewaypoints;
 extern bool g_analyzeputrequirescrouch;
-extern bool* g_expanded;
 extern bool g_isXash;
 
 extern bool g_sgdWaypoint;
@@ -75,7 +74,7 @@ extern int g_modelIndexLaser;
 extern int g_modelIndexArrow;
 extern char g_fakeArgv[256];
 
-constexpr int entityNum = 254;
+const int entityNum = 254;
 extern int g_entityId[entityNum];
 extern int g_entityTeam[entityNum];
 extern int g_entityAction[entityNum];
