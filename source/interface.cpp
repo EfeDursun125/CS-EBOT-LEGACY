@@ -343,7 +343,6 @@ int BotCommandHandler_O(edict_t* ent, const String& arg0, const String& arg1, co
 		{;
 			g_waypointOn = true;
 			ServerPrint("Waypoint Editing Enabled");
-
 			ServerCommand("ebot wp mdl on");
 		}
 
@@ -3221,12 +3220,11 @@ DLL_GIVEFNPTRSTODLL GiveFnptrsToDll(enginefuncs_t* functionTable, globalvars_t* 
 	char gameDLLName[256];
 
 	int i;
-	for (i = 0; s_supportedMods[i].name; i++)
+	for (i = 0; i < 7; i++)
 	{
-		ModSupport* mod = &s_supportedMods[i];
-		if (cstrcmp(mod->name, GetModName()) == 0)
+		if (cstrcmp(s_supportedMods[i].name, GetModName()) == 0)
 		{
-			knownMod = mod;
+			knownMod = &s_supportedMods[i];
 			break;
 		}
 	}

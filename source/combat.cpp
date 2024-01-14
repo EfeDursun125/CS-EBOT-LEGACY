@@ -252,6 +252,7 @@ bool Bot::LookupEnemy(void)
 			else
 			{
 				Path* path;
+				int8_t j;
 				while (srcIndex != destIndex && movePoint <= 3 && srcIndex >= 0 && destIndex >= 0)
 				{
 					path = g_waypoint->GetPath(srcIndex);
@@ -259,7 +260,6 @@ bool Bot::LookupEnemy(void)
 						continue;
 
 					movePoint++;
-					int j;
 					for (j = 0; j < Const_MaxPathIndex; j++)
 					{
 						if (path->index[j] == srcIndex && path->connectionFlags[j] & PATHFLAG_JUMP)
@@ -823,14 +823,11 @@ bool Bot::KnifeAttack(float attackDistance)
 		if (pev->origin.z > entityOrigin.z && distanceSkipZ < squaredf(64.0f))
 		{
 			pev->button |= IN_DUCK;
-			m_campButtons |= IN_DUCK;
 			pev->button &= ~IN_JUMP;
 		}
 		else
 		{
 			pev->button &= ~IN_DUCK;
-			m_campButtons &= ~IN_DUCK;
-
 			if (pev->origin.z + 150.0f < entityOrigin.z && distanceSkipZ < squaredf(300.0f))
 				pev->button |= IN_JUMP;
 		}

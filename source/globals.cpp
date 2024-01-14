@@ -39,7 +39,6 @@ bool g_bLearnJumpWaypoint = false;
 bool g_leaderChoosen[2] = {false, false};
 bool g_analyzewaypoints = false;
 bool g_analyzeputrequirescrouch = false;
-bool* g_expanded;
 bool g_isXash = false;
 
 bool g_sgdWaypoint = false;

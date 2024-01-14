@@ -45,16 +45,14 @@ void Engine::RegisterVariable(const char* variable, const char* value, const Var
 
     newVariable.reg.flags = engineFlags;
     newVariable.self = self;
-
-    cmemcpy(&m_regVars[m_regCount], &newVariable, sizeof(VarPair));
-    m_regCount++;
+    m_regVars.Push(&newVariable);
 }
 
 void Engine::PushRegisteredConVarsToEngine(void)
 {
-    int i;
+    int16_t i;
     VarPair* ptr;
-    for (i = 0; i < m_regCount; i++)
+    for (i = 0; i < m_regVars.Size(); i++)
     {
         ptr = &m_regVars[i];
         if (ptr == nullptr)

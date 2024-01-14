@@ -512,8 +512,7 @@ const char* GetField(const char* string, int fieldId, bool endLine)
 		field[cstrlen(field) - 1] = 0;
 
 	cstrtrim(field);
-
-	return (&field[0]); // returns the wanted field
+	return field; // returns the wanted field
 }
 
 char* GetModName(void)
@@ -539,8 +538,7 @@ char* GetModName(void)
 		modName[length - start] = modName[length];
 
 	modName[length - start] = 0; // terminate the string
-
-	return &modName[0];
+	return modName;
 }
 
 // Create a directory tree
@@ -656,7 +654,7 @@ void AutoLoadGameMode(void)
 	if (!ebot_auto_gamemode.GetBool())
 		return;
 
-	static int checkShowTextTime = 0;
+	static uint8_t checkShowTextTime = 0;
 	checkShowTextTime++;
 
 	// CS:BTE Support 
@@ -712,7 +710,6 @@ void AutoLoadGameMode(void)
 				if (i == 3 || i == 9)
 				{
 					ServerPrint("***** E-BOT not support the mode now :( *****");
-
 					SetGameMode(MODE_TDM);
 				}
 				else
@@ -1314,7 +1311,7 @@ char* GetEntityName(edict_t* entity)
 		cstrncpy(entityName, STRING(entity->v.netname), sizeof(entityName));
 	else
 		cstrncpy(entityName, STRING(entity->v.classname), sizeof(entityName));
-	return &entityName[0];
+	return entityName;
 }
 
 // this function gets the map name and store it in the map_name global string variable.
@@ -1322,7 +1319,7 @@ char* GetMapName(void)
 {
 	static char mapName[256];
 	cstrncpy(mapName, STRING(g_pGlobals->mapname), sizeof(mapName));
-	return &mapName[0]; // and return a pointer to it
+	return mapName; // and return a pointer to it
 }
 
 bool OpenConfig(const char* fileName, char* errorIfNotExists, File* outFile)
@@ -1331,7 +1328,6 @@ bool OpenConfig(const char* fileName, char* errorIfNotExists, File* outFile)
 		outFile->Close();
 
 	outFile->Open(FormatBuffer("%s/addons/ebot/%s", GetModName(), fileName), "rt");
-
 	if (!outFile->IsValid())
 	{
 		AddLogEntry(LOG_ERROR, errorIfNotExists);
@@ -1379,7 +1375,7 @@ void CheckWelcomeMessage(void)
 
 void DetectCSVersion(void)
 {
-	constexpr const char* infoBuffer = "Game Registered: %s (0x%d)";
+	const char* infoBuffer = "Game Registered: %s (0x%d)";
 
 	// switch version returned by dll loader
 	switch (g_gameVersion)
@@ -1588,7 +1584,7 @@ int GetWeaponReturn(const bool needString, const char* weaponAlias, const int we
 	};
 
 	int i;
-	constexpr int max = ARRAYSIZE_HLSDK(weaponTab);
+	const int max = ARRAYSIZE_HLSDK(weaponTab);
 
 	// if we need to return the string, find by weapon id
 	if (needString && weaponID != -1)

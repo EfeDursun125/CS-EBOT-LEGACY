@@ -138,6 +138,8 @@ void AnalyzeThread(void)
 {
     if (!ebot_use_old_analyzer.GetBool())
     {
+        static bool* expanded;
+        static float magicTimer;
         if (!FNullEnt(g_hostEntity))
         {
             char message[] =
@@ -150,22 +152,23 @@ void AnalyzeThread(void)
         else if (!IsDedicatedServer())
             return;
 
+        int i;
+
         // guarantee to have it
-        if (g_expanded == nullptr)
+        if (expanded == nullptr)
         {
-            int i;
-            safeloc(g_expanded, g_numWaypoints);
-            for (i = 0; i < g_numWaypoints; i++)
-                g_expanded[i] = false;
+            safeloc(expanded, Const_MaxWaypoints);
+            for (i = 0; i < Const_MaxWaypoints; i++)
+                expanded[i] = false;
         }
 
-        static float magicTimer;
+        
         float range;
         Vector WayVec, Next;
-        int i, dir;
+        int dir;
         for (i = 0; i < g_numWaypoints; i++)
         {
-            if (g_expanded[i])
+            if (expanded[i])
                 continue;
 
             if (magicTimer > engine->GetTime())
@@ -240,7 +243,7 @@ void AnalyzeThread(void)
                 CreateWaypoint(Next, range);
             }
 
-            g_expanded[i] = true;
+            expanded[i] = true;
         }
 
         if (magicTimer + 2.0f < engine->GetTime())
@@ -263,7 +266,7 @@ void AnalyzeThread(void)
             g_waypoint->Load();
             ServerCommand("exec addons/ebot/ebot.cfg");
             ServerCommand("ebot wp mdl off");
-            safedel(g_expanded);
+            safedel(expanded);
         }
     }
     else
@@ -294,8 +297,7 @@ void Waypoint::Analyze(void)
 void Waypoint::AnalyzeDeleteUselessWaypoints(void)
 {
     int connections;
-    int i, j, k;
-
+    int i, j;
     for (i = 0; i < g_numWaypoints; i++)
     {
         connections = 0;
@@ -304,30 +306,17 @@ void Waypoint::AnalyzeDeleteUselessWaypoints(void)
         {
             if (m_paths[i].index[j] != -1)
             {
-                if (m_paths[i].index[j] > g_numWaypoints)
+                if (m_paths[i].index[j] >= g_numWaypoints)
                     DeleteByIndex(i);
-
-                connections++;
-                break;
+                else if (m_paths[i].index[j] == i)
+                    DeleteByIndex(i);
+                else
+                    connections++;
             }
         }
 
         if (connections == 0)
-        {
-            if (!IsConnected(i))
-                DeleteByIndex(i);
-        }
-
-        for (k = 0; k < Const_MaxPathIndex; k++)
-        {
-            if (m_paths[i].index[k] != -1)
-            {
-                if (m_paths[i].index[k] >= g_numWaypoints || m_paths[i].index[k] < -1)
-                    DeleteByIndex(i);
-                else if (m_paths[i].index[k] == i)
-                    DeleteByIndex(i);
-            }
-        }
+            DeleteByIndex(i);
     }
 
     CenterPrint("Waypoints are saved!");
@@ -615,7 +604,7 @@ void Waypoint::ChangeZBCampPoint(const Vector origin)
     int point[2] = { -1, -1 };
     if (!m_zmHmPoints.IsEmpty())
     {
-        uint16_t i, wpIndex;
+        int16_t i, wpIndex;
         for (i = 0; i < m_zmHmPoints.Size(); i++)
         {
             wpIndex = m_zmHmPoints.Get(i);
@@ -647,7 +636,7 @@ bool Waypoint::IsZBCampPoint(const int pointID, const bool checkMesh)
     if (g_waypoint->m_zmHmPoints.IsEmpty())
         return false;
 
-    uint16_t i, wpIndex;
+    int16_t i, wpIndex;
     for (i = 0; i < m_zmHmPoints.Size(); i++)
     {
         wpIndex = m_zmHmPoints.Get(i);
@@ -1012,10 +1001,10 @@ void Waypoint::Add(const int flags, const Vector waypointOrigin)
     }
 
     // disable autocheck if we're analyzing
-    if ((!FNullEnt(g_hostEntity) && g_hostEntity->v.flags & FL_DUCKING && g_analyzewaypoints == false) || g_analyzeputrequirescrouch == true)
+    if ((!FNullEnt(g_hostEntity) && g_hostEntity->v.flags & FL_DUCKING && g_analyzewaypoints) || g_analyzeputrequirescrouch)
         path->flags |= WAYPOINT_CROUCH;  // set a crouch waypoint
 
-    if (!FNullEnt(g_hostEntity) && g_hostEntity->v.movetype == MOVETYPE_FLY && g_analyzewaypoints == false)
+    if (!FNullEnt(g_hostEntity) && g_hostEntity->v.movetype == MOVETYPE_FLY && g_analyzewaypoints)
         path->flags |= WAYPOINT_LADDER;
     else if (m_isOnLadder)
         path->flags |= WAYPOINT_LADDER;
@@ -1109,7 +1098,7 @@ void Waypoint::Add(const int flags, const Vector waypointOrigin)
 
         if (IsValidWaypoint(destIndex))
         {
-            if (g_analyzewaypoints == true)
+            if (g_analyzewaypoints)
             {
                 AddPath(index, destIndex);
                 AddPath(destIndex, index);
@@ -1129,6 +1118,7 @@ void Waypoint::Add(const int flags, const Vector waypointOrigin)
     else
     {
         const float addDist = ebot_analyze_distance.GetFloat() * 2.0f;
+        float pathDist;
 
         // calculate all the paths to this new waypoint
         for (i = 0; i < g_numWaypoints; i++)
@@ -1136,9 +1126,9 @@ void Waypoint::Add(const int flags, const Vector waypointOrigin)
             if (i == index)
                 continue; // skip the waypoint that was just added
 
-            if (g_analyzewaypoints == true) // if we're analyzing, be careful (we dont want path errors)
+            if (g_analyzewaypoints) // if we're analyzing, be careful (we dont want path errors)
             {
-                const float pathDist = (m_paths[i].origin - newOrigin).GetLength();
+                pathDist = (m_paths[i].origin - newOrigin).GetLength();
                 if (pathDist < addDist)
                 {
                     if (g_waypoint->GetPath(i)->flags & WAYPOINT_LADDER && (IsNodeReachable(newOrigin, m_paths[i].origin) || IsNodeReachableWithJump(newOrigin, m_paths[i].origin, 0)))
@@ -1372,7 +1362,7 @@ int Waypoint::GetFacingIndex(void)
 }
 
 // this function allow player to manually create a path from one waypoint to another
-void Waypoint::CreatePath(char dir)
+void Waypoint::CreatePath(const char dir)
 {
     const int nodeFrom = FindNearest(GetEntityOrigin(g_hostEntity), 75.0f);
     if (nodeFrom == -1)
@@ -1381,7 +1371,7 @@ void Waypoint::CreatePath(char dir)
         return;
     }
 
-   int nodeTo = m_facingAtIndex;
+    int nodeTo = m_facingAtIndex;
     if (!IsValidWaypoint(nodeTo))
     {
         if (IsValidWaypoint(m_cacheWaypointIndex))
@@ -1622,7 +1612,7 @@ void Waypoint::InitTypes(void)
     m_zmHmPoints.Destroy();
     m_hmMeshPoints.Destroy();
 
-    uint16_t i;
+    int16_t i;
     for (i = 0; i < m_paths.Size(); i++)
     {
         if (m_paths[i].flags & WAYPOINT_GOAL)
@@ -1711,7 +1701,6 @@ bool Waypoint::Download(void)
 static uint8_t g_numTry;
 bool Waypoint::Load(void)
 {
-    safedel(m_waypoints);
     safedel(m_waypointDisplayTime);
 
     int i;
@@ -1848,13 +1837,12 @@ bool Waypoint::Load(void)
         g_numTry = 0;
         fp.Close();
     }
-    else if (ebot_download_waypoints.GetBool() && g_numTry < 5)
+    else if (ebot_download_waypoints.GetBool() && g_numTry < static_cast<uint8_t>(5))
     {
+        g_numTry += static_cast<uint8_t>(1);
         Download();
         if (Load())
             sprintf(m_infoBuffer, "%s.ewp is downloaded from the internet", GetMapName());
-        
-        g_numTry++;
     }
     else
     {
@@ -1862,7 +1850,6 @@ bool Waypoint::Load(void)
         {
             g_waypoint->CreateBasic();
             g_analyzewaypoints = true;
-            g_numTry = 0;
         }
         else
         {
@@ -1876,8 +1863,6 @@ bool Waypoint::Load(void)
     InitTypes();
     if (g_numWaypoints > 0)
     {
-        safeloc(m_waypoints, g_numWaypoints);
-
         // only in lan game
         if (!IsDedicatedServer())
             safeloc(m_waypointDisplayTime, g_numWaypoints);
@@ -2753,7 +2738,7 @@ bool Waypoint::NodesValid(void)
     int goalPoints = 0;
     int rescuePoints = 0;
     int connections;
-    int i, j, k;
+    int i, j;
 
     bool haveError = false;
 
@@ -2765,30 +2750,42 @@ bool Waypoint::NodesValid(void)
         {
             if (m_paths[i].index[j] != -1)
             {
-                if (m_paths[i].index[j] > g_numWaypoints)
+                if (m_paths[i].index[j] >= g_numWaypoints)
                 {
-                    AddLogEntry(LOG_WARNING, "Waypoint %d connected with invalid Waypoint #%d!", i, m_paths[i].index[j]);
+                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d out of Range!", i, j);
                     (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i].origin);
+
+                    g_waypointOn = true;
+                    g_editNoclip = true;
+
                     haveError = true;
                     if (g_sgdWaypoint)
-                        ChartPrint("[SgdWP] Waypoint %d connected with invalid Waypoint #%d!", i, m_paths[i].index[j]);
+                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d out of Range!", i, j);
                 }
+                else if (m_paths[i].index[j] == i)
+                {
+                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d points to itself!", i, j);
+                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i].origin);
 
-                connections++;
-                break;
+                    g_waypointOn = true;
+                    g_editNoclip = true;
+
+                    haveError = true;
+                    if (g_sgdWaypoint)
+                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d points to itself!", i, j);
+                }
+                else
+                    connections++;
             }
         }
 
         if (connections == 0)
         {
-            if (!IsConnected(i))
-            {
-                AddLogEntry(LOG_WARNING, "Waypoint %d isn't connected with any other Waypoint!", i);
-                (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i].origin);
-                haveError = true;
-                if (g_sgdWaypoint)
-                    ChartPrint("[SgdWP] Waypoint %d isn't connected with any other Waypoint!", i);
-            }
+            AddLogEntry(LOG_WARNING, "Waypoint %d isn't connected with any other Waypoint!", i);
+            (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i].origin);
+            haveError = true;
+            if (g_sgdWaypoint)
+                ChartPrint("[SgdWP] Waypoint %d isn't connected with any other Waypoint!", i);
         }
 
         if (GetGameMode() != MODE_BASE)
@@ -2801,37 +2798,6 @@ bool Waypoint::NodesValid(void)
                 goalPoints++;
             else if (m_paths[i].flags & WAYPOINT_RESCUE)
                 rescuePoints++;
-        }
-
-        for (k = 0; k < Const_MaxPathIndex; k++)
-        {
-            if (m_paths[i].index[k] != -1)
-            {
-                if (m_paths[i].index[k] >= g_numWaypoints || m_paths[i].index[k] < -1)
-                {
-                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d out of Range!", i, k);
-                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i].origin);
-
-                    g_waypointOn = true;
-                    g_editNoclip = true;
-
-                    haveError = true;
-                    if (g_sgdWaypoint)
-                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d out of Range!", i, k);
-                }
-                else if (m_paths[i].index[k] == i)
-                {
-                    AddLogEntry(LOG_WARNING, "Waypoint %d - Pathindex %d points to itself!", i, k);
-                    (*g_engfuncs.pfnSetOrigin) (g_hostEntity, m_paths[i].origin);
-
-                    g_waypointOn = true;
-                    g_editNoclip = true;
-
-                    haveError = true;
-                    if (g_sgdWaypoint)
-                        ChartPrint("[SgdWP] Waypoint %d - Pathindex %d points to itself!", i, k);
-                }
-            }
         }
     }
 
@@ -2869,7 +2835,6 @@ bool Waypoint::NodesValid(void)
     }
 
     CenterPrint("Waypoints are saved!");
-
     return haveError ? false : true;
 }
 
@@ -3102,7 +3067,6 @@ Waypoint::Waypoint(void)
     m_pathDisplayTime = 0.0f;
     m_arrowDisplayTime = 0.0f;
 
-    safedel(m_waypoints);
     safedel(m_waypointDisplayTime);
     m_paths.Destroy();
     m_terrorPoints.Destroy();
@@ -3115,7 +3079,6 @@ Waypoint::Waypoint(void)
 
 Waypoint::~Waypoint(void)
 {
-    safedel(m_waypoints);
     safedel(m_waypointDisplayTime);
     m_paths.Destroy();
     m_terrorPoints.Destroy();

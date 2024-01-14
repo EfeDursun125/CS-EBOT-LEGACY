@@ -63,7 +63,7 @@ BotControl::~BotControl(void)
 		if (bot == nullptr)
 			continue;
 
-		free(bot);
+		delete bot;
 		bot = nullptr;
 	}
 }
@@ -189,14 +189,10 @@ int BotControl::CreateBot(const String name, int skill, int personality, const i
 		return -2;
 	}
 
-	Bot* new_bot = static_cast<Bot*>(malloc(sizeof(Bot)));
-	if (new_bot == nullptr)
-		return -1;
-
 	const int index = ENTINDEX(bot) - 1;
-	new (new_bot) Bot(bot, skill, personality, team, member);
-	m_bots[index] = new_bot;
-	new_bot = nullptr;
+	m_bots[index] = new(std::nothrow) Bot(bot, skill, personality, team, member);
+	if (m_bots[index] == nullptr)
+		return -1;
 
 	ServerPrint("Connecting E-Bot - %s | Skill %d", botName, skill);
 	return index;
@@ -790,7 +786,7 @@ void BotControl::Free(void)
 		if (ebot_save_bot_names.GetBool())
 			m_savedBotNames.Push(STRING(bot->GetEntity()->v.netname));
 
-		free(bot);
+		delete bot;
 		bot = nullptr;
 	}
 }
@@ -804,7 +800,7 @@ void BotControl::Free(const int index)
 	if (m_bots[index] == nullptr)
 		return;
 
-	free(m_bots[index]);
+	delete m_bots[index];
 	m_bots[index] = nullptr;
 }
 
@@ -1118,9 +1114,7 @@ void Bot::NewRound(void)
 	pev->button = 0;
 
 	m_timeCamping = 0;
-	m_campDirection = 0;
-	m_nextCampDirTime = 0;
-	m_campButtons = 0;
+	m_nextCampDirTime = 0.0f;
 
 	// clear its message queue
 	for (auto& message : m_messageQueue)

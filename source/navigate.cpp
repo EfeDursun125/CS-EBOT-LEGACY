@@ -131,7 +131,6 @@ int Bot::FindGoal(void)
 									{
 										m_campposition = g_waypoint->GetPath(m_chosenGoalIndex)->origin;
 										PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, m_chosenGoalIndex, GetBombTimeleft(), true);
-										m_campButtons |= IN_DUCK;
 										return m_chosenGoalIndex;
 									}
 								}
@@ -177,7 +176,6 @@ int Bot::FindGoal(void)
 									{
 										m_campposition = g_waypoint->GetPath(m_chosenGoalIndex)->origin;
 										PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, m_chosenGoalIndex, GetBombTimeleft(), true);
-										m_campButtons |= IN_DUCK;
 										return m_chosenGoalIndex;
 									}
 								}
@@ -204,7 +202,6 @@ int Bot::FindGoal(void)
 							{
 								m_campposition = g_waypoint->GetPath(m_chosenGoalIndex)->origin;
 								PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, m_chosenGoalIndex, GetBombTimeleft(), true);
-								m_campButtons |= IN_DUCK;
 								return m_chosenGoalIndex;
 							}
 						}
@@ -502,7 +499,7 @@ bool Bot::DoWaypointNav(void)
 			const int destIndex = m_navNode.First();
 
 			// find out about connection flags
-			int i;
+			int8_t i;
 			for (i = 0; i < Const_MaxPathIndex; i++)
 			{
 				if (m_waypoint.index[i] == destIndex)
@@ -738,6 +735,8 @@ inline const float HF_DistanceSquared(const int16_t& start, const int16_t& goal)
 	return (g_waypoint->m_paths[start].origin - g_waypoint->m_paths[goal].origin).GetLengthSquared();
 }
 
+static Path pathCache;
+static int8_t countCache;
 inline const float GF_CostHuman(const int16_t& index, const int16_t& parent, const int32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
 {
 	if (!parentFlags)
@@ -760,8 +759,7 @@ inline const float GF_CostHuman(const int16_t& index, const int16_t& parent, con
 			return 65355.0f;
 	}
 
-	static Path path;
-	path = g_waypoint->m_paths[parent];
+	pathCache = g_waypoint->m_paths[parent];
 	if (parentFlags & WAYPOINT_ONLYONE)
 	{
 		for (const auto& client : g_clients)
@@ -769,30 +767,29 @@ inline const float GF_CostHuman(const int16_t& index, const int16_t& parent, con
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
+			if ((client.origin - pathCache.origin).GetLengthSquared() < squaredi(static_cast<int>(pathCache.radius) + 64))
 				return 65355.0f;
 		}
 	}
 
-	static int_fast8_t count;
 	static float distance;
 	static float totalDistance;
 	totalDistance = 0.0f;
-	count = 0;
+	countCache = 0;
 	for (const auto& client : g_clients)
 	{
 		if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team == client.team || !IsZombieEntity(client.ent))
 			continue;
 
-		distance = ((client.ent->v.origin + client.ent->v.velocity * g_pGlobals->frametime) - path.origin).GetLengthSquared();
-		if (distance < squaredi(static_cast<int>(path.radius) + 128))
-			count++;
+		distance = ((client.ent->v.origin + client.ent->v.velocity * g_pGlobals->frametime) - pathCache.origin).GetLengthSquared();
+		if (distance < squaredi(static_cast<int>(pathCache.radius) + 128))
+			countCache++;
 
 		totalDistance += distance;
 	}
 
-	if (count > 0 && totalDistance > 0.0f)
-		return (HF_Distance(index, parent) * static_cast<float>(count)) + totalDistance;
+	if (countCache > 0 && totalDistance > 0.0f)
+		return (HF_Distance(index, parent) * static_cast<float>(countCache)) + totalDistance;
 
 	return HF_Distance(index, parent);
 }
@@ -819,16 +816,15 @@ inline const float GF_CostCareful(const int16_t& index, const int16_t& parent, c
 			return 65355.0f;
 	}
 
-	static Path path;
 	if (parentFlags & WAYPOINT_ONLYONE)
 	{
-		path = g_waypoint->m_paths[parent];
+		pathCache = g_waypoint->m_paths[parent];
 		for (const auto& client : g_clients)
 		{
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
+			if ((client.origin - pathCache.origin).GetLengthSquared() < squaredi(static_cast<int>(pathCache.radius) + 64))
 				return 65355.0f;
 		}
 	}
@@ -837,25 +833,24 @@ inline const float GF_CostCareful(const int16_t& index, const int16_t& parent, c
 	{
 		if (parentFlags & WAYPOINT_DJUMP)
 		{
-			path = g_waypoint->m_paths[parent];
-			static int_fast8_t count;
-			count = 0;
+			pathCache = g_waypoint->m_paths[parent];
+			countCache = 0;
 			for (const auto& client : g_clients)
 			{
 				if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != team)
 					continue;
 
-				if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 512))
-					count++;
-				else if (IsVisible(path.origin, client.ent))
-					count++;
+				if ((client.origin - pathCache.origin).GetLengthSquared() < squaredi(static_cast<int>(pathCache.radius) + 512))
+					countCache++;
+				else if (IsVisible(pathCache.origin, client.ent))
+					countCache++;
 			}
 
 			// don't count me
-			if (count < static_cast<int_fast8_t>(2))
+			if (countCache < static_cast<int8_t>(2))
 				return 65355.0f;
 
-			return HF_Distance2D(index, parent) / static_cast<float>(count);
+			return HF_Distance2D(index, parent) / static_cast<float>(countCache);
 		}
 	}
 
@@ -884,16 +879,15 @@ inline const float GF_CostNormal(const int16_t& index, const int16_t& parent, co
 			return 65355.0f;
 	}
 
-	static Path path;
 	if (parentFlags & WAYPOINT_ONLYONE)
 	{
-		path = g_waypoint->m_paths[parent];
+		pathCache = g_waypoint->m_paths[parent];
 		for (const auto& client : g_clients)
 		{
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
+			if ((client.origin - pathCache.origin).GetLengthSquared() < squaredi(static_cast<int>(pathCache.radius) + 64))
 				return 65355.0f;
 		}
 	}
@@ -902,25 +896,24 @@ inline const float GF_CostNormal(const int16_t& index, const int16_t& parent, co
 	{
 		if (parentFlags & WAYPOINT_DJUMP)
 		{
-			path = g_waypoint->m_paths[parent];
-			static int_fast8_t count;
-			count = 0;
+			pathCache = g_waypoint->m_paths[parent];
+			countCache = 0;
 			for (const auto& client : g_clients)
 			{
 				if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || client.team != team)
 					continue;
 
-				if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 512))
-					count++;
-				else if (IsVisible(path.origin, client.ent))
-					count++;
+				if ((client.origin - pathCache.origin).GetLengthSquared() < squaredi(static_cast<int>(pathCache.radius) + 512))
+					countCache++;
+				else if (IsVisible(pathCache.origin, client.ent))
+					countCache++;
 			}
 
 			// don't count me
-			if (count < static_cast<int_fast8_t>(2))
+			if (countCache < static_cast<int8_t>(2))
 				return 65355.0f;
 
-			return HF_Distance(index, parent) / static_cast<float>(count);
+			return HF_Distance(index, parent) / static_cast<float>(countCache);
 		}
 	}
 
@@ -954,14 +947,13 @@ inline const float GF_CostRusher(const int16_t& index, const int16_t& parent, co
 
 	if (parentFlags & WAYPOINT_ONLYONE)
 	{
-		static Path path;
-		path = g_waypoint->m_paths[parent];
+		pathCache = g_waypoint->m_paths[parent];
 		for (const auto& client : g_clients)
 		{
 			if (!(client.flags & CFLAG_USED) || !(client.flags & CFLAG_ALIVE) || team != client.team)
 				continue;
 
-			if ((client.origin - path.origin).GetLengthSquared() < squaredi(static_cast<int>(path.radius) + 64))
+			if ((client.origin - pathCache.origin).GetLengthSquared() < squaredi(static_cast<int>(pathCache.radius) + 64))
 				return 65355.0f;
 		}
 	}
@@ -984,23 +976,20 @@ inline const float GF_CostNoHostage(const int16_t& index, const int16_t& parent,
 	if (parentFlags & WAYPOINT_LADDER)
 		return 65355.0f;
 
-	static int_fast8_t i;
-	static int16_t neighbour;
-	static Path path;
-	for (i = 0; i < Const_MaxPathIndex; i++)
+	int16_t neighbour;
+	pathCache = g_waypoint->m_paths[index];
+	for (countCache = 0; countCache < Const_MaxPathIndex; countCache++)
 	{
-		neighbour = g_waypoint->m_paths[index].index[i];
+		neighbour = pathCache.index[countCache];
 		if (neighbour == parent)
 		{
-			path = g_waypoint->m_paths[index];
-			if (path.connectionFlags[i] & PATHFLAG_JUMP || path.connectionFlags[i] & PATHFLAG_DOUBLE)
+			if (pathCache.connectionFlags[countCache] & PATHFLAG_JUMP || pathCache.connectionFlags[countCache] & PATHFLAG_DOUBLE)
 				return 65355.0f;
 		}
 	}
 
 	return HF_Distance2D(index, parent);
 }
-
 
 // this function finds a path from srcIndex to destIndex
 void Bot::FindPath(int& srcIndex, int& destIndex)
@@ -1075,15 +1064,23 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 	float min = ebot_pathfinder_seed_min.GetFloat();
 	float max = ebot_pathfinder_seed_max.GetFloat();
 
+	struct AStar
+	{
+		float g;
+		float f;
+		int16_t parent;
+		bool is_closed;
+	} waypoints[g_numWaypoints];
+
 	for (i = 0; i < g_numWaypoints; i++)
 	{
-		g_waypoint->m_waypoints[i].g = 0.0f;
-		g_waypoint->m_waypoints[i].f = 0.0f;
-		g_waypoint->m_waypoints[i].parent = -1;
-		g_waypoint->m_waypoints[i].is_closed = false;
+		waypoints[i].g = 0.0f;
+		waypoints[i].f = 0.0f;
+		waypoints[i].parent = -1;
+		waypoints[i].is_closed = false;
 	}
 
-	AStar& srcWaypoint = g_waypoint->m_waypoints[srcIndex];
+	AStar& srcWaypoint = waypoints[srcIndex];
 	srcWaypoint.g = gcalc(srcIndex, destIndex, 0, m_team, pev->gravity, m_isZombieBot);
 	srcWaypoint.f = srcWaypoint.g + HF_Distance(srcIndex, destIndex); // we hate that first waypoint
 
@@ -1092,7 +1089,6 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 	AStar* childWaypoint;
 	int16_t currentIndex, self;
 	int32_t flags;
-	Path currPath;
 	float g, f;
 
 	// do not allow to search whole map
@@ -1119,7 +1115,7 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 			do
 			{
 				m_navNode.Add(currentIndex);
-				currentIndex = g_waypoint->m_waypoints[currentIndex].parent;
+				currentIndex = waypoints[currentIndex].parent;
 			} while (IsValidWaypoint(currentIndex));
 
 			m_navNode.Reverse();
@@ -1131,7 +1127,7 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 			return;
 		}
 
-		currWaypoint = &g_waypoint->m_waypoints[currentIndex];
+		currWaypoint = &waypoints[currentIndex];
 		if (currWaypoint->is_closed)
 			continue;
 
@@ -1139,10 +1135,10 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 		currWaypoint->is_closed = true;
 
 		// now expand the waypoint
-		currPath = g_waypoint->m_paths[currentIndex];
+		pathCache = g_waypoint->m_paths[currentIndex];
 		for (i = 0; i < Const_MaxPathIndex; i++)
 		{
-			self = currPath.index[i];
+			self = pathCache.index[i];
 			if (!IsValidWaypoint(self))
 				continue;
 
@@ -1167,7 +1163,7 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 			g = currWaypoint->g + (gcalc(currentIndex, self, flags, m_team, pev->gravity, m_isZombieBot) * crandomfloatfast(seed, min, max));
 			f = g + HF_Distance(self, destIndex);
 
-			childWaypoint = &g_waypoint->m_waypoints[self];
+			childWaypoint = &waypoints[self];
 			if (!childWaypoint->is_closed || childWaypoint->f > f)
 			{
 				// put the current child into open list
@@ -1183,7 +1179,7 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 	MiniArray <int16_t> PossiblePath;
 	for (i = 0; i < g_numWaypoints; i++)
 	{
-		if (g_waypoint->m_waypoints[i].is_closed)
+		if (waypoints[i].is_closed)
 			PossiblePath.Push(i);
 	}
 
@@ -1225,15 +1221,23 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 		return;
 	}
 
+	struct AStar
+	{
+		float g;
+		float f;
+		int16_t parent;
+		bool is_closed;
+	} waypoints[g_numWaypoints];
+
 	for (i = 0; i < g_numWaypoints; i++)
 	{
-		g_waypoint->m_waypoints[i].g = 0.0f;
-		g_waypoint->m_waypoints[i].f = 0.0f;
-		g_waypoint->m_waypoints[i].parent = -1;
-		g_waypoint->m_waypoints[i].is_closed = false;
+		waypoints[i].g = 0.0f;
+		waypoints[i].f = 0.0f;
+		waypoints[i].parent = -1;
+		waypoints[i].is_closed = false;
 	}
 
-	AStar& srcWaypoint = g_waypoint->m_waypoints[srcIndex];
+	AStar& srcWaypoint = waypoints[srcIndex];
 	srcWaypoint.f = HF_DistanceSquared(srcIndex, destIndex);
 
 	// loop cache
@@ -1241,7 +1245,6 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 	AStar* childWaypoint;
 	int16_t currentIndex, self;
 	int32_t flags;
-	Path currPath;
 	float f;
 
 	// do not allow to search whole map
@@ -1268,7 +1271,7 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 			do
 			{
 				m_navNode.Add(currentIndex);
-				currentIndex = g_waypoint->m_waypoints[currentIndex].parent;
+				currentIndex = waypoints[currentIndex].parent;
 			} while (IsValidWaypoint(currentIndex));
 
 			m_navNode.Reverse();
@@ -1280,7 +1283,7 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 			return;
 		}
 
-		currWaypoint = &g_waypoint->m_waypoints[currentIndex];
+		currWaypoint = &waypoints[currentIndex];
 		if (currWaypoint->is_closed)
 			continue;
 
@@ -1288,10 +1291,10 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 		currWaypoint->is_closed = true;
 
 		// now expand the waypoint
-		currPath = g_waypoint->m_paths[currentIndex];
+		pathCache = g_waypoint->m_paths[currentIndex];
 		for (i = 0; i < Const_MaxPathIndex; i++)
 		{
-			self = g_waypoint->m_paths[currentIndex].index[i];
+			self = pathCache.index[i];
 			if (!IsValidWaypoint(self))
 				continue;
 
@@ -1313,7 +1316,7 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 			}
 
 			f = HF_DistanceSquared(self, destIndex);
-			childWaypoint = &g_waypoint->m_waypoints[self];
+			childWaypoint = &waypoints[self];
 			if (!childWaypoint->is_closed || childWaypoint->f > f)
 			{
 				// put the current child into open list
@@ -1377,11 +1380,6 @@ void Bot::CheckTouchEntity(edict_t* entity)
 			m_breakable = (!FNullEnt(tr.pHit) && tr.pHit == entity) ? tr.vecEndPos : ((GetEntityOrigin(entity) * 0.5f) + (tr2.vecEndPos * 0.5f));
 			m_destOrigin = m_breakable;
 
-			if (pev->origin.z > m_breakable.z)
-				m_campButtons = IN_DUCK;
-			else
-				m_campButtons = 0;
-
 			PushTask(TASK_DESTROYBREAKABLE, TASKPRI_SHOOTBREAKABLE, -1, 1.0f, false);
 			edict_t* ent;
 
@@ -1416,12 +1414,6 @@ void Bot::CheckTouchEntity(edict_t* entity)
 					{
 						enemy->m_breakableEntity = entity;
 						enemy->m_breakable = (!FNullEnt(tr.pHit) && tr.pHit == entity) ? tr.vecEndPos : ((GetEntityOrigin(entity) * 0.5f) + (tr2.vecEndPos * 0.5f));
-
-						if (enemy->pev->origin.z > enemy->m_breakable.z)
-							enemy->m_campButtons = IN_DUCK;
-						else
-							enemy->m_campButtons = 0;
-
 						enemy->SelectBestWeapon();
 						enemy->PushTask(TASK_DESTROYBREAKABLE, TASKPRI_SHOOTBREAKABLE, -1, 1.0f, false);
 					}
@@ -1457,12 +1449,6 @@ void Bot::CheckTouchEntity(edict_t* entity)
 					{
 						bot->m_breakableEntity = entity;
 						bot->m_breakable = (!FNullEnt(tr.pHit) && tr.pHit == entity) ? tr.vecEndPos : ((GetEntityOrigin(entity) * 0.5f) + (tr2.vecEndPos * 0.5f));
-
-						if (bot->pev->origin.z > bot->m_breakable.z)
-							bot->m_campButtons = IN_DUCK;
-						else
-							bot->m_campButtons = 0;
-
 						bot->SelectBestWeapon();
 						bot->PushTask(TASK_DESTROYBREAKABLE, TASKPRI_SHOOTBREAKABLE, -1, 1.0f, false);
 					}
@@ -1554,14 +1540,13 @@ int Bot::FindWaypoint(const bool skipLag)
 	float distance;
 	bool skip;
 	int lessIndex[3] = {-1, -1, -1};
-	Path path;
 	int at;
 	for (at = 0; at < g_numWaypoints; at++)
 	{
-		path = g_waypoint->m_paths[at];
-		if (m_team == TEAM_COUNTER && path.flags & WAYPOINT_ZOMBIEONLY)
+		pathCache = g_waypoint->m_paths[at];
+		if (m_team == TEAM_COUNTER && pathCache.flags & WAYPOINT_ZOMBIEONLY)
 			continue;
-		else if (m_team == TEAM_TERRORIST && path.flags & WAYPOINT_HUMANONLY)
+		else if (m_team == TEAM_TERRORIST && pathCache.flags & WAYPOINT_HUMANONLY)
 			continue;
 
 		skip = false;
@@ -1575,7 +1560,7 @@ int Bot::FindWaypoint(const bool skipLag)
 			continue;
 
 		// skip if isn't visible
-		if (!IsVisible(path.origin, GetEntity()))
+		if (!IsVisible(pathCache.origin, GetEntity()))
 			continue;
 
 		// cts with hostages should not pick
@@ -1587,7 +1572,7 @@ int Bot::FindWaypoint(const bool skipLag)
 			continue;
 
 		// ignore non-reacheable nodes...
-		if (!g_waypoint->IsNodeReachable(m_waypoint.origin, path.origin))
+		if (!g_waypoint->IsNodeReachable(m_waypoint.origin, pathCache.origin))
 			continue;
 
 		// check if node is already used by another bot...
@@ -1598,7 +1583,7 @@ int Bot::FindWaypoint(const bool skipLag)
 		}
 
 		// if we're still here, find some close nodes
-		distance = (pev->origin - path.origin).GetLengthSquared();
+		distance = (pev->origin - pathCache.origin).GetLengthSquared();
 		if (distance < lessDist[0])
 		{
 			lessDist[2] = lessDist[1];
@@ -2467,8 +2452,6 @@ void Bot::FacePosition(void)
 {
 	if (!m_isAlive)
 		return;
-	
-	static Vector direction;
 
 	// predict enemy
 	if (m_aimFlags & AIM_ENEMY && !FNullEnt(m_enemy))
@@ -2478,18 +2461,17 @@ void Bot::FacePosition(void)
 		{
 			if (m_trackTime < engine->GetTime())
 			{
-				m_tempAim = m_lookAt;
-				direction = m_enemy->v.velocity;
+				m_tempAim = m_enemy->v.velocity;
 				m_trackTime = engine->GetTime() + (static_cast<float>(m_ping[2]) * 0.0025f);
 			}
 			else
 			{
-				m_tempAim.x += direction.x * g_pGlobals->frametime;
-				m_tempAim.y += direction.y * g_pGlobals->frametime;
+				m_tempAim.x += m_enemy->v.velocity.x * g_pGlobals->frametime;
+				m_tempAim.y += m_enemy->v.velocity.y * g_pGlobals->frametime;
 
 				// careful only
 				if (m_personality == PERSONALITY_CAREFUL)
-					m_tempAim.z += direction.z * g_pGlobals->frametime;
+					m_tempAim.z += m_enemy->v.velocity.z * g_pGlobals->frametime;
 			}
 
 			// set position
@@ -2497,10 +2479,9 @@ void Bot::FacePosition(void)
 		}
 		else
 		{
-			direction = m_enemy->v.velocity;
-			m_lookAt.x += direction.x * g_pGlobals->frametime;
-			m_lookAt.y += direction.y * g_pGlobals->frametime;
-			m_lookAt.z += direction.z * g_pGlobals->frametime;
+			m_lookAt.x += m_enemy->v.velocity.x * g_pGlobals->frametime;
+			m_lookAt.y += m_enemy->v.velocity.y * g_pGlobals->frametime;
+			m_lookAt.z += m_enemy->v.velocity.z * g_pGlobals->frametime;
 		}
 
 		m_playerTargetTime = engine->GetTime();
@@ -2513,16 +2494,13 @@ void Bot::FacePosition(void)
 	m_aimInterval = engine->GetTime() - m_lastAimTime;
 	m_lastAimTime = engine->GetTime();
 
-	static float floatSkill;
-
 	if (ebot_aim_type.GetInt() == 2)
 	{
 		m_idealAngles = pev->v_angle;
-		direction = (m_lookAt - EyePosition()).ToAngles() + pev->punchangle;
+		Vector direction = (m_lookAt - EyePosition()).ToAngles() + pev->punchangle;
 		direction.x = -direction.x; // invert for engine
 
-		floatSkill = ((static_cast<float>(m_skill) * 0.033f) + 9.0f) * m_aimInterval;
-
+		const float floatSkill = ((static_cast<float>(m_skill) * 0.033f) + 9.0f) * m_aimInterval;
 		m_idealAngles.x += AngleNormalize(direction.x - m_idealAngles.x) * floatSkill;
 		m_idealAngles.y += AngleNormalize(direction.y - m_idealAngles.y) * floatSkill;
 
@@ -2537,7 +2515,7 @@ void Bot::FacePosition(void)
 		return;
 	}
 
-	if (FNullEnt(m_enemy) && FNullEnt(m_breakableEntity))
+	if (m_aimFlags & AIM_NAVPOINT)
 	{
 		if (IsOnLadder() || m_waypoint.flags & WAYPOINT_LADDER)
 			m_aimStopTime = 0.0f;
@@ -2549,26 +2527,14 @@ void Bot::FacePosition(void)
 		m_aimStopTime = 0.0f;
 
 	// adjust all body and view angles to face an absolute vector
-	direction = (m_lookAt - EyePosition()).ToAngles() + pev->punchangle;
+	Vector direction = (m_lookAt - EyePosition()).ToAngles() + pev->punchangle;
 	direction.x = -direction.x; // invert for engine
-
-	static float accelerate;
-	static float stiffness;
-	static float damping;
-	static float angleDiffPitch;
-	static float angleDiffYaw;
-	static float lockn;
-
-	floatSkill = static_cast<float>(m_skill);
-	accelerate = floatSkill * 40.0f;
-	stiffness = floatSkill * 4.0f;
-	damping = floatSkill * 0.4f;
 
 	m_idealAngles = pev->v_angle;
 
-	angleDiffPitch = AngleNormalize(direction.x - m_idealAngles.x);
-	angleDiffYaw = AngleNormalize(direction.y - m_idealAngles.y);
-	lockn = 0.11111f / m_aimInterval;
+	const float angleDiffPitch = AngleNormalize(direction.x - m_idealAngles.x);
+	const float angleDiffYaw = AngleNormalize(direction.y - m_idealAngles.y);
+	const float lockn = 0.11111f / m_aimInterval;
 
 	if (angleDiffYaw < lockn && angleDiffYaw > -lockn)
 	{
@@ -2578,6 +2544,10 @@ void Bot::FacePosition(void)
 	}
 	else
 	{
+		const float floatSkill = static_cast<float>(m_skill);
+		const float accelerate = floatSkill * 40.0f;
+		const float stiffness = floatSkill * 4.0f;
+		const float damping = floatSkill * 0.4f;
 		m_lookYawVel += m_aimInterval * cclampf((stiffness * angleDiffYaw) - (damping * m_lookYawVel), -accelerate, accelerate);
 		m_idealAngles.y += m_aimInterval * m_lookYawVel;
 	}
@@ -2589,6 +2559,10 @@ void Bot::FacePosition(void)
 	}
 	else
 	{
+		const float floatSkill = static_cast<float>(m_skill);
+		const float accelerate = floatSkill * 40.0f;
+		const float stiffness = floatSkill * 4.0f;
+		const float damping = floatSkill * 0.4f;
 		m_lookPitchVel += m_aimInterval * cclampf(2.0f * stiffness * angleDiffPitch - (damping * m_lookPitchVel), -accelerate, accelerate);
 		m_idealAngles.x += m_aimInterval * m_lookPitchVel;
 	}
@@ -2641,13 +2615,12 @@ int Bot::FindHostage(void)
 	while (!FNullEnt(ent = FIND_ENTITY_BY_CLASSNAME(ent, "hostage_entity")))
 	{
 		bool canF = true;
-		int j;
+		int8_t j;
 
 		for (const auto& bot : g_botManager->m_bots)
 		{
 			if (bot != nullptr && bot->m_isAlive)
 			{
-				
 				for (j = 0; j < Const_MaxHostages; j++)
 				{
 					if (bot->m_hostages[j] == ent)

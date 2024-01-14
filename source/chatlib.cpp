@@ -35,8 +35,8 @@ ConVar ebot_chat_percent("ebot_chat_percent", "40");
 void StripTags(char* buffer)
 {
     // first three tags for Enhanced POD-Bot (e[POD], 3[POD], E[POD])
-    constexpr char* tagOpen[] = { "e[P", "3[P", "E[P", "-=", "-[", "-]", "-}", "-{", "<[", "<]", "[-", "]-", "{-", "}-", "[[", "[", "{", "]", "}", "<", ">", "-", "|", "=", "+" };
-    constexpr char* tagClose[] = { "]", "]", "]", "=-", "]-", "[-", "{-", "}-", "]>", "[>", "-]", "-[", "-}", "-{", "]]", "]", "}", "[", "{", ">", "<", "-", "|", "=", "+" };
+    char* tagOpen[] = { "e[P", "3[P", "E[P", "-=", "-[", "-]", "-}", "-{", "<[", "<]", "[-", "]-", "{-", "}-", "[[", "[", "{", "]", "}", "<", ">", "-", "|", "=", "+" };
+    char* tagClose[] = { "]", "]", "]", "=-", "]-", "[-", "{-", "}-", "]>", "[>", "-]", "-[", "-}", "-{", "]]", "]", "}", "[", "{", ">", "<", "-", "|", "=", "+" };
 
     int index, fieldStart, fieldStop, i;
     const int length = cstrlen(buffer); // get length of string
@@ -56,7 +56,7 @@ void StripTags(char* buffer)
             // have we found a tag stop?
             if ((fieldStop > fieldStart) && (fieldStop < 32))
             {
-                closeSize = static_cast<int>(cstrlen(tagClose[index]));
+                closeSize = cstrlen(tagClose[index]);
                 for (i = fieldStart; i < length - (fieldStop + closeSize - fieldStart); i++)
                     buffer[i] = buffer[i + (fieldStop + closeSize - fieldStart)]; // overwrite the buffer with the stripped string
 
@@ -109,7 +109,7 @@ void StripTags(char* buffer)
 // this function humanize player name (i.e. trim clan and switch to lower case (sometimes))
 char* HumanizeName(char* name)
 {
-    static char outputName[256]; // create return name buffer
+    static char outputName[32]; // create return name buffer
     cstrncpy(outputName, name, sizeof(outputName)); // copy name to new buffer
 
     // drop tag marks, 75 percent of time
@@ -127,7 +127,7 @@ char* HumanizeName(char* name)
             outputName[i] = static_cast<char>(ctolower(outputName[i])); // to lower case
     }
 
-    return &outputName[0]; // return terminated string
+    return outputName; // return terminated string
 }
 
 // this function humanize chat string to be more handwritten

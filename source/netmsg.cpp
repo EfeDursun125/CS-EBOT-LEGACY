@@ -24,6 +24,11 @@
 
 #include <core.h>
 
+#define PTR_TO_BYTE(in) *reinterpret_cast<uint8_t*>(in)
+#define PTR_TO_FLT(in) *reinterpret_cast<float*>(in)
+#define PTR_TO_INT(in) *reinterpret_cast<int*>(in)
+#define PTR_TO_STR(in) reinterpret_cast<char*>(in)
+
 NetworkMsg::NetworkMsg(void)
 {
     m_message = NETMSG_UNDEFINED;
@@ -88,9 +93,27 @@ void NetworkMsg::Execute(void* p)
 
         if (m_bot != nullptr)
         {
-            const auto search = VGUIMAP.find(PTR_TO_STR(p));
+            /*const auto search = VGUIMAP.find(PTR_TO_STR(p));
             if (search != VGUIMAP.end())
-                m_bot->m_startAction = search->second;
+                m_bot->m_startAction = search->second;*/
+
+            const char* x = PTR_TO_STR(p);
+            if (cstrncmp(x, "#Team_Select", 13) == 0) // team select menu?
+                m_bot->m_startAction = CMENU_TEAM;
+            else if (cstrncmp(x, "#Team_Select_Spect", 19) == 0) // team select menu?
+                m_bot->m_startAction = CMENU_TEAM;
+            else if (cstrncmp(x, "#IG_Team_Select_Spect", 22) == 0) // team select menu?
+                m_bot->m_startAction = CMENU_TEAM;
+            else if (cstrncmp(x, "#IG_Team_Select", 16) == 0) // team select menu?
+                m_bot->m_startAction = CMENU_TEAM;
+            else if (cstrncmp(x, "#IG_VIP_Team_Select", 20) == 0) // team select menu?
+                m_bot->m_startAction = CMENU_TEAM;
+            else if (cstrncmp(x, "#IG_VIP_Team_Select_Spect", 26) == 0) // team select menu?
+                m_bot->m_startAction = CMENU_TEAM;
+            else if (cstrncmp(x, "#Terrorist_Select", 18) == 0) // T model select?
+                m_bot->m_startAction = CMENU_CLASS;
+            else if (cstrncmp(x, "#CT_Select", 11) == 0) // CT model select menu?
+                m_bot->m_startAction = CMENU_CLASS;
         }
 
         break;
@@ -132,9 +155,13 @@ void NetworkMsg::Execute(void* p)
         }
         case 8:
         {
-            weaponProp.flags = PTR_TO_INT(p); // flags for weapon (WTF???)
+            
             if (weaponProp.id > -1 && weaponProp.id < Const_MaxWeapons)
+            {
+                weaponProp.flags = PTR_TO_INT(p); // flags for weapon (WTF???)
                 g_weaponDefs[weaponProp.id] = weaponProp; // store away this weapon with it's ammo information...
+            }
+                
             break;
         }
         }
@@ -331,7 +358,64 @@ void NetworkMsg::Execute(void* p)
     {
         if (m_state == 1)
         {
-            const auto search = HUDMAP.find(PTR_TO_STR(p));
+            const char* x = PTR_TO_STR(p);
+            if (cstrncmp(x, "#CTs_Win", 9) == 0 ||
+                cstrncmp(x, "#Bomb_Defused", 14) == 0 ||
+                cstrncmp(x, "#Terrorists_Win", 16) == 0 ||
+                cstrncmp(x, "#Round_Draw", 12) == 0 ||
+                cstrncmp(x, "#All_Hostages_Rescued", 22) == 0 ||
+                cstrncmp(x, "#Target_Saved", 14) == 0 ||
+                cstrncmp(x, "#Hostages_Not_Rescued", 22) == 0 ||
+                cstrncmp(x, "#Terrorists_Not_Escaped", 24) == 0 ||
+                cstrncmp(x, "#VIP_Not_Escaped", 17) == 0 ||
+                cstrncmp(x, "#Escaping_Terrorists_Neutralized", 33) == 0 ||
+                cstrncmp(x, "#VIP_Assassinated", 18) == 0 ||
+                cstrncmp(x, "#VIP_Escaped", 13) == 0 ||
+                cstrncmp(x, "#Terrorists_Escaped", 20) == 0 ||
+                cstrncmp(x, "#CTs_PreventEscape", 19) == 0 ||
+                cstrncmp(x, "#Target_Bombed", 15) == 0 ||
+                cstrncmp(x, "#Game_Commencing", 17) == 0 ||
+                cstrncmp(x, "#Game_will_restart_in", 22) == 0)
+            {
+                g_roundEnded = true;
+
+                if (GetGameMode() == MODE_BASE)
+                {
+                    if (cstrncmp(x, "#CTs_Win", 9) == 0)
+                        g_botManager->SetLastWinner(TEAM_COUNTER); // update last winner for economics
+                    else if (cstrncmp(x, "#Terrorists_Win", 16) == 0)
+                        g_botManager->SetLastWinner(TEAM_TERRORIST); // update last winner for economics
+                }
+
+                g_waypoint->SetBombPosition(true);
+            }
+            else if (!g_bombPlanted && cstrncmp(x, "#Bomb_Planted", 14) == 0)
+            {
+                g_bombPlanted = true;
+                g_bombSayString = true;
+                g_timeBombPlanted = engine->GetTime();
+                g_waypoint->SetBombPosition();
+
+                for (const auto& bot : g_botManager->m_bots)
+                {
+                    if (bot == nullptr)
+                        continue;
+
+                    if (!bot->m_isAlive)
+                        continue;
+
+                    bot->DeleteSearchNodes();
+                }
+            }
+            else if (m_bot != nullptr)
+            {
+                if (cstrncmp(x, "#Switch_To_BurstFire", 21) == 0)
+                    m_bot->m_weaponBurstMode = BURST_ENABLED;
+                else if (cstrncmp(x, "#Switch_To_SemiAuto", 20) == 0)
+                    m_bot->m_weaponBurstMode = BURST_DISABLED;
+            }
+
+            /*const auto search = HUDMAP.find(PTR_TO_STR(p));
             if (search != HUDMAP.end())
             {
                 switch (search->second)
@@ -389,7 +473,7 @@ void NetworkMsg::Execute(void* p)
                     break;
                 }
                 }
-            }
+            }*/
         }
         break;
     }

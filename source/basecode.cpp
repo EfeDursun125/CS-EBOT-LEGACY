@@ -106,18 +106,16 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 
 	TraceResult tr{};
 	const Vector eyes = EyePosition();
-
 	Vector spot = targetEntity->v.origin;
-	edict_t* self = pev->pContainingEntity;
 
-	constexpr float vis = 0.97f;
+	const float vis = 0.97f;
 	bool ignoreGlass = true;
 
 	// zombies can't hit from the glass...
 	if (m_isZombieBot)
 		ignoreGlass = false;
 
-	TraceLine(eyes, spot, true, ignoreGlass, self, &tr);
+	TraceLine(eyes, spot, true, ignoreGlass, pev->pContainingEntity, &tr);
 
 	if (tr.flFraction > vis || tr.pHit == targetEntity)
 	{
@@ -127,7 +125,7 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 
 	// check top of head
 	spot.z += 25.0f;
-	TraceLine(eyes, spot, true, ignoreGlass, self, &tr);
+	TraceLine(eyes, spot, true, ignoreGlass, pev->pContainingEntity, &tr);
 
 	if (tr.flFraction > vis || tr.pHit == targetEntity)
 	{
@@ -138,15 +136,12 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 	if (m_visibility != VISIBILITY_NONE)
 		return true;
 
-	constexpr auto standFeet = 34.0f;
-	constexpr auto crouchFeet = 14.0f;
-
 	if (targetEntity->v.flags & FL_DUCKING)
-		spot.z = targetEntity->v.origin.z - crouchFeet;
+		spot.z = targetEntity->v.origin.z - 14.0f;
 	else
-		spot.z = targetEntity->v.origin.z - standFeet;
+		spot.z = targetEntity->v.origin.z - 34.0f;
 
-	TraceLine(eyes, spot, true, ignoreGlass, self, &tr);
+	TraceLine(eyes, spot, true, ignoreGlass, pev->pContainingEntity, &tr);
 
 	if (tr.flFraction > vis || tr.pHit == targetEntity)
 	{
@@ -155,13 +150,11 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 		return true;
 	}
 
-	const float edgeOffset = 13.0f;
 	const Vector dir = (targetEntity->v.origin - pev->origin).Normalize2D();
-
 	Vector perp(-dir.y, dir.x, 0.0f);
-	spot = targetEntity->v.origin + Vector(perp.x * edgeOffset, perp.y * edgeOffset, 0);
+	spot = targetEntity->v.origin + Vector(perp.x * 13.0f, perp.y * 13.0f, 0);
 
-	TraceLine(eyes, spot, true, ignoreGlass, self, &tr);
+	TraceLine(eyes, spot, true, ignoreGlass, pev->pContainingEntity, &tr);
 
 	if (tr.flFraction > vis || tr.pHit == targetEntity)
 	{
@@ -170,8 +163,8 @@ bool Bot::CheckVisibility(edict_t* targetEntity)
 		return true;
 	}
 
-	spot = targetEntity->v.origin - Vector(perp.x * edgeOffset, perp.y * edgeOffset, 0);
-	TraceLine(eyes, spot, true, ignoreGlass, self, &tr);
+	spot = targetEntity->v.origin - Vector(perp.x * 13.0f, perp.y * 13.0f, 0);
+	TraceLine(eyes, spot, true, ignoreGlass, pev->pContainingEntity, &tr);
 
 	if (tr.flFraction > vis || tr.pHit == targetEntity)
 	{
@@ -191,11 +184,10 @@ bool Bot::IsEnemyViewable(edict_t* entity, const bool setEnemy, const bool check
 	if (IsNotAttackLab(entity))
 		return false;
 
-	const bool seeEntity = CheckVisibility(entity);
 	if (checkOnly)
-		return seeEntity;
+		return CheckVisibility(entity);
 
-	if (seeEntity)
+	if (CheckVisibility(entity))
 	{
 		m_seeEnemyTime = engine->GetTime();
 		SetLastEnemy(entity);
@@ -385,7 +377,6 @@ void Bot::ZmCampPointAction(const int mode)
 	{
 		m_zhCampPointIndex = campPointWaypointIndex;
 
-		m_campButtons = 0;
 		SelectBestWeapon();
 		MakeVectors(pev->v_angle);
 
@@ -393,7 +384,6 @@ void Bot::ZmCampPointAction(const int mode)
 		PushTask(TASK_CAMP, TASKPRI_CAMP, -1, m_timeCamping, true);
 
 		m_aimFlags |= AIM_CAMP;
-		m_campDirection = 0;
 
 		m_moveToGoal = false;
 		m_checkTerrain = false;
@@ -802,7 +792,6 @@ void Bot::FindItem(void)
 					{
 						m_campposition = g_waypoint->GetPath(index)->origin;
 						PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, ebot_camp_max.GetFloat(), true);
-						m_campButtons |= IN_DUCK;
 						return;
 					}
 				}
@@ -825,7 +814,6 @@ void Bot::FindItem(void)
 							RemoveCertainTask(TASK_CAMP);
 							m_campposition = g_waypoint->GetPath(index)->origin;
 							PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + ebot_camp_max.GetFloat(), true);
-							m_campButtons |= IN_DUCK;
 						}
 						else
 						{
@@ -872,7 +860,6 @@ void Bot::FindItem(void)
 					{
 						m_campposition = g_waypoint->GetPath(index)->origin;
 						PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + ebot_camp_max.GetFloat(), false);
-						m_campButtons |= IN_DUCK;
 						return;
 					}
 				}
@@ -899,7 +886,6 @@ void Bot::FindItem(void)
 							RemoveCertainTask(TASK_CAMP);
 							m_campposition = g_waypoint->GetPath(index)->origin;
 							PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + timeBlowup, true);
-							m_campButtons &= ~IN_DUCK;
 						}
 						else
 						{
@@ -1005,7 +991,7 @@ void Bot::RadioMessage(const int message)
 }
 
 // this function inserts the voice message into the message queue (mostly same as above)
-std::unordered_map<char*, float> durationMap;
+//std::unordered_map<char*, float> durationMap;
 void Bot::PlayChatterMessage(const ChatterMessage message)
 {
 	if (ebot_use_radio.GetInt() < 2)
@@ -1027,12 +1013,12 @@ void Bot::PlayChatterMessage(const ChatterMessage message)
 	if (voice == nullptr)
 		return;
 
-	float dur;
-	const auto it = durationMap.find(voice);
-	if (it != durationMap.end())
-		dur = it->second;
-	else
-	{
+	//float dur;
+	//const auto it = durationMap.find(voice);
+	//if (it != durationMap.end())
+	//	dur = it->second;
+	//else
+	//{
 		// storing FormatBuffer returns in a char* resulting weird paths for some reason...
 		File fp(FormatBuffer("%s/sound/%s/%s.wav", GetModName(), ebot_chatter_path.GetString(), voice), "rb");
 		if (!fp.IsValid())
@@ -1058,12 +1044,12 @@ void Bot::PlayChatterMessage(const ChatterMessage message)
 		WavHeader header;
 		fp.Read(&header, sizeof(header));
 
-		dur = ((static_cast<float>(header.subchunk2_size) / (static_cast<float>(header.num_channels) * (static_cast<float>(header.bits_per_sample) * 0.125f))) / static_cast<float>(header.sample_rate)) + 0.75f;
+		const float dur = ((static_cast<float>(header.subchunk2_size) / (static_cast<float>(header.num_channels) * (static_cast<float>(header.bits_per_sample) * 0.125f))) / static_cast<float>(header.sample_rate)) + 0.75f;
 		if (dur < 0.2f || dur > 12.0f)
 			return;
 
-		durationMap[voice] = dur;
-	}
+		//durationMap[voice] = dur;
+	//}
 
 	m_chatterTimer = engine->GetTime() + dur;
 	SwitchChatterIcon(true);
@@ -1752,6 +1738,8 @@ void Bot::SetConditions(void)
 		ApplyTaskFilters();
 }
 
+static TaskItem* taskFinal;
+
 // initialize & calculate the desire for all actions based on distances, emotions and other stuff
 void Bot::ApplyTaskFilters(void)
 {
@@ -1786,20 +1774,11 @@ void Bot::ApplyTaskFilters(void)
 
 	m_oldCombatDesire = HysteresisDesire(g_taskFilters[TASK_FIGHTENEMY].desire, 40.0f, 90.0f, m_oldCombatDesire);
 	g_taskFilters[TASK_FIGHTENEMY].desire = m_oldCombatDesire;
-
-	static TaskItem* taskOffensive;
-	static TaskItem* taskPickup;
-	taskOffensive = &g_taskFilters[TASK_FIGHTENEMY];
-	taskPickup = &g_taskFilters[TASK_PICKUPITEM];
-	taskOffensive = SubsumeDesire(taskOffensive, taskPickup); // if offensive task, don't allow picking up stuff
-
-	static TaskItem* final;
-	final = SubsumeDesire(&g_taskFilters[TASK_BLINDED], taskOffensive); // reason about fleeing instead
-
+	taskFinal = SubsumeDesire(&g_taskFilters[TASK_BLINDED], SubsumeDesire(&g_taskFilters[TASK_FIGHTENEMY], &g_taskFilters[TASK_PICKUPITEM]));
 	if (!m_tasks.IsEmpty())
 	{
-		final = MaxDesire(final, GetCurrentTask());
-		PushTask(final->id, final->desire, final->data, final->time, final->resume); // push the final behavior in our task stack to carry out
+		taskFinal = MaxDesire(taskFinal, GetCurrentTask());
+		PushTask(taskFinal->id, taskFinal->desire, taskFinal->data, taskFinal->time, taskFinal->resume); // push the final behavior in our task stack to carry out
 	}
 }
 
@@ -1830,7 +1809,7 @@ void Bot::PushTask(const BotTask id, const float desire, const int data, const f
 		}
 	}
 
-	static TaskItem item;
+	TaskItem item;
 	item.id = id;
 	item.desire = desire;
 	item.data = data;
@@ -1855,7 +1834,7 @@ inline TaskItem* Bot::GetCurrentTask(void)
 	{
 		m_tasks.Destroy();
 
-		static TaskItem task;
+		TaskItem task;
 		task.id = TASK_NORMAL;
 		task.desire = TASKPRI_NORMAL;
 		task.data = -1;
@@ -1880,7 +1859,7 @@ void Bot::RemoveCertainTask(const BotTask id)
 		return;
 	}
 
-	static uint16_t i;
+	int16_t i;
 	for (i = 0; i < m_tasks.Size(); i++)
 	{
 		if (m_tasks[i].id == id)
@@ -1900,34 +1879,31 @@ void Bot::TaskComplete(void)
 	} while (!m_tasks.IsEmpty() && !m_tasks.Last().resume);
 }
 
-inline BotTask Bot::GetCurrentTaskID(void)
+BotTask Bot::GetCurrentTaskID(void)
 {
-	static TaskItem* task;
-	task = GetCurrentTask();
-	if (task == nullptr)
+	taskFinal = GetCurrentTask();
+	if (taskFinal == nullptr)
 		return BotTask(-1);
 
-	return task->id;
+	return taskFinal->id;
 }
 
-inline int Bot::GetCurrentGoalID(void)
+int Bot::GetCurrentGoalID(void)
 {
-	static TaskItem* task;
-	task = GetCurrentTask();
-	if (task == nullptr)
+	taskFinal = GetCurrentTask();
+	if (taskFinal == nullptr)
 		return -1;
 
-	return task->data;
+	return taskFinal->data;
 }
 
-inline float Bot::GetCurrentTaskTime(void)
+float Bot::GetCurrentTaskTime(void)
 {
-	static TaskItem* task;
-	task = GetCurrentTask();
-	if (task == nullptr)
+	taskFinal = GetCurrentTask();
+	if (taskFinal == nullptr)
 		return -1.0f;
 
-	return task->time;
+	return taskFinal->time;
 }
 
 void Bot::CheckGrenadeThrow(void)
@@ -2208,11 +2184,10 @@ bool Bot::ReactOnEnemy(void)
 					{
 						if (enemyDistance < escapeDist)
 						{
-							int j;
-							Path* enemyWaypoint;
+							int8_t j;
+							Path* enemyWaypoint = g_waypoint->GetPath(enemyIndex);
 							for (j = 0; j < Const_MaxPathIndex; j++)
 							{
-								enemyWaypoint = g_waypoint->GetPath(enemyIndex);
 								if (enemyWaypoint->index[j] != -1 && enemyWaypoint->index[j] == ownIndex && !(enemyWaypoint->connectionFlags[j] & PATHFLAG_JUMP))
 								{
 									m_isEnemyReachable = true;
@@ -2892,7 +2867,6 @@ void Bot::CheckRadioCommands(void)
 					DeleteSearchNodes();
 					m_campposition = g_waypoint->GetPath(index)->origin;
 					PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + 9999.0f, true);
-					m_campButtons |= IN_DUCK;
 				}
 			}
 		}
@@ -3546,7 +3520,6 @@ void Bot::TaskNormal(void)
 
 					if (campingAllowed)
 					{
-						m_campButtons = IN_DUCK;
 						SelectBestWeapon();
 
 						if (!m_reloadState)
@@ -3557,7 +3530,6 @@ void Bot::TaskNormal(void)
 						m_timeCamping = engine->GetTime() + crandomfloat(g_skillTab[m_skill / 20].campStartDelay, g_skillTab[m_skill / 20].campEndDelay);
 						PushTask(TASK_CAMP, TASKPRI_CAMP, -1, m_timeCamping, true);
 						m_aimFlags |= AIM_CAMP;
-						m_campDirection = 0;
 
 						// tell the world we're camping
 						if (chanceof(90))
@@ -3583,7 +3555,6 @@ void Bot::TaskNormal(void)
 						{
 							m_campposition = g_waypoint->GetPath(index)->origin;
 							PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + ebot_camp_max.GetFloat(), true);
-							m_campButtons |= IN_DUCK;
 						}
 					}
 				}
@@ -3635,7 +3606,6 @@ void Bot::TaskNormal(void)
 						{
 							m_campposition = g_waypoint->GetPath(index)->origin;
 							PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, engine->GetTime() + ebot_camp_max.GetFloat(), true); // push camp task on to stack
-							m_campButtons |= IN_DUCK;
 						}
 					}
 				}
@@ -3797,8 +3767,6 @@ void Bot::RunTask(void)
 			m_aimFlags |= AIM_OVERRIDE;
 			m_wantsToFire = true;
 		}
-		else
-			pev->button |= m_campButtons;
 
 		// stop camping if time over or gets hurt by something else than bullets
 		if (GetCurrentTaskTime() < engine->GetTime())
@@ -4025,8 +3993,8 @@ void Bot::RunTask(void)
 
 		GetValidWaypoint();
 
-		// press remembered crouch button
-		pev->button |= IsZombieMode() ? m_campButtons : IN_DUCK;
+		if (m_waypoint.flags & WAYPOINT_CROUCH)
+			pev->button |= IN_DUCK;
 
 		// stop camping if time over or gets hurt by something else than bullets
 		if (GetCurrentTaskTime() < engine->GetTime())
@@ -4065,8 +4033,6 @@ void Bot::RunTask(void)
 			if (!(m_waypoint.flags & WAYPOINT_CAMP))
 			{
 				TaskComplete();
-
-				m_campButtons = 0;
 				m_prevGoalIndex = -1;
 
 				if (!FNullEnt(m_enemy) || m_seeEnemyTime + 2.0f > engine->GetTime())
@@ -4078,8 +4044,6 @@ void Bot::RunTask(void)
 		else if (m_lastEnemyOrigin == nullvec) // If we don't have an enemy we're also free to leave
 		{
 			TaskComplete();
-
-			m_campButtons = 0;
 			m_prevGoalIndex = -1;
 
 			if (GetCurrentTaskID() == TASK_HIDE)
@@ -4088,9 +4052,7 @@ void Bot::RunTask(void)
 			break;
 		}
 
-		pev->button |= m_campButtons;
 		m_navTimeset = engine->GetTime();
-
 		if (GetCurrentTaskTime() < engine->GetTime())
 		{
 			if (m_isReloading && (!FNullEnt(m_enemy) || !FNullEnt(m_lastEnemy)) && m_skill > 70)
@@ -4182,7 +4144,6 @@ void Bot::RunTask(void)
 				{
 					m_campposition = g_waypoint->GetPath(index)->origin; // required for this task
 					PushTask(TASK_GOINGFORCAMP, TASKPRI_GOINGFORCAMP, index, halfTimer, true);
-					m_campButtons |= IN_DUCK;
 				}
 			}
 		}
@@ -4534,8 +4495,6 @@ void Bot::RunTask(void)
 					pev->button |= IN_ATTACK;
 			}
 		}
-
-		pev->button |= m_campButtons;
 		break;
 	}
 	case TASK_THROWFBGRENADE:
@@ -4635,8 +4594,6 @@ void Bot::RunTask(void)
 					pev->button |= IN_ATTACK;
 			}
 		}
-
-		pev->button |= m_campButtons;
 		break;
 	}
 	case TASK_THROWSMGRENADE:
@@ -4723,8 +4680,6 @@ void Bot::RunTask(void)
 			else if (!(pev->oldbuttons & IN_ATTACK))
 				pev->button |= IN_ATTACK;
 		}
-
-		pev->button |= m_campButtons;
 		break;
 	}
 	case TASK_THROWFLARE:
@@ -4797,8 +4752,6 @@ void Bot::RunTask(void)
 					pev->button |= IN_ATTACK;
 			}
 		}
-
-		pev->button |= m_campButtons;
 		break;
 	}
 	case TASK_DOUBLEJUMP:
@@ -4947,7 +4900,7 @@ void Bot::RunTask(void)
 		else
 			SelectBestWeapon();
 
-		if (pev->origin.z > m_breakable.z)
+		if (m_currentWeapon == WEAPON_KNIFE && pev->origin.z > m_breakable.z)
 			pev->button |= IN_DUCK;
 		else if (!IsVisible(m_breakable, GetEntity()))
 			pev->button |= IN_DUCK;
@@ -6017,10 +5970,7 @@ void Bot::BotAI(void)
 	}
 
 	if (OnLadderNoDuck)
-	{
-		m_campButtons &= ~IN_DUCK;
 		pev->button &= ~IN_DUCK;
-	}
 	else if (m_duckTime > engine->GetTime())
 		pev->button |= IN_DUCK;
 
