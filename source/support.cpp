@@ -744,7 +744,7 @@ void AutoLoadGameMode(void)
 	}
 	else
 	{
-		auto zpCvar = g_engfuncs.pfnCVarGetPointer("zp_delay");
+		cvar_t* zpCvar = g_engfuncs.pfnCVarGetPointer("zp_delay");
 		if (zpCvar == nullptr)
 			zpCvar = g_engfuncs.pfnCVarGetPointer("zp_gamemode_delay");
 
@@ -773,8 +773,8 @@ void AutoLoadGameMode(void)
 	}
 
 	// Base Builder
-	const auto bbCvar = g_engfuncs.pfnCVarGetPointer("bb_buildtime");
-	const auto bbCvar2 = g_engfuncs.pfnCVarGetPointer("bb_preptime");
+	const cvar_t* bbCvar = g_engfuncs.pfnCVarGetPointer("bb_buildtime");
+	const cvar_t* bbCvar2 = g_engfuncs.pfnCVarGetPointer("bb_preptime");
 	if (bbCvar != nullptr && bbCvar2 != nullptr)
 	{
 		if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
@@ -814,7 +814,7 @@ void AutoLoadGameMode(void)
 	}
 
 	// Zombie Hell
-	const auto zhCvar = g_engfuncs.pfnCVarGetPointer("zh_zombie_maxslots");
+	const cvar_t* zhCvar = g_engfuncs.pfnCVarGetPointer("zh_zombie_maxslots");
 	if (zhCvar != nullptr && zhCvar->value > 0.0f)
 	{
 		if (checkShowTextTime < 3 || GetGameMode() != MODE_ZH)
@@ -828,7 +828,7 @@ void AutoLoadGameMode(void)
 		return;
 	}
 
-	const auto bhCvar = g_engfuncs.pfnCVarGetPointer("bh_starttime");
+	const cvar_t* bhCvar = g_engfuncs.pfnCVarGetPointer("bh_starttime");
 	if (bhCvar != nullptr)
 	{
 		if (checkShowTextTime < 3 || GetGameMode() != MODE_ZP)
@@ -844,10 +844,10 @@ void AutoLoadGameMode(void)
 		return;
 	}
 
-	const auto dmActive = g_engfuncs.pfnCVarGetPointer("csdm_active");
+	const cvar_t* dmActive = g_engfuncs.pfnCVarGetPointer("csdm_active");
 	if (dmActive != nullptr && dmActive->value > 0.0f)
 	{
-		const auto freeForAll = g_engfuncs.pfnCVarGetPointer("mp_freeforall");
+		const cvar_t* freeForAll = g_engfuncs.pfnCVarGetPointer("mp_freeforall");
 		if (freeForAll != nullptr && freeForAll->value > 0.0f)
 		{
 			if (checkShowTextTime < 3 || GetGameMode() != MODE_DM)

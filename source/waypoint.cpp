@@ -1649,7 +1649,7 @@ bool Waypoint::Download(void)
         if (pURLDownloadToFile != nullptr)
         {
             ServerPrint("UrlMon loaded successfully");
-            if (SUCCEEDED(pURLDownloadToFile(nullptr, FormatBuffer("%s/%s.ewp", ebot_download_waypoints_from.GetString(), GetMapName()), (char*)CheckSubfolderFile(), 0, nullptr)))
+            if (SUCCEEDED(pURLDownloadToFile(nullptr, FormatBuffer("%s/%s.ewp", ebot_download_waypoints_from.GetString(), GetMapName()), FormatBuffer("%s/%s.ewp", GetWaypointDir(), GetMapName()), 0, nullptr)))
             {
                 ServerPrint("UrlMon downloaded successfully");
                 FreeLibrary(hUrlMon);
