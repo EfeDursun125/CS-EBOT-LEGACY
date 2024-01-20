@@ -26,8 +26,8 @@
 
 ConVar ebot_escape("ebot_zombie_escape_mode", "0");
 ConVar ebot_zp_use_grenade_percent("ebot_zm_use_grenade_percent", "10");
-ConVar ebot_zp_escape_distance("ebot_zm_escape_distance", "280");
-ConVar ebot_zombie_speed_factor("ebot_zombie_speed_factor", "0.24");
+ConVar ebot_zp_escape_distance("ebot_zm_escape_distance", "300");
+ConVar ebot_zombie_speed_factor("ebot_zombie_speed_factor", "0.3");
 
 int Bot::GetNearbyFriendsNearPosition(const Vector& origin, const float& radius)
 {
