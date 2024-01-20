@@ -870,10 +870,8 @@ private:
 	int GetMessageQueue(void);
 	bool GoalIsValid(void);
 	float InFieldOfView(const Vector dest);
-
 	bool IsBombDefusing(const Vector bombOrigin);
 	bool IsWaypointOccupied(const int index);
-
 	bool IsNotAttackLab(edict_t* entity);
 
 	inline bool IsOnLadder(void) { return pev->movetype == MOVETYPE_FLY; }
@@ -884,6 +882,7 @@ private:
 
 	bool ItemIsVisible(const Vector dest, char* itemName);
 	bool IsBehindSmokeClouds(edict_t* ent);
+	edict_t* FindSmokeGrenadeThere(const Vector origin, const float maxDistance);
 	void TaskNormal(void);
 	void RunTask(void);
 	void ApplyTaskFilters(void);
