@@ -347,7 +347,7 @@ enum MapType : int16_t
 };
 
 // defines for waypoint flags field (32 bits are available)
-enum WaypointFlag
+enum WaypointFlag : uint32_t
 {
 	WAYPOINT_LIFT = (1 << 1), // wait for lift to be down before approaching this waypoint
 	WAYPOINT_CROUCH = (1 << 2), // must crouch to reach this waypoint
@@ -357,7 +357,7 @@ enum WaypointFlag
 	WAYPOINT_RESCUE = (1 << 6), // waypoint is a hostage rescue point
 	WAYPOINT_CAMP = (1 << 7), // waypoint is a camping point
 	WAYPOINT_DJUMP = (1 << 9), // bot help's another bot (requster) to get somewhere (using djump)
-	WAYPOINT_ZMHMCAMP = (1 << 10), // bots will camp at this waypoint
+	WAYPOINT_OLDZMHMCAMP = (1 << 10), // fix randomly placed human camp waypoints
 	WAYPOINT_AVOID = (1 << 11), // bots will avoid these waypoints mostly
 	WAYPOINT_USEBUTTON = (1 << 12), // bots will use button
 	WAYPOINT_HMCAMPMESH = (1 << 13), // human camp mesh
@@ -368,6 +368,7 @@ enum WaypointFlag
 	WAYPOINT_SPECIFICGRAVITY = (1 << 18), // specific jump gravity check for bot
 	WAYPOINT_ONLYONE = (1 << 19), // to avoid multiple bots stuck on same waypoint
 	WAYPOINT_WAITUNTIL = (1 << 20), // inverse fall check
+	WAYPOINT_ZMHMCAMP = (1 << 25), // bots will camp at this waypoint
 	WAYPOINT_FALLCHECK = (1 << 26), // bots will check ground
 	WAYPOINT_JUMP = (1 << 27), // for jump points
 	WAYPOINT_SNIPER = (1 << 28), // it's a specific sniper point
@@ -406,7 +407,7 @@ enum GameMode : int8_t
 
 // bot known file 
 #define FH_WAYPOINT_NEW "EBOTWP!"
-#define FV_WAYPOINT 127
+#define FV_WAYPOINT 128
 
 // some hardcoded desire defines used to override calculated ones
 #define TASKPRI_NORMAL 35.0f
@@ -815,7 +816,6 @@ private:
 	bool m_moveToGoal; // bot currently moving to goal??
 	float m_playerTargetTime; // time last targeting
 
-	float m_checkCampPointTime; // zombie stuff
 	int m_zhCampPointIndex; // zombie camp index
 	int m_myMeshWaypoint; // human mesh index
 
@@ -837,9 +837,7 @@ private:
 	void CheckBurstMode(const float distance);
 
 	int CheckMaxClip(const int weaponId, int* weaponIndex);
-
 	void ZombieModeAi(void);
-	void ZmCampPointAction(const int mode = 0);
 
 	void CheckSilencer(void);
 	bool CheckWallOnBehind(void);
@@ -940,9 +938,8 @@ private:
 	float GetEstimatedReachTime(void);
 
 	int GetCampAimingWaypoint(void);
-	void FindPath(int& srcIndex, int& destIndex);
-	void FindPathThread(int& srcIndex, int& destIndex);
-	void FindShortestPath(int& srcIndex, int& destIndex);
+	void FindPath(int srcIndex, int destIndex);
+	void FindShortestPath(int srcIndex, int destIndex);
 	void SecondThink(void);
 	void CalculatePing(void);
 public:
@@ -956,7 +953,6 @@ public:
 
 	int8_t m_skill; // bots play skill
 	uint16_t m_moneyAmount; // amount of money in bot's bank
-
 	Personality m_personality;
 	float m_spawnTime; // time this bot spawned
 
@@ -1030,7 +1026,6 @@ public:
 
 	edict_t* m_enemy; // pointer to enemy entity
 	float m_enemyUpdateTime; // time to check for new enemies
-	float m_enemyReachableTimer; // time to recheck if Enemy reachable
 	bool m_isEnemyReachable; // direct line to enemy
 
 	edict_t* m_moveTargetEntity; // target entity for move
@@ -1054,7 +1049,6 @@ public:
 
 	float m_timeNextTracking; // time waypoint index for tracking player is recalculated
 	float m_firePause; // time to pause firing
-	float m_shootTime; // time to shoot
 	float m_weaponSelectDelay; // delay for reload
 
 	int8_t m_currentWeapon; // one current weapon for each bot
@@ -1253,9 +1247,9 @@ public:
 	int GetFacingIndex(void);
 	int FindFarest(const Vector& origin, const float maxDistance = 99999.0f);
 	int FindNearestInCircle(const Vector& origin, const float maxDistance = 99999.0f);
-	int FindNearest(const Vector origin, const float minDistance = 99999.0f, const int flags = -1, edict_t* entity = nullptr, int* findWaypointPoint = (int*)-2, const int mode = -1);
-	void FindInRadius(const Vector origin, const float radius, int* holdTab, int* count);
-	void FindInRadius(MiniArray <int>& queueID, const float radius, const Vector origin);
+	int FindNearest(const Vector& origin, const float minDistance = 99999.0f, const int flags = -1, edict_t* entity = nullptr, int* findWaypointPoint = (int*)-2, const int mode = -1);
+	void FindInRadius(const Vector& origin, const float radius, int* holdTab, int* count);
+	void FindInRadius(MiniArray <int>& queueID, const float radius, const Vector& origin);
 
 	void ChangeZBCampPoint(const Vector origin);
 	bool IsZBCampPoint(const int pointID, const bool checkMesh = true);

@@ -340,9 +340,7 @@ public:
     // Parameters:
     //	  scaler - Value for axises.
     //
-    inline Vector(float scaler = 0.0f) : x(scaler), y(scaler), z(scaler)
-    {
-    }
+    inline Vector(const float scaler = 0.0f) : x(scaler), y(scaler), z(scaler) {}
 
     //
     // Function: Vector
@@ -354,9 +352,7 @@ public:
     //	  inputY - Input Y axis.
     //	  inputZ - Input Z axis.
     //
-    inline Vector(float inputX, float inputY, float inputZ) : x(inputX), y(inputY), z(inputZ)
-    {
-    }
+    inline Vector(const float inputX, const float inputY, const float inputZ) : x(inputX), y(inputY), z(inputZ) {}
 
     //
     // Function: Vector
@@ -366,9 +362,7 @@ public:
     // Parameters:
     //	  other - Float pointer.
     //
-    inline Vector(float* other) : x(other[0]), y(other[1]), z(other[2])
-    {
-    }
+    inline Vector(float* other) : x(other[0]), y(other[1]), z(other[2]) {}
 
     //
     // Function: Vector
@@ -378,9 +372,8 @@ public:
     // Parameters:
     //   right - Other Vector, that should be assigned.
     //
-    inline Vector(const Vector& right) : x(right.x), y(right.y), z(right.z)
-    {
-    }
+    inline Vector(const Vector& right) : x(right.x), y(right.y), z(right.z) {}
+
     //
     // Group: Operators.
     //
@@ -405,12 +398,12 @@ public:
         return (&x)[index];
     }
 
-    inline const Vector operator + (const Vector& right) const
+    inline const Vector operator + (const Vector right) const
     {
         return Vector(x + right.x, y + right.y, z + right.z);
     }
 
-    inline const Vector operator - (const Vector& right) const
+    inline const Vector operator - (const Vector right) const
     {
         return Vector(x - right.x, y - right.y, z - right.z);
     }
@@ -420,76 +413,71 @@ public:
         return Vector(-x, -y, -z);
     }
 
-    friend inline const Vector operator * (const float vec, const Vector& right)
+    friend inline const Vector operator * (const float vec, const Vector right)
     {
         return Vector(right.x * vec, right.y * vec, right.z * vec);
     }
 
-    inline const Vector operator * (float vec) const
+    inline const Vector operator * (const float vec) const
     {
         return Vector(vec * x, vec * y, vec * z);
     }
 
-    inline const Vector operator / (float vec) const
+    inline const Vector operator / (const float vec) const
     {
         const float inv = 1.0f / vec;
         return Vector(inv * x, inv * y, inv * z);
     }
 
-    inline const Vector operator ^ (const Vector& right) const
+    inline const Vector operator ^ (const Vector right) const
     {
         return Vector(y * right.z - z * right.y, z * right.x - x * right.z, x * right.y - y * right.x);
     }
 
-    inline float operator | (const Vector& right) const
+    inline float operator | (const Vector right) const
     {
         return x * right.x + y * right.y + z * right.z;
     }
 
-    inline const Vector& operator += (const Vector& right)
+    inline const Vector& operator += (const Vector right)
     {
         x += right.x;
         y += right.y;
         z += right.z;
-
         return *this;
     }
 
-    inline const Vector& operator -= (const Vector& right)
+    inline const Vector& operator -= (const Vector right)
     {
         x -= right.x;
         y -= right.y;
         z -= right.z;
-
         return *this;
     }
 
-    inline const Vector& operator *= (float vec)
+    inline const Vector& operator *= (const float vec)
     {
         x *= vec;
         y *= vec;
         z *= vec;
-
         return *this;
     }
 
-    inline const Vector& operator /= (float vec)
+    inline const Vector& operator /= (const float vec)
     {
         const float inv = 1.0f / vec;
-
         x *= inv;
         y *= inv;
         z *= inv;
-
         return *this;
     }
 
-    inline bool operator == (const Vector& right) const
+    inline bool operator == (const Vector right) const
     {
         return Math::FltEqual(x, right.x) && Math::FltEqual(y, right.y) && Math::FltEqual(z, right.z);
     }
 
-    inline bool operator != (const Vector& right) const
+    inline bool operator != (const Vector right) const
     {
         return !Math::FltEqual(x, right.x) && !Math::FltEqual(y, right.y) && !Math::FltEqual(z, right.z);
     }
@@ -499,9 +487,9 @@ public:
         x = right.x;
         y = right.y;
         z = right.z;
-
         return *this;
     }
+
     //
     // Group: Functions.
     //
@@ -610,23 +598,6 @@ public:
     {
         const float length = crsqrtf(x * x + y * y);
         return Vector(x * length, y * length, 0.0f);
-    }
-
-    inline float NormalizeInPlace()
-    {
-        float flLen = GetLength();
-        if (flLen > 0.0)
-        {
-            x = (1 / flLen * x);
-            y = (1 / flLen * y);
-        }
-        else
-        {
-            x = 1.0;
-            y = 0.0;
-        }
-
-        return flLen;
     }
 
     //

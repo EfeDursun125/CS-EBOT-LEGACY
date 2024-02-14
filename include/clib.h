@@ -757,7 +757,7 @@ inline T* safeloc(const size_t size)
 	T* any = nullptr;
 	while (any == nullptr)
 	{
-		any = new T[size];
+		any = new(std::nothrow) T[size];
 		if (any != nullptr)
 			break;
 	}
@@ -771,7 +771,7 @@ inline void safeloc(T*& any, const size_t size)
 {
 	while (any == nullptr)
 	{
-		any = new T[size];
+		any = new(std::nothrow) T[size];
 		if (any != nullptr)
 			break;
 	}
@@ -785,7 +785,7 @@ inline void safereloc(T*& any, const size_t oldSize, const size_t newSize)
 		T* new_array = nullptr;
 		while (new_array == nullptr)
 		{
-			new_array = new T[newSize];
+			new_array = new(std::nothrow) T[newSize];
 			if (new_array != nullptr)
 				break;
 		}
@@ -808,7 +808,7 @@ inline void safereloc(T*& any, const size_t oldSize, const size_t newSize)
 	{
 		while (any == nullptr)
 		{
-			any = new T[newSize];
+			any = new(std::nothrow) T[newSize];
 			if (any != nullptr)
 				break;
 		}
