@@ -932,7 +932,7 @@ Bot::Bot(edict_t* bot, const int skill, const int personality, const int team, c
 	m_pushMessageIndex = 0;
 
 	// init path
-	m_navNode.Init(static_cast<uint16_t>((g_numWaypoints / 2) + 2));
+	m_navNode.Init(cmax(128, (g_numWaypoints / 2) + 32));
 
 	// assign team and class
 	m_wantedTeam = team;
@@ -1063,7 +1063,6 @@ void Bot::NewRound(void)
 	m_reloadState = RSTATE_NONE;
 
 	m_reloadCheckTime = 0.0f;
-	m_shootTime = engine->GetTime();
 	m_playerTargetTime = engine->GetTime();
 	m_firePause = 0.0f;
 
@@ -1082,7 +1081,6 @@ void Bot::NewRound(void)
 
 	m_damageTime = 0.0f;
 	m_zhCampPointIndex = -1;
-	m_checkCampPointTime = 0.0f;
 
 	if (!IsAlive(GetEntity())) // if bot died, clear all weapon stuff and force buying again
 	{

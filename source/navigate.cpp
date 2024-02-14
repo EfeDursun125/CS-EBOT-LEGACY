@@ -57,7 +57,7 @@ int Bot::FindGoal(void)
 			return m_chosenGoalIndex = m_zhCampPointIndex;
 
 		if (!g_waypoint->m_zmHmPoints.IsEmpty())
-			return m_chosenGoalIndex = g_waypoint->m_zmHmPoints.Random();
+			return m_chosenGoalIndex = m_zhCampPointIndex = g_waypoint->m_zmHmPoints.Random();
 
 		return m_chosenGoalIndex = crandomint(0, g_numWaypoints - 1);
 	}
@@ -283,17 +283,17 @@ int Bot::FindGoal(void)
 
 bool Bot::GoalIsValid(void)
 {
+	if (m_navNode.IsEmpty()) // no path calculated
+		return false;
+
 	const int goal = GetCurrentGoalID();
 	if (!IsValidWaypoint(goal)) // not decided about a goal
 		return false;
 
-	if (goal == m_currentWaypointIndex) // no nodes needed
+	if (goal == m_navNode.First()) // no nodes needed
 		return true;
 
-	if (m_navNode.IsEmpty()) // no path calculated
-		return false;
-
-	if (goal == m_navNode.Last())
+	if (!m_isZombieBot || goal == m_navNode.Last())
 		return true;
 
 	return false;
@@ -390,11 +390,10 @@ bool Bot::DoWaypointNav(void)
 						waypointOrigin = walkableOrigin;
 				}
 
-				const float heightDifference = waypointOrigin.z - myOrigin.z;
 				const float timeToReachWaypoint = csqrtf(squaredf(waypointOrigin.x - myOrigin.x) + squaredf(waypointOrigin.y - myOrigin.y) + squaredf(waypointOrigin.z - myOrigin.z)) / pev->maxspeed;
 				pev->velocity.x = (waypointOrigin.x - myOrigin.x) / timeToReachWaypoint;
 				pev->velocity.y = (waypointOrigin.y - myOrigin.y) / timeToReachWaypoint;
-				pev->velocity.z = (heightDifference * pev->gravity * squaredf(timeToReachWaypoint)) / timeToReachWaypoint;
+				pev->velocity.z = ((waypointOrigin.z - myOrigin.z) * pev->gravity * squaredf(timeToReachWaypoint)) / timeToReachWaypoint;
 			}
 		};
 
@@ -496,7 +495,7 @@ bool Bot::DoWaypointNav(void)
 		// we're not at the end of the list?
 		if (!m_navNode.IsEmpty())
 		{
-			const int destIndex = m_navNode.First();
+			const int16_t destIndex = m_navNode.First();
 
 			// find out about connection flags
 			int8_t i;
@@ -545,7 +544,7 @@ private:
 PriorityQueue::PriorityQueue(void)
 {
 	m_size = 0;
-	m_heapSize = static_cast<int16_t>((g_numWaypoints / 2) + 2);
+	m_heapSize = static_cast<int16_t>(cmax(128, (g_numWaypoints / 2) + 32));
 	m_heap = static_cast<HeapNode*>(malloc(sizeof(HeapNode) * m_heapSize));
 }
 
@@ -563,12 +562,12 @@ void PriorityQueue::InsertLowest(const int16_t value, const float priority)
 {
 	if (m_size >= m_heapSize)
 	{
-		m_heapSize += static_cast<int16_t>(50);
+		m_heapSize += static_cast<int16_t>(200);
 		if (m_heap == nullptr)
 			m_heap = static_cast<HeapNode*>(malloc(sizeof(HeapNode) * m_heapSize));
 		else
 		{
-			HeapNode* hp = static_cast<HeapNode*>(realloc(m_heap, m_size));
+			HeapNode* hp = static_cast<HeapNode*>(realloc(m_heap, sizeof(HeapNode) * m_heapSize));
 			m_heap = hp;
 			hp = nullptr;
 		}
@@ -737,7 +736,7 @@ inline const float HF_DistanceSquared(const int16_t& start, const int16_t& goal)
 
 static Path pathCache;
 static int8_t countCache;
-inline const float GF_CostHuman(const int16_t& index, const int16_t& parent, const int32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
+inline const float GF_CostHuman(const int16_t& index, const int16_t& parent, const uint32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
 {
 	if (!parentFlags)
 		return HF_Distance2D(index, parent);
@@ -794,7 +793,7 @@ inline const float GF_CostHuman(const int16_t& index, const int16_t& parent, con
 	return HF_Distance(index, parent);
 }
 
-inline const float GF_CostCareful(const int16_t& index, const int16_t& parent, const int32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
+inline const float GF_CostCareful(const int16_t& index, const int16_t& parent, const uint32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
 {
 	if (!parentFlags)
 		return HF_Distance2D(index, parent);
@@ -857,7 +856,7 @@ inline const float GF_CostCareful(const int16_t& index, const int16_t& parent, c
 	return HF_Distance2D(index, parent);
 }
 
-inline const float GF_CostNormal(const int16_t& index, const int16_t& parent, const int32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
+inline const float GF_CostNormal(const int16_t& index, const int16_t& parent, const uint32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
 {
 	if (!parentFlags)
 		return HF_Distance(index, parent);
@@ -923,7 +922,7 @@ inline const float GF_CostNormal(const int16_t& index, const int16_t& parent, co
 	return HF_Distance(index, parent);
 }
 
-inline const float GF_CostRusher(const int16_t& index, const int16_t& parent, const int32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
+inline const float GF_CostRusher(const int16_t& index, const int16_t& parent, const uint32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
 {
 	if (!parentFlags)
 		return HF_Distance(index, parent);
@@ -968,7 +967,7 @@ inline const float GF_CostRusher(const int16_t& index, const int16_t& parent, co
 	return HF_Distance(index, parent);
 }
 
-inline const float GF_CostNoHostage(const int16_t& index, const int16_t& parent, const int32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
+inline const float GF_CostNoHostage(const int16_t& index, const int16_t& parent, const uint32_t& parentFlags, const int8_t& team, const float& gravity, const bool& isZombie)
 {
 	if (parentFlags & WAYPOINT_CROUCH)
 		return 65355.0f;
@@ -992,7 +991,7 @@ inline const float GF_CostNoHostage(const int16_t& index, const int16_t& parent,
 }
 
 // this function finds a path from srcIndex to destIndex
-void Bot::FindPath(int& srcIndex, int& destIndex)
+void Bot::FindPath(int srcIndex, int destIndex)
 {
 	if (g_pathTimer > engine->GetTime() && !m_navNode.IsEmpty())
 		return;
@@ -1023,13 +1022,9 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 		return;
 
 	if (srcIndex == destIndex)
-	{
-		DeleteSearchNodes();
-		m_navNode.Add(destIndex);
 		return;
-	}
 
-	const float (*gcalc) (const int16_t&, const int16_t&, const int32_t&, const int8_t&, const float&, const bool&) = nullptr;
+	const float (*gcalc) (const int16_t&, const int16_t&, const uint32_t&, const int8_t&, const float&, const bool&) = nullptr;
 
 	if (IsZombieMode() && ebot_zombies_as_path_cost.GetBool() && !m_isZombieBot)
 		gcalc = GF_CostHuman;
@@ -1088,11 +1083,8 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 	AStar* currWaypoint;
 	AStar* childWaypoint;
 	int16_t currentIndex, self;
-	int32_t flags;
+	uint32_t flags;
 	float g, f;
-
-	// do not allow to search whole map
-	const int16_t limit = static_cast<int16_t>((g_numWaypoints / 2) + 2);
 
 	PriorityQueue openList;
 	openList.InsertLowest(srcIndex, srcWaypoint.f);
@@ -1104,7 +1096,7 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 			break;
 
 		// is the current waypoint the goal waypoint?
-		if (currentIndex == destIndex || openList.Size() > limit)
+		if (currentIndex == destIndex)
 		{
 			// delete path for new one
 			DeleteSearchNodes();
@@ -1122,8 +1114,8 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 			ChangeWptIndex(m_navNode.First());
 			m_destOrigin = m_waypointOrigin;
 			m_jumpFinished = false;
-			g_pathTimer = engine->GetTime() + 0.25f;
 			IgnoreCollisionShortly();
+			g_pathTimer = engine->GetTime() + 0.25f;
 			return;
 		}
 
@@ -1185,15 +1177,14 @@ void Bot::FindPath(int& srcIndex, int& destIndex)
 
 	if (!PossiblePath.IsEmpty())
 	{
-		int ref = PossiblePath.Random();
-		FindShortestPath(srcIndex, ref);
+		FindShortestPath(srcIndex, PossiblePath.Random());
 		return;
 	}
 
 	FindShortestPath(srcIndex, destIndex);
 }
 
-void Bot::FindShortestPath(int& srcIndex, int& destIndex)
+void Bot::FindShortestPath(int srcIndex, int destIndex)
 {
 	int16_t i;
 	if (!IsValidWaypoint(srcIndex))
@@ -1215,11 +1206,7 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 		return;
 
 	if (srcIndex == destIndex)
-	{
-		DeleteSearchNodes();
-		m_navNode.Add(destIndex);
 		return;
-	}
 
 	struct AStar
 	{
@@ -1244,11 +1231,8 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 	AStar* currWaypoint;
 	AStar* childWaypoint;
 	int16_t currentIndex, self;
-	int32_t flags;
+	uint32_t flags;
 	float f;
-
-	// do not allow to search whole map
-	const int16_t limit = static_cast<int16_t>((g_numWaypoints / 2) + 2);
 
 	PriorityQueue openList;
 	openList.InsertLowest(srcIndex, srcWaypoint.f);
@@ -1260,7 +1244,7 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 			break;
 
 		// is the current waypoint the goal waypoint?
-		if (currentIndex == destIndex || openList.Size() > limit)
+		if (currentIndex == destIndex)
 		{
 			// delete path for new one
 			DeleteSearchNodes();
@@ -1278,8 +1262,8 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 			ChangeWptIndex(m_navNode.First());
 			m_destOrigin = m_waypointOrigin;
 			m_jumpFinished = false;
-			g_pathTimer = engine->GetTime() + 0.25f;
 			IgnoreCollisionShortly();
+			g_pathTimer = engine->GetTime() + 0.25f;
 			return;
 		}
 
@@ -1330,7 +1314,8 @@ void Bot::FindShortestPath(int& srcIndex, int& destIndex)
 
 void Bot::DeleteSearchNodes(void)
 {
-	m_navNode.Clear();
+	if (!IsZombieMode() || !GoalIsValid())
+		m_navNode.Clear();
 }
 
 void Bot::CheckTouchEntity(edict_t* entity)

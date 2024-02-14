@@ -796,7 +796,7 @@ void InitConfig(void)
 			while (fp.GetBuffer(line, 255))
 			{
 				SKIP_COMMENTS();
-				cstrcpy(command, GetField(line, 0, 1));
+				cstrncpy(command, GetField(line, 0, 1), sizeof(command));
 
 				if (cstrcmp(command, "[KILLED]") == 0)
 				{

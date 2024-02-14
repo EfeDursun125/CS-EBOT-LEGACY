@@ -26,8 +26,6 @@
 
 ConVar ebot_escape("ebot_zombie_escape_mode", "0");
 ConVar ebot_zp_use_grenade_percent("ebot_zm_use_grenade_percent", "10");
-ConVar ebot_zp_escape_distance("ebot_zm_escape_distance", "300");
-ConVar ebot_zombie_speed_factor("ebot_zombie_speed_factor", "0.3");
 
 int Bot::GetNearbyFriendsNearPosition(const Vector& origin, const float& radius)
 {
@@ -534,7 +532,7 @@ void Bot::FireWeapon(void)
 	// if using grenade stop this
 	if (m_isUsingGrenade)
 	{
-		m_shootTime = engine->GetTime() + 0.25f;
+		m_firePause = engine->GetTime() + 0.25f;
 		return;
 	}
 
@@ -719,19 +717,19 @@ WeaponSelectEnd:
 		}
 
 		if (pev->button & IN_ATTACK)
-			m_shootTime = engine->GetTime();
+			m_firePause = engine->GetTime();
 	}
 	else
 	{
-		if (DoFirePause(distance))
-			return;
-
 		// don't attack with knife over long distance
 		if (m_currentWeapon == melee && selectId == melee)
 		{
 			KnifeAttack();
 			return;
 		}
+
+		if (DoFirePause(distance))
+			return;
 
 		float delayTime = 0.0f;
 		if (selectTab[chosenWeaponIndex].primaryFireHold)
@@ -741,7 +739,9 @@ WeaponSelectEnd:
 		}
 		else
 		{
-			pev->button |= IN_ATTACK;  // use primary attack
+			if (!(pev->oldbuttons & IN_ATTACK))
+				pev->button |= IN_ATTACK;
+
 			const int fireDelay = cclamp(cabs((m_skill / 20) - 5), 0, 6);
 			delayTime = delay[chosenWeaponIndex].primaryBaseDelay + crandomfloat(delay[chosenWeaponIndex].primaryMinDelay[fireDelay], delay[chosenWeaponIndex].primaryMaxDelay[fireDelay]);
 			m_zoomCheckTime = engine->GetTime();
@@ -774,7 +774,7 @@ WeaponSelectEnd:
 			}
 		}
 
-		m_shootTime = engine->GetTime() + delayTime;
+		m_firePause = engine->GetTime() + delayTime;
 	}
 }
 
@@ -928,36 +928,35 @@ void Bot::FocusEnemy(void)
 void Bot::CombatFight(void)
 {
 	// anti crash
-	if (!FNullEnt(m_enemy))
-	{
-		// our enemy can change teams in fun modes
-		if (m_team == GetTeam(m_enemy))
-		{
-			SetEnemy(nullptr);
-			return;
-		}
-
-		// our last enemy can change teams in fun modes
-		if (m_team == GetTeam(m_lastEnemy))
-		{
-			SetLastEnemy(m_enemy);
-			return;
-		}
-	}
-	else
+	if (FNullEnt(m_enemy))
 		return;
+
+	// our enemy can change teams in fun modes
+	if (m_team == GetTeam(m_enemy))
+	{
+		SetEnemy(nullptr);
+		return;
+	}
+
+	// our last enemy can change teams in fun modes
+	if (m_team == GetTeam(m_lastEnemy))
+	{
+		SetLastEnemy(m_enemy);
+		return;
+	}
 
 	if (IsValidWaypoint(m_currentWaypointIndex) && (m_moveSpeed != 0.0f || m_strafeSpeed != 0.0f) && g_waypoint->GetPath(m_currentWaypointIndex)->flags & WAYPOINT_CROUCH)
 		pev->button |= IN_DUCK;
 
 	if (m_isZombieBot) // zombie ai
 	{
+		ReactOnEnemy();
 		DeleteSearchNodes();
 		m_moveSpeed = pev->maxspeed;
 
-		if (m_isSlowThink && !(pev->flags & FL_DUCKING) && crandomint(1, 2) == 1 && !IsOnLadder() && pev->speed >= pev->maxspeed)
+		if (m_isSlowThink && !(pev->flags & FL_DUCKING) && !IsOnLadder() && crandomint(1, 3) == 1 && pev->speed >= pev->maxspeed)
 		{
-			const int random = crandomint(1, 3);
+			const int random = crandomint(1, 4);
 			if (random == 1)
 				pev->button |= IN_JUMP;
 			else if (random == 2)
@@ -966,30 +965,28 @@ void Bot::CombatFight(void)
 		else if (!m_isSlowThink)
 			pev->button |= IN_ATTACK;
 
-		m_destOrigin = m_enemy->v.origin + m_enemy->v.velocity * ebot_zombie_speed_factor.GetFloat();
+		m_destOrigin = m_enemy->v.origin;
 
 		if (!(pev->flags & FL_DUCKING))
 			m_waypointOrigin = m_destOrigin;
 	}
 	else if (IsZombieMode()) // human ai
 	{
-		Vector tempDestOrigin = nullvec;
-		float tempMoveSpeed = -1.0f;
-
 		const bool NPCEnemy = !IsValidPlayer(m_enemy);
 		const bool enemyIsZombie = IsZombieEntity(m_enemy);
-
-		const Vector enemyVel = m_enemy->v.velocity;
-		float baseDistance = ebot_zp_escape_distance.GetFloat() + cabsf(m_enemy->v.speed);
-
-		const Vector myVec = pev->origin + pev->velocity * m_frameInterval;
-
 		if (NPCEnemy || enemyIsZombie)
 		{
+			const Vector enemyVel = m_enemy->v.velocity;
+			bool escape = true;
+			Vector tempDestOrigin = nullvec;
+			float tempMoveSpeed = -1.0f;
+			const Vector myVec = pev->origin + pev->velocity * m_frameInterval;
+
+			ReactOnEnemy();
 			if (m_currentWeapon == WEAPON_KNIFE)
 			{
 				if (!(::IsInViewCone(myVec, m_enemy) && !NPCEnemy))
-					baseDistance = -1.0f;
+					escape = false;
 			}
 
 			const Vector destOrigin = m_enemy->v.origin + enemyVel * m_frameInterval;
@@ -1012,24 +1009,25 @@ void Bot::CombatFight(void)
 				}
 			}
 
-			if (baseDistance > 0.0f && distance < squaredf(baseDistance))
-			{
-				DeleteSearchNodes();
-				m_destOrigin = destOrigin;
+			DeleteSearchNodes();
+			m_destOrigin = destOrigin;
+
+			if (escape)
 				m_moveSpeed = -pev->maxspeed;
+			else
+				m_moveSpeed = pev->maxspeed;
 
-				const Vector directionOld = m_destOrigin - (pev->origin + pev->velocity * m_frameInterval);
-				const Vector directionNormal = directionOld.Normalize2D();
-				SetStrafeSpeed(directionNormal, pev->maxspeed);
+			const Vector directionOld = m_destOrigin - (pev->origin + pev->velocity * m_frameInterval);
+			const Vector directionNormal = directionOld.Normalize2D();
+			SetStrafeSpeed(directionNormal, pev->maxspeed);
 
-				m_moveAngles = directionOld.ToAngles();
+			m_moveAngles = directionOld.ToAngles();
 
-				m_moveAngles.ClampAngles();
-				m_moveAngles.x *= -1.0f; // invert for engine
+			m_moveAngles.ClampAngles();
+			m_moveAngles.x *= -1.0f; // invert for engine
 
-				if (pev->button & IN_DUCK)
-					pev->button &= ~IN_DUCK;
-			}
+			if (pev->button & IN_DUCK)
+				pev->button &= ~IN_DUCK;
 		}
 	}
 	
@@ -1044,7 +1042,7 @@ void Bot::CombatFight(void)
 		{
 			if (m_navNode.IsEmpty())
 			{
-				int nearest = g_waypoint->FindNearest(m_enemy->v.origin, 99999999.0f, -1, m_enemy);
+				const int nearest = g_waypoint->FindNearest(m_enemy->v.origin, 99999999.0f, -1, m_enemy);
 				if (IsValidWaypoint(nearest))
 					FindPath(m_currentWaypointIndex, nearest);
 			}

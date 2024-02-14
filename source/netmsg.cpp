@@ -54,7 +54,6 @@ void NetworkMsg::Execute(void* p)
     static uint8_t r, g, b;
     static uint8_t enabled;
 
-    static int killerIndex, victimIndex;
     static int index, numPlayers;
     static int state, id;
 
@@ -283,28 +282,14 @@ void NetworkMsg::Execute(void* p)
     }
     case NETMSG_DEATH: // this message sends on death
     {
-        switch (m_state)
+        if (m_state == 1)
         {
-        case 0:
-        {
-            killerIndex = PTR_TO_INT(p);
-            break;
-        }
-        case 1:
-        {
-            victimIndex = PTR_TO_INT(p);
-            break;
-        }
-        case 2:
-        {
-            Bot* victimer = g_botManager->GetBot(victimIndex);
+            Bot* victimer = g_botManager->GetBot(PTR_TO_INT(p));
             if (victimer != nullptr)
             {
                 victimer->m_isAlive = false;
                 victimer->DeleteSearchNodes();
             }
-            break;
-        }
         }
         break;
     }

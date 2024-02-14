@@ -33,7 +33,8 @@ ConVar ebot_use_old_analyzer("ebot_use_old_analyzer", "0");
 ConVar ebot_analyzer_min_fps("ebot_analyzer_min_fps", "30.0");
 ConVar ebot_analyze_auto_start("ebot_analyze_auto_start", "1");
 ConVar ebot_download_waypoints("ebot_download_waypoints", "1");
-ConVar ebot_download_waypoints_from("ebot_download_waypoints_from", "https://github.com/EfeDursun125/EBOT-WP/raw/main");
+ConVar ebot_download_waypoints_from("ebot_download_waypoints_from", "");
+ConVar ebot_download_waypoints_format("ebot_download_waypoints_format", ".pwf");
 ConVar ebot_waypoint_size("ebot_waypoint_size", "7");
 ConVar ebot_waypoint_r("ebot_waypoint_r", "0");
 ConVar ebot_waypoint_g("ebot_waypoint_g", "255");
@@ -161,7 +162,6 @@ void AnalyzeThread(void)
             for (i = 0; i < Const_MaxWaypoints; i++)
                 expanded[i] = false;
         }
-
         
         float range;
         Vector WayVec, Next;
@@ -527,9 +527,8 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
     }
 
     // there wasn't any free space. try exchanging it with a long-distance path
-    float maxDistance = FLT_MAX;
+    float distance, maxDistance = FLT_MAX;
     int slotID = -1;
-    float distance;
 
     for (i = 0; i < Const_MaxPathIndex; i++)
     {
@@ -558,31 +557,27 @@ void Waypoint::AddPath(const int addIndex, const int pathIndex, const int type)
     }
 }
 
-// find the farest node to that origin, and return the index to this node
 int Waypoint::FindFarest(const Vector& origin, const float maxDistance)
 {
-    float squaredDistance = squaredf(maxDistance);
-    float distance;
-    int index = -1, i;
+    int i, index = -1;
+    float distance, maxDist = squaredf(maxDistance);
     for (i = 0; i < g_numWaypoints; i++)
     {
         distance = (m_paths[i].origin - origin).GetLengthSquared();
-        if (distance > squaredDistance)
+        if (distance > maxDist)
         {
             index = i;
-            squaredDistance = distance;
+            maxDist = distance;
         }
     }
 
     return index;
 }
 
-// find the farest node to that origin, and return the index to this node
 int Waypoint::FindNearestInCircle(const Vector& origin, const float maxDistance)
 {
-    float distance;
-    float maxDist = squaredf(maxDistance);
-    int index = -1, i;
+    int i, index = -1;
+    float distance, maxDist = squaredf(maxDistance);
     for (i = 0; i < g_numWaypoints; i++)
     {
         distance = (m_paths[i].origin - origin).GetLengthSquared();
@@ -657,7 +652,7 @@ bool Waypoint::IsZBCampPoint(const int pointID, const bool checkMesh)
     return false;
 }
 
-int Waypoint::FindNearest(const Vector origin, const float minDistance, const int flags, edict_t* entity, int* findWaypointPoint, const int mode)
+int Waypoint::FindNearest(const Vector& origin, const float minDistance, const int flags, edict_t* entity, int* findWaypointPoint, const int mode)
 {
     float squaredMinDistance = squaredf(minDistance);
     const int checkPoint = 20;
@@ -786,7 +781,7 @@ int Waypoint::FindNearest(const Vector origin, const float minDistance, const in
 }
 
 // returns all waypoints within radius from position
-void Waypoint::FindInRadius(const Vector origin, const float radius, int* holdTab, int* count)
+void Waypoint::FindInRadius(const Vector& origin, const float radius, int* holdTab, int* count)
 {
     const int maxCount = *count;
     const float rad = squaredf(radius);
@@ -808,7 +803,7 @@ void Waypoint::FindInRadius(const Vector origin, const float radius, int* holdTa
     *count -= 1;
 }
 
-void Waypoint::FindInRadius(MiniArray <int>& queueID, const float radius, const Vector origin)
+void Waypoint::FindInRadius(MiniArray <int>& queueID, const float radius, const Vector& origin)
 {
     int i;
     const float rad = squaredf(radius);
@@ -1649,7 +1644,7 @@ bool Waypoint::Download(void)
         if (pURLDownloadToFile != nullptr)
         {
             ServerPrint("UrlMon loaded successfully");
-            if (SUCCEEDED(pURLDownloadToFile(nullptr, FormatBuffer("%s/%s.ewp", ebot_download_waypoints_from.GetString(), GetMapName()), FormatBuffer("%s/%s.ewp", GetWaypointDir(), GetMapName()), 0, nullptr)))
+            if (SUCCEEDED(pURLDownloadToFile(nullptr, FormatBuffer("%s/%s.%s", ebot_download_waypoints_from.GetString(), GetMapName(), ebot_download_waypoints_from.GetString()), FormatBuffer("%s/%s.%s", GetWaypointDir(), GetMapName(), ebot_download_waypoints_from.GetString()), 0, nullptr)))
             {
                 ServerPrint("UrlMon downloaded successfully");
                 FreeLibrary(hUrlMon);
@@ -1672,9 +1667,9 @@ bool Waypoint::Download(void)
     {
         // wget is installed
         char downloadURL[512];
-        snprintf(downloadURL, sizeof(downloadURL), "%s/%s.ewp", ebot_download_waypoints_from.GetString(), GetMapName());
+        snprintf(downloadURL, sizeof(downloadURL), "%s/%s.%s", ebot_download_waypoints_from.GetString(), GetMapName(), ebot_download_waypoints_from.GetString());
 
-        const char* filepath = FormatBuffer("%s/%s.ewp", GetWaypointDir(), GetMapName());
+        const char* filepath = FormatBuffer("%s/%s.%s", GetWaypointDir(), GetMapName(), ebot_download_waypoints_from.GetString());
 
         char command[512];
         snprintf(command, sizeof(command), "wget -O %s %s", filepath, downloadURL);
@@ -1698,6 +1693,7 @@ bool Waypoint::Download(void)
     return false;
 }
 
+static bool graph;
 static uint8_t g_numTry;
 bool Waypoint::Load(void)
 {
@@ -1730,15 +1726,46 @@ bool Waypoint::Load(void)
                     m_paths.Push(paths[i]);
             }
         }
+        else if (header.fileVersion == static_cast<int32_t>(127))
+        {
+            g_numWaypoints = header.pointNumber;
+            Path paths[g_numWaypoints];
+            Path temp;
+            const int result = Compressor::Uncompress(path, sizeof(WaypointHeader), (uint8_t*)paths, g_numWaypoints * sizeof(Path));
+            if (result != -1)
+            {
+                for (i = 0; i < g_numWaypoints; i++)
+                {
+                    temp = paths[i];
+                    if (temp.flags & WAYPOINT_OLDZMHMCAMP)
+                    {
+                        temp.flags &= ~WAYPOINT_OLDZMHMCAMP;
+                        temp.flags |= WAYPOINT_ZMHMCAMP;
+                    }
+
+                    m_paths.Push(temp);
+                }
+                    
+            }
+        }
         else if (header.fileVersion == static_cast<int32_t>(126))
         {
             g_numWaypoints = static_cast<int>(header.pointNumber);
-            Path path[g_numWaypoints];
+            Path path;
+            Path temp;
 
             for (i = 0; i < g_numWaypoints; i++)
             {
-                fp.Read(&path[i], sizeof(Path));
-                m_paths.Push(path[i]);
+                fp.Read(&path, sizeof(Path));
+
+                temp = path;
+                if (temp.flags & WAYPOINT_OLDZMHMCAMP)
+                {
+                    temp.flags &= ~WAYPOINT_OLDZMHMCAMP;
+                    temp.flags |= WAYPOINT_ZMHMCAMP;
+                }
+
+                m_paths.Push(temp);
             }
         }
         else if (header.fileVersion == static_cast<int32_t>(125))
@@ -1756,28 +1783,91 @@ bool Waypoint::Load(void)
                 float gravity;
             };
 
-            PathOLD2 paths[g_numWaypoints];
+            PathOLD2 paths;
             Path path;
 
             int C;
             for (i = 0; i < g_numWaypoints; i++)
             {
-                fp.Read(&paths[i], sizeof(PathOLD2));
+                fp.Read(&paths, sizeof(PathOLD2));
 
-                path.origin = paths[i].origin;
-                path.radius = static_cast<uint8_t>(cclamp(paths[i].radius, 0, 255));
-                path.flags = static_cast<uint32_t>(cmax(0, paths[i].flags));
-                path.mesh = static_cast<uint8_t>(cclamp(paths[i].mesh, 0, 255));
-                path.gravity = paths[i].gravity;
+                path.origin = paths.origin;
+                path.radius = static_cast<uint8_t>(cclamp(paths.radius, 0, 255));
+                path.flags = static_cast<uint32_t>(cmax(0, paths.flags));
+                path.mesh = static_cast<uint8_t>(cclamp(paths.mesh, 0, 255));
+                path.gravity = paths.gravity;
 
                 for (C = 0; C < 8; C++)
                 {
-                    path.index[C] = paths[i].index[C];
-                    path.connectionFlags[C] = paths[i].connectionFlags[C];
+                    path.index[C] = paths.index[C];
+                    path.connectionFlags[C] = paths.connectionFlags[C];
+                }
+
+                if (path.flags & WAYPOINT_OLDZMHMCAMP)
+                {
+                    path.flags &= ~WAYPOINT_OLDZMHMCAMP;
+                    path.flags |= WAYPOINT_ZMHMCAMP;
                 }
 
                 m_paths.Push(path);
             }
+        }
+        else if (graph)
+        {
+            g_numWaypoints = static_cast<int>(header.pointNumber);
+
+            struct PathLink
+            {
+                Vector velocity;
+                int32_t distance;
+                uint16_t flags;
+                int16_t index;
+            };
+
+            struct PathVis
+            {
+                uint16_t stand, crouch;
+            };
+
+            struct PathY
+            {
+                int32_t number, flags;
+                Vector origin, start, end;
+                float radius, light, display;
+                PathLink links[8];
+                PathVis vis;
+            };
+
+            PathY paths;
+            Path path;
+
+            int C;
+            for (i = 0; i < g_numWaypoints; i++)
+            {
+                fp.Read(&paths, sizeof(PathY));
+
+                path.origin = paths.origin;
+                path.radius = static_cast<uint8_t>(cclampf(paths.radius, 0.0f, 255.0f));
+                path.flags = static_cast<uint32_t>(cmax(0, paths.flags));
+                path.mesh = 0.0f;
+                path.gravity = 1.0f;
+
+                for (C = 0; C < 8; C++)
+                {
+                    path.index[C] = paths.links[C].index;
+                    path.connectionFlags[C] = paths.links[C].flags;
+                }
+
+                if (path.flags & WAYPOINT_OLDZMHMCAMP)
+                {
+                    path.flags &= ~WAYPOINT_OLDZMHMCAMP;
+                    path.flags |= WAYPOINT_ZMHMCAMP;
+                }
+
+                m_paths.Push(path);
+            }
+
+            Save();
         }
         else
         {
@@ -1803,24 +1893,30 @@ bool Waypoint::Load(void)
                 struct Vis_t { uint16 stand, crouch; } vis;
             };
 
-            PathOLD paths[g_numWaypoints];
+            PathOLD paths;
             Path path;
 
             int C;
             for (i = 0; i < g_numWaypoints; i++)
             {
-                fp.Read(&paths[i], sizeof(PathOLD));
+                fp.Read(&paths, sizeof(PathOLD));
 
-                path.origin = paths[i].origin;
-                path.radius = static_cast<uint8_t>(cclampf(paths[i].radius, 0.0f, 255.0f));
-                path.flags = static_cast<uint32_t>(cmax(0, paths[i].flags));
-                path.mesh = static_cast<uint8_t>(cclampf(paths[i].campStartX, 0.0f, 255.0f));
-                path.gravity = paths[i].campStartY;
+                path.origin = paths.origin;
+                path.radius = static_cast<uint8_t>(cclampf(paths.radius, 0.0f, 255.0f));
+                path.flags = static_cast<uint32_t>(cmax(0, paths.flags));
+                path.mesh = 0.0f;
+                path.gravity = 1.0f;
 
                 for (C = 0; C < 8; C++)
                 {
-                    path.index[C] = paths[i].index[C];
-                    path.connectionFlags[C] = paths[i].connectionFlags[C];
+                    path.index[C] = paths.index[C];
+                    path.connectionFlags[C] = paths.connectionFlags[C];
+                }
+
+                if (path.flags & WAYPOINT_OLDZMHMCAMP)
+                {
+                    path.flags &= ~WAYPOINT_OLDZMHMCAMP;
+                    path.flags |= WAYPOINT_ZMHMCAMP;
                 }
 
                 m_paths.Push(path);
@@ -1942,14 +2038,26 @@ void Waypoint::Save(void)
 
 char* Waypoint::CheckSubfolderFile(void)
 {
+    graph = false;
     char* returnFile = FormatBuffer("%s/%s.ewp", GetWaypointDir(), GetMapName());
     if (TryFileOpen(returnFile))
         return returnFile;
     else
     {
-        returnFile = FormatBuffer("%s/%s.pwf", GetWaypointDir(), GetMapName());
+        
+        returnFile = FormatBuffer("%s/%s.graph", GetWaypointDir(), GetMapName());
         if (TryFileOpen(returnFile))
+        {
+            graph = true;
             return returnFile;
+        }
+        else
+        {
+            
+            returnFile = FormatBuffer("%s/%s.pwf", GetWaypointDir(), GetMapName());
+            if (TryFileOpen(returnFile))
+                return returnFile;
+        }
     }
 
     return FormatBuffer("%s%s.ewp", GetWaypointDir(), GetMapName());
